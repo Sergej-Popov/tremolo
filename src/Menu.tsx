@@ -1,14 +1,10 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { AppBar, Toolbar, IconButton, Typography, Button } from '@mui/material';
+import { Link } from 'react-router-dom';
+import { AppBar, Toolbar, IconButton, Typography } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import GitHubIcon from '@mui/icons-material/GitHub';
 
 const Menu: React.FC = () => {
-  const navigate = useNavigate();
-
-  const logOut = () => {
-    navigate('/');
-  };
 
   return (
     <AppBar position="static" style={{ marginBottom: "15px" }}>
@@ -25,11 +21,11 @@ const Menu: React.FC = () => {
           </IconButton>
         </Link>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-        Tremolo
+          Tremolo
         </Typography>
-        <Button color="inherit" onClick={logOut}>
-          Log out
-        </Button>
+        <IconButton target='_blank' href='https://github.com/Sergej-Popov/tremolo' >
+          <GitHubIcon fontSize='large' />
+        </IconButton>
       </Toolbar>
     </AppBar>
   );
