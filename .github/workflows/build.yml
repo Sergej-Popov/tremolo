@@ -36,6 +36,4 @@ jobs:
       - name: Deploy to GitHub Pages
         run: |
           npm install --save-dev gh-pages
-          npx gh-pages -d dist
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Automatically provided by GitHub
+          npx gh-pages -d dist --user "GitHub Action" --message "Deploying to GitHub Pages" --token "${{ secrets.GITHUB_TOKEN }}"
