@@ -36,11 +36,12 @@ const theme = {
   }
 }
 
+interface NoteDatum { string: noteString, fret: number }
 
 const GuitarBoard: React.FC = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const [fretRange, setFretRange] = useState<number[]>([1, 12]);
+  const [fretRange, setFretRange] = useState<number[]>([1, fretCount]);
 
   const changeFretRange = (_: Event, newValue: number | number[]) => {
     setFretRange(Array.isArray(newValue) ? newValue : [newValue, newValue]);
@@ -57,7 +58,9 @@ const GuitarBoard: React.FC = () => {
     const svg = d3.select(svgRef.current);
 
     const g = svg.select('.guitar-board');
-    const note = g.append('g').attr('class', 'note');
+    const note = g.append('g')
+      .attr('class', 'note')
+      .datum<NoteDatum>({ string, fret });
 
     note.append('circle')
       .attr('cx', x)
@@ -65,9 +68,7 @@ const GuitarBoard: React.FC = () => {
       .attr('r', noteRadius)
       .attr('fill', fillColor)
       .attr('stroke-width', 0)
-      .attr('stroke', 'black')
-      .attr('class', 'note')
-      .attr('class', 'note');
+      .attr('stroke', 'black');
 
     note.append("text")
       .text(noteLetter)
@@ -91,19 +92,21 @@ const GuitarBoard: React.FC = () => {
     for (const [string, fret] of shape.notes) {
       addNote(string, fret);
     }
+
+    fitFretBoard();
   }
 
 
   function fillAllNotes() {
     d3.select(svgRef.current).selectAll('.note').remove();
 
-
-
     for (const string of stringNames) {
       for (let a = 0; a <= fretCount; a++) {
         addNote(string, a, { fadeNonNatural: true });
       }
     }
+
+    fitFretBoard();
   }
 
   const drawBoard = () => {
@@ -129,6 +132,7 @@ const GuitarBoard: React.FC = () => {
       .attr('x2', x2)
       .attr('y2', (_, index) => index * fretBoardHeight / 5 + edgeOffset)
       .attr('stroke', 'black')
+      // .attr('stroke-width', (_, index) => Math.ceil((index + 1) / 2) + 1); // old logic, 3 thickneses 2, 3, 4. But odd values have fuzzy lines
       .attr('stroke-width', (_, index) => index < 3 ? 2 : 4)
       .lower()
       .call(debugTooltip);
@@ -156,6 +160,18 @@ const GuitarBoard: React.FC = () => {
       .attr('fill', 'white');
   }
 
+  const fitFretBoard = () => {
+    const notes = d3.select(svgRef.current).selectAll('.note').data() as NoteDatum[];
+    let min = notes.reduce((acc, note) => (acc < note.fret ? acc : note.fret), fretCount);
+    let max = notes.reduce((acc, note) => (acc > note.fret ? acc : note.fret), 0) + 1;
+
+    console.log({ notes, min, max });
+    min = min > 1 ? min - 1 : min;
+    max = max < fretCount ? max + 1 : max;
+    console.log({ notes, min, max });
+
+    setFretRange([min, max]);
+  }
 
   useEffect(() => {
     drawBoard();
@@ -189,7 +205,7 @@ const GuitarBoard: React.FC = () => {
           step={1}
           marks
           min={1}
-          max={12}
+          max={fretCount}
         />
       </div>
       <div>
