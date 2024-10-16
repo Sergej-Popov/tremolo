@@ -28,12 +28,26 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Configure Git
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
+      - name: Upload static files as artifact
+        id: deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
 
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    needs: build
+
+    permissions:
+      pages: write
+      id-token: write
+      
+    steps:
       - name: Deploy to GitHub Pages
-        run: |
-          npm install --save-dev gh-pages
-          npx gh-pages -d dist --user "GitHub Action" --message "Deploying to GitHub Pages" --token "${{ secrets.GITHUB_TOKEN }}"
+        id: deployment
+        uses: actions/deploy-pages@v4
