@@ -1,0 +1,14 @@
+#tooltip {
+    position: absolute;
+    background-color: lightgray;
+    padding: 5px;
+    border-radius: 5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.non-selectable {
+    user-select: none; /* Prevents text selection */
+    pointer-events: none; /* Prevents mouse events, including selection */
+  }

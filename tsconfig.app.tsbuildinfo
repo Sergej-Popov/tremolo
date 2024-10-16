@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/menu.tsx","./src/snackbarprovider.tsx","./src/store.tsx","./src/d3-ext.ts","./src/main.tsx","./src/music-theory.ts","./src/repertoire.ts","./src/theme.ts","./src/vite-env.d.ts","./src/components/guitarboard.tsx","./src/pages/mainpage.tsx","./src/pages/secondpage.tsx"],"version":"5.6.3"}
