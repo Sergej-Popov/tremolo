@@ -212,8 +212,7 @@ const GuitarBoard: React.FC = () => {
       .attr('y', 0)
       .attr('width', stickyWidth)
       .attr('height', stickyHeight)
-      .attr('fill', stickyColor)
-      .attr('stroke', 'black');
+      .attr('fill', stickyColor);
 
     const fo = group.append('foreignObject')
       .attr('x', 0)
@@ -228,7 +227,7 @@ const GuitarBoard: React.FC = () => {
       .style('height', '100%')
       .style('box-sizing', 'border-box')
       .style('font-family', 'Segoe UI')
-      .style('padding', '4px')
+      .style('padding', '8px')
       .style('overflow', 'hidden')
       .text(text);
 
@@ -359,8 +358,8 @@ const GuitarBoard: React.FC = () => {
         setStickySelected(d3.select(node).classed('sticky-note'));
       }
     };
-    window.addEventListener('selectionchange', handler);
-    return () => window.removeEventListener('selectionchange', handler);
+    window.addEventListener('stickyselectionchange', handler);
+    return () => window.removeEventListener('stickyselectionchange', handler);
   }, [setStickySelected]);
 
   useEffect(() => {

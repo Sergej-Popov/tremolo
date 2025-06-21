@@ -130,7 +130,7 @@ let selectedElement: Selection<any, any, any, any> | null = null;
 let globalInit = false;
 
 function dispatchSelectionChange() {
-    window.dispatchEvent(new CustomEvent('selectionchange', { detail: selectedElement?.node() || null }));
+    window.dispatchEvent(new CustomEvent('stickyselectionchange', { detail: selectedElement?.node() || null }));
 }
 
 export function updateSelectedColor(color: string) {
