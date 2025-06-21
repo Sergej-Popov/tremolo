@@ -42,6 +42,10 @@ interface PastedImageDatum { src: string }
 
 interface PastedVideoDatum { url: string, videoId: string }
 
+const videoWidth = 320;
+const videoHeight = 180;
+const videoPadding = 10;
+
 const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
 
 function extractVideoId(url: string): string | null {
@@ -141,11 +145,18 @@ const GuitarBoard: React.FC = () => {
       .attr('class', 'embedded-video')
       .datum<PastedVideoDatum>({ url, videoId });
 
-    const fo = group.append('foreignObject')
+    group.append('rect')
       .attr('x', 0)
       .attr('y', 0)
-      .attr('width', 240)
-      .attr('height', 135);
+      .attr('width', videoWidth + videoPadding * 2)
+      .attr('height', videoHeight + videoPadding * 2)
+      .attr('fill', 'transparent');
+
+    const fo = group.append('foreignObject')
+      .attr('x', videoPadding)
+      .attr('y', videoPadding)
+      .attr('width', videoWidth)
+      .attr('height', videoHeight);
 
     fo.append('xhtml:iframe')
       .attr('width', '100%')
