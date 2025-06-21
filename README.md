@@ -20,18 +20,19 @@ https://sergej-popov.github.io/tremolo/
 
 ## TODO general
 
-1. Add ability to crop images through makeCroppable. Only images to be croppable. Crop must not be permanent. When cropping an already cropped element, I should be able to recover the previously cropped space. So, essentially the cropping should be done by masking. Area outside of mask should be semi transparent. Crop is triggered by 'c' hotkey.
-2. Add pan and zoom option.
-3. paste elements (text, images, youtube videos etc) at cursor location, not screen origin
-4. resize proportionally by default
-5. Provide undo and redo support for board changes.
-6. Allow items to snap to a grid for precise alignment.
-7. Add a dark and light theme toggle for the fretboard interface.
-8. Images pasted at set size, should use data from clipboard (is it available?)
-9. Controls are still affected by resizing
-10. Drawing option
-11. Arrows options
-12. Themes
+1. Add pan and zoom option.
+2. paste elements (text, images, youtube videos etc) at cursor location, not screen origin
+3. resize proportionally by default
+4. [Large] Provide undo and redo support for board changes.
+5. Allow items to snap to a grid for precise alignment.
+6. Images pasted at set size, should use data from clipboard (is it available?)
+7. Controls are still affected by resizing
+8.  Drawing pen tool
+9.  Connectiing lines
+10. Add a dark and light theme toggle for the fretboard interface.
+11. Draw style themes
+12. Tool pannel
+13. Contextual menu panel
 
 ## TODO collaboration
 
