@@ -1,14 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
 import * as d3 from 'd3';
 import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
-import { Button, Slider, Drawer } from '@mui/material';
+import { Button, Slider, Drawer, Box, Typography, IconButton } from '@mui/material';
+import { AppContext } from '../Store';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
 const edgeOffset = 20;
 const boardWidth = 500;
-const boardHeight = 160;
+const boardHeight = 200;
 
 const fretCount = 12;
 const fretBoardWidth = boardWidth;
@@ -47,8 +49,8 @@ interface StickyNoteDatum { text: string }
 const stickyWidth = 150;
 const stickyHeight = 100;
 
-const videoWidth = 320;
-const videoHeight = 180;
+const videoWidth = 480;
+const videoHeight = 270;
 const videoPadding = 10;
 
 const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
@@ -59,14 +61,18 @@ function extractVideoId(url: string): string | null {
 }
 
 const GuitarBoard: React.FC = () => {
+  const app = useContext(AppContext);
+  const stickyColor = app?.stickyColor ?? '#fef68a';
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
   const controlsRef = useRef<HTMLDivElement | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
+  const [zoomValue, setZoomValue] = useState(1);
 
   const [fretRange, setFretRange] = useState<number[]>([1, fretCount]);
 
@@ -197,14 +203,15 @@ const GuitarBoard: React.FC = () => {
 
     const group = notesLayer.append('g')
       .attr('class', 'sticky-note')
-      .datum<StickyNoteDatum & { transform: any }>({ text, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+      .datum<StickyNoteDatum & { transform: any }>({ text, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } })
+      .style('filter', 'drop-shadow(2px 2px 2px rgba(0,0,0,0.3))');
 
     group.append('rect')
       .attr('x', 0)
       .attr('y', 0)
       .attr('width', stickyWidth)
       .attr('height', stickyHeight)
-      .attr('fill', '#fef68a')
+      .attr('fill', stickyColor)
       .attr('stroke', 'black');
 
     const fo = group.append('foreignObject')
@@ -423,14 +430,16 @@ const GuitarBoard: React.FC = () => {
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .filter(event => event.type !== 'dblclick')
-      .scaleExtent([0.2, 5])
+      .scaleExtent([0.1, 10])
       .on('start', hideTooltip)
       .on('zoom', (event) => {
         workspace.attr('transform', event.transform.toString());
         zoomRef.current = event.transform;
+        setZoomValue(event.transform.k);
       });
 
     svg.call(zoom as any);
+    zoomBehaviorRef.current = zoom;
 
     drawBoard();
 
@@ -458,6 +467,17 @@ const GuitarBoard: React.FC = () => {
           height="100%"
           onMouseMove={handleMouseMove}
         ></svg>
+        <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, display: 'flex', alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ px: 1 }}>{zoomValue.toFixed(2)}x</Typography>
+          <IconButton size="small" onClick={() => {
+            if (zoomBehaviorRef.current && svgRef.current) {
+              d3.select(svgRef.current).transition().call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+              setZoomValue(1);
+            }
+          }}>
+            <RestartAltIcon fontSize="small" />
+          </IconButton>
+        </Box>
         <Drawer
           anchor="bottom"
           open={showPanel}
