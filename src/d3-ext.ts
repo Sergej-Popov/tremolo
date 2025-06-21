@@ -312,12 +312,16 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
     const overlay = element.select('.crop-controls');
     const rect = overlay.select<SVGRectElement>('.crop-rect');
 
-    const imgWidth = parseFloat(image.attr('width'));
-    const imgHeight = parseFloat(image.attr('height'));
-    const x = parseFloat(rect.attr('x'));
-    const y = parseFloat(rect.attr('y'));
-    const width = parseFloat(rect.attr('width'));
-    const height = parseFloat(rect.attr('height'));
+    const imgWidth = parseFloat(image.attr('width') ?? '0');
+    const imgHeight = parseFloat(image.attr('height') ?? '0');
+    const x = parseFloat(rect.attr('x') ?? '0');
+    const y = parseFloat(rect.attr('y') ?? '0');
+    const width = parseFloat(rect.attr('width') ?? '0');
+    const height = parseFloat(rect.attr('height') ?? '0');
+
+    if ([imgWidth, imgHeight, x, y, width, height].some(v => isNaN(v))) {
+        return;
+    }
 
     overlay.select('.crop-handle-n')
         .attr('cx', x + width / 2)
@@ -367,6 +371,10 @@ function startCrop(element: Selection<any, any, any, any>) {
         data.crop = crop;
         element.datum(data);
     }
+    crop.x = crop.x ?? 0;
+    crop.y = crop.y ?? 0;
+    crop.width = crop.width ?? 0;
+    crop.height = crop.height ?? 0;
     const overlay = element.select('.crop-controls');
     const rect = overlay.select('.crop-rect');
     rect
@@ -386,10 +394,10 @@ function finishCrop(element: Selection<any, any, any, any>) {
     const clipRect = element.select('.clip-rect');
     const data = element.datum() as any;
 
-    const x = parseFloat(rect.attr('x'));
-    const y = parseFloat(rect.attr('y'));
-    const width = parseFloat(rect.attr('width'));
-    const height = parseFloat(rect.attr('height'));
+    const x = parseFloat(rect.attr('x') ?? '0');
+    const y = parseFloat(rect.attr('y') ?? '0');
+    const width = parseFloat(rect.attr('width') ?? '0');
+    const height = parseFloat(rect.attr('height') ?? '0');
 
     data.crop = { x, y, width, height } as CropValues;
 
@@ -473,8 +481,8 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleN.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
-                        const y = parseFloat(rect.attr('y'));
-                        const height = parseFloat(rect.attr('height'));
+                        const y = parseFloat(rect.attr('y') ?? '0');
+                        const height = parseFloat(rect.attr('height') ?? '0');
                         d3.select(this).datum({ startY: event.y, y, height });
                     })
                     .on('drag', function (event: MouseEvent) {
@@ -490,7 +498,7 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleS.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
-                        const height = parseFloat(rect.attr('height'));
+                        const height = parseFloat(rect.attr('height') ?? '0');
                         d3.select(this).datum({ startY: event.y, height });
                     })
                     .on('drag', function (event: MouseEvent) {
@@ -505,7 +513,7 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleE.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
-                        const width = parseFloat(rect.attr('width'));
+                        const width = parseFloat(rect.attr('width') ?? '0');
                         d3.select(this).datum({ startX: event.x, width });
                     })
                     .on('drag', function (event: MouseEvent) {
@@ -520,8 +528,8 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleW.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
-                        const x = parseFloat(rect.attr('x'));
-                        const width = parseFloat(rect.attr('width'));
+                        const x = parseFloat(rect.attr('x') ?? '0');
+                        const width = parseFloat(rect.attr('width') ?? '0');
                         d3.select(this).datum({ startX: event.x, x, width });
                     })
                     .on('drag', function (event: MouseEvent) {
