@@ -38,6 +38,8 @@ const theme = {
 
 interface NoteDatum { string: noteString, fret: number }
 
+interface PastedImageDatum { src: string }
+
 const GuitarBoard: React.FC = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -94,6 +96,26 @@ const GuitarBoard: React.FC = () => {
     }
 
     fitFretBoard();
+  }
+
+  const addImage = (src: string) => {
+    const svg = d3.select(svgRef.current);
+    const g = svg.select('.guitar-board');
+
+    const group = g.append('g')
+      .attr('class', 'pasted-image')
+      .datum<PastedImageDatum>({ src });
+
+    group.append('image')
+      .attr('href', src)
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', 100)
+      .attr('height', 100);
+
+    group.call(makeDraggable);
+
+    return group;
   }
 
 
@@ -176,6 +198,28 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     drawBoard();
   }, [drawBoard, fretRange]);
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (!file) continue;
+          const url = URL.createObjectURL(file);
+          addImage(url);
+          event.preventDefault();
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, []);
 
   useEffect(() => {
     const svg = d3.select(svgRef.current);
