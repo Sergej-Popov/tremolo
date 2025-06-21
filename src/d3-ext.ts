@@ -50,7 +50,7 @@ export const debugTooltip = function <GElement extends BaseType, Datum, PElement
     });
 }
 
-interface TransformValues {
+export interface TransformValues {
     translateX: number;
     translateY: number;
     scaleX: number;
@@ -58,7 +58,7 @@ interface TransformValues {
     rotate: number;
 }
 
-const defaultTransform = (): TransformValues => ({
+export const defaultTransform = (): TransformValues => ({
     translateX: 0,
     translateY: 0,
     scaleX: 1,
@@ -73,7 +73,7 @@ function buildTransform(transform: TransformValues, bbox: DOMRect): string {
     return `translate(${translateX + scaleX * cx}, ${translateY + scaleY * cy}) rotate(${rotate}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
 }
 
-function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
+export function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
     (element.datum() as any).transform = transform;
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     element.attr('transform', buildTransform(transform, bbox));
@@ -123,7 +123,7 @@ interface ResizeOptions {
 }
 
 function addResizeHandle(element: Selection<any, any, any, any>, options: ResizeOptions = {}) {
-    const { lockAspectRatio = false } = options;
+    const { lockAspectRatio = true } = options;
     const handleRadius = 6;
 
     if (!element.select('.resize-handle').empty()) return;
@@ -178,7 +178,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
                 let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
 
-                if (lockAspectRatio || (event as any).sourceEvent?.shiftKey) {
+                const shift = (event as any).sourceEvent?.shiftKey;
+                if (lockAspectRatio ? !shift : shift) {
                     const ratio = Math.max(newScaleX, newScaleY);
                     newScaleX = ratio;
                     newScaleY = ratio;

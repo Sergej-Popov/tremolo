@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -60,6 +60,9 @@ function extractVideoId(url: string): string | null {
 
 const GuitarBoard: React.FC = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const workspaceRef = useRef<SVGGElement | null>(null);
+  const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
 
   const [fretRange, setFretRange] = useState<number[]>([1, fretCount]);
 
@@ -116,7 +119,7 @@ const GuitarBoard: React.FC = () => {
     fitFretBoard();
   }
 
-  const addImage = (src: string) => {
+  const addImage = (src: string, pos: { x: number, y: number }) => {
     const svg = d3.select(svgRef.current);
     const imagesLayer = svg.select<SVGGElement>('.pasted-images');
 
@@ -131,6 +134,8 @@ const GuitarBoard: React.FC = () => {
       .attr('width', 100)
       .attr('height', 100);
 
+    applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
+
     group.call(makeDraggable);
     group.call(makeResizable, { rotatable: true });
     group.call(makeCroppable);
@@ -140,7 +145,7 @@ const GuitarBoard: React.FC = () => {
     return group;
   }
 
-  const addVideo = (url: string) => {
+  const addVideo = (url: string, pos: { x: number, y: number }) => {
     const videoId = extractVideoId(url);
     if (!videoId) return null;
 
@@ -172,6 +177,8 @@ const GuitarBoard: React.FC = () => {
       .attr('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture')
       .attr('allowFullScreen', 'true');
 
+    applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
+
     group.call(makeDraggable);
     group.call(makeResizable, { lockAspectRatio: true, rotatable: true });
 
@@ -180,7 +187,7 @@ const GuitarBoard: React.FC = () => {
     return group;
   }
 
-  const addSticky = (text: string) => {
+  const addSticky = (text: string, pos: { x: number, y: number }) => {
     const svg = d3.select(svgRef.current);
     const notesLayer = svg.select<SVGGElement>('.sticky-notes');
 
@@ -234,6 +241,8 @@ const GuitarBoard: React.FC = () => {
         .classed('view-mode', true)
         .on('mousedown.edit', null);
     });
+
+    applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
 
     group.call(makeDraggable);
     group.call(makeResizable, { rotatable: true });
@@ -329,13 +338,13 @@ const GuitarBoard: React.FC = () => {
         const trimmed = text.trim();
         const id = extractVideoId(trimmed);
         if (id) {
-          addVideo(trimmed);
+          addVideo(trimmed, cursorPos);
           event.preventDefault();
           return;
         }
 
         if (trimmed.length > 0) {
-          addSticky(trimmed);
+          addSticky(trimmed, cursorPos);
           event.preventDefault();
           return;
         }
@@ -349,7 +358,7 @@ const GuitarBoard: React.FC = () => {
           const file = item.getAsFile();
           if (!file) continue;
           const url = URL.createObjectURL(file);
-          addImage(url);
+          addImage(url, cursorPos);
           event.preventDefault();
         }
       }
@@ -361,19 +370,43 @@ const GuitarBoard: React.FC = () => {
     };
   }, []);
 
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+    const [x, y] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
+    setCursorPos({ x, y });
+  };
+
   useEffect(() => {
     const svg = d3.select(svgRef.current);
-    let board = svg.select<SVGGElement>('.guitar-board');
-    if (!board.empty()) return;
+    let workspace = svg.select<SVGGElement>('.workspace');
+    if (workspace.empty()) {
+      workspace = svg.append('g').attr('class', 'workspace');
+    }
+    workspaceRef.current = workspace.node();
 
-    board = svg.append('g').attr('class', 'guitar-board')
-      .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
-    svg.append('g').attr('class', 'pasted-images');
-    svg.append('g').attr('class', 'embedded-videos');
-    svg.append('g').attr('class', 'sticky-notes');
+    let board = workspace.select<SVGGElement>('.guitar-board');
+    if (board.empty()) {
+      board = workspace.append('g').attr('class', 'guitar-board')
+        .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+      workspace.append('g').attr('class', 'pasted-images');
+      workspace.append('g').attr('class', 'embedded-videos');
+      workspace.append('g').attr('class', 'sticky-notes');
 
-    board.call(makeDraggable);
-    board.call(makeResizable, { rotatable: true });
+      board.call(makeDraggable);
+      board.call(makeResizable, { rotatable: true });
+    }
+
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .on('zoom', (event) => {
+        workspace.attr('transform', event.transform.toString());
+        zoomRef.current = event.transform;
+      });
+
+    svg.call(zoom as any);
 
     drawBoard();
 
@@ -382,7 +415,7 @@ const GuitarBoard: React.FC = () => {
   return (
     <>
       <div id="tooltip"></div>
-      <svg ref={svgRef} width={svgWidth * 3} height={svgHeight * 2}></svg>
+      <svg ref={svgRef} width={svgWidth * 3} height={svgHeight * 2} onMouseMove={handleMouseMove}></svg>
 
       <div>
         <Slider
