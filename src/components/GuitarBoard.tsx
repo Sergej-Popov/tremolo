@@ -4,18 +4,18 @@ import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransfo
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
-import { Button, Slider } from '@mui/material';
+import { Button, Slider, Drawer } from '@mui/material';
 
 const edgeOffset = 20;
-const svgWidth = window.innerWidth;
-const svgHeight = window.innerHeight;
+const svgWidth = 300;
+const svgHeight = 120;
 
 const fretCount = 12;
 const fretBoardWidth = svgWidth;
 const fretBoardHeight = svgHeight - (2 * edgeOffset);
 const stringHeight = fretBoardHeight / 5;
 const noteRadius = stringHeight / 2 - 3;
-const noteFontSize = 16;
+const noteFontSize = 12;
 const fretWidth = fretBoardWidth / (fretCount - 1);
 
 
@@ -451,26 +451,19 @@ const GuitarBoard: React.FC = () => {
   return (
     <>
       <div id="tooltip"></div>
-      <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
+      <div style={{ position: 'relative', width: svgWidth, height: svgHeight }}>
         <svg
           ref={svgRef}
-          width="100%"
-          height="100%"
+          width={svgWidth}
+          height={svgHeight}
           onMouseMove={handleMouseMove}
         ></svg>
-        {showPanel && (
-          <div
-            id="board-controls"
-            ref={controlsRef}
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              background: 'white',
-              padding: '10px',
-              border: '1px solid #ccc',
-            }}
-          >
+        <Drawer
+          anchor="bottom"
+          open={showPanel}
+          onClose={() => setShowPanel(false)}
+          PaperProps={{ id: 'board-controls', ref: controlsRef, sx: { p: 2 } }}
+        >
             <div>
               <Slider
                 style={{ maxWidth: '180px' }}
@@ -513,8 +506,7 @@ const GuitarBoard: React.FC = () => {
                 All Notes
               </Button>
             </div>
-          </div>
-        )}
+        </Drawer>
       </div>
     </>
   );
