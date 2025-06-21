@@ -499,17 +499,18 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             const handleN = overlay.select<SVGCircleElement>('.crop-handle-n');
             handleN.call(
                 d3.drag<SVGCircleElement, unknown>()
-                    .on('start', function (event: MouseEvent) {
+                    .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const y = parseFloat(rect.attr('y') ?? '0');
                         const height = parseFloat(rect.attr('height') ?? '0');
-                        d3.select(this).datum({ startY: event.y, y, height });
+                        (this as any).__drag = { y, height };
                     })
-                    .on('drag', function (event: MouseEvent) {
-                        const data = d3.select<any, any>(this).datum();
-                        let newY = Math.min(data.y + data.height - 1, event.y);
-                        let newHeight = data.height + (data.y - newY);
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newY = Math.min(drag.y + drag.height - 1, event.y);
+                        let newHeight = drag.height + (drag.y - newY);
                         rect.attr('y', newY).attr('height', newHeight);
                         updateCropOverlay(element);
                     })
@@ -518,15 +519,16 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             const handleS = overlay.select<SVGCircleElement>('.crop-handle-s');
             handleS.call(
                 d3.drag<SVGCircleElement, unknown>()
-                    .on('start', function (event: MouseEvent) {
+                    .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const height = parseFloat(rect.attr('height') ?? '0');
-                        d3.select(this).datum({ startY: event.y, height });
+                        (this as any).__drag = { startY: event.y, height };
                     })
-                    .on('drag', function (event: MouseEvent) {
-                        const data = d3.select<any, any>(this).datum();
-                        let newHeight = Math.max(1, data.height + event.y - data.startY);
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newHeight = Math.max(1, drag.height + event.y - drag.startY);
                         rect.attr('height', newHeight);
                         updateCropOverlay(element);
                     })
@@ -535,15 +537,16 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             const handleE = overlay.select<SVGCircleElement>('.crop-handle-e');
             handleE.call(
                 d3.drag<SVGCircleElement, unknown>()
-                    .on('start', function (event: MouseEvent) {
+                    .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const width = parseFloat(rect.attr('width') ?? '0');
-                        d3.select(this).datum({ startX: event.x, width });
+                        (this as any).__drag = { startX: event.x, width };
                     })
-                    .on('drag', function (event: MouseEvent) {
-                        const data = d3.select<any, any>(this).datum();
-                        let newWidth = Math.max(1, data.width + event.x - data.startX);
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newWidth = Math.max(1, drag.width + event.x - drag.startX);
                         rect.attr('width', newWidth);
                         updateCropOverlay(element);
                     })
@@ -552,17 +555,18 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             const handleW = overlay.select<SVGCircleElement>('.crop-handle-w');
             handleW.call(
                 d3.drag<SVGCircleElement, unknown>()
-                    .on('start', function (event: MouseEvent) {
+                    .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const x = parseFloat(rect.attr('x') ?? '0');
                         const width = parseFloat(rect.attr('width') ?? '0');
-                        d3.select(this).datum({ startX: event.x, x, width });
+                        (this as any).__drag = { startX: event.x, x, width };
                     })
-                    .on('drag', function (event: MouseEvent) {
-                        const data = d3.select<any, any>(this).datum();
-                        let newX = Math.min(data.x + data.width - 1, event.x);
-                        let newWidth = data.width + (data.x - newX);
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newX = Math.min(drag.x + drag.width - 1, event.x);
+                        let newWidth = drag.width + (drag.x - newX);
                         rect.attr('x', newX).attr('width', newWidth);
                         updateCropOverlay(element);
                     })
