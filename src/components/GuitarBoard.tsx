@@ -7,15 +7,15 @@ import { chords, scales } from '../repertoire';
 import { Button, Slider, Drawer } from '@mui/material';
 
 const edgeOffset = 20;
-const boardWidth = 500;
+const boardWidth = 300;
 const boardHeight = 120;
 
 const fretCount = 12;
 const fretBoardWidth = boardWidth;
 const fretBoardHeight = boardHeight - (2 * edgeOffset);
 const stringHeight = fretBoardHeight / 5;
-const noteRadius = stringHeight / 2 - 3;
-const noteFontSize = 12;
+const noteRadius = stringHeight / 2 - 1;
+const noteFontSize = 16;
 const fretWidth = fretBoardWidth / (fretCount - 1);
 
 
@@ -422,6 +422,7 @@ const GuitarBoard: React.FC = () => {
   board.on('dblclick.board', () => setShowPanel(true));
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .filter(event => event.type !== 'dblclick')
       .scaleExtent([0.2, 5])
       .on('start', hideTooltip)
       .on('zoom', (event) => {
