@@ -210,13 +210,27 @@ const GuitarBoard: React.FC = () => {
     return group;
   }
 
+  const adjustStickyFont = (el: HTMLDivElement) => {
+    let size = 12;
+    el.style.fontSize = `${size}px`;
+    while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
+      size -= 1;
+      el.style.fontSize = `${size}px`;
+    }
+  };
+
   const addSticky = useCallback((text: string, pos: { x: number, y: number }) => {
     const svg = d3.select(svgRef.current);
     const notesLayer = svg.select<SVGGElement>('.sticky-notes');
 
     const group = notesLayer.append('g')
       .attr('class', 'sticky-note')
-      .datum<StickyNoteDatum & { transform: any }>({ text, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } })
+      .datum<StickyNoteDatum & { width: number, height: number, transform: any }>({
+        text,
+        width: stickyWidth,
+        height: stickyHeight,
+        transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+      })
       .style('filter', 'drop-shadow(2px 2px 2px rgba(0,0,0,0.3))');
 
     group.append('rect')
@@ -239,9 +253,17 @@ const GuitarBoard: React.FC = () => {
       .style('height', '100%')
       .style('box-sizing', 'border-box')
       .style('font-family', 'Segoe UI')
+      .style('font-size', '12px')
       .style('padding', '8px')
       .style('overflow', 'hidden')
+      .style('white-space', 'pre-wrap')
+      .style('word-break', 'break-word')
       .text(text);
+
+    setTimeout(() => {
+      const node = div.node() as HTMLDivElement | null;
+      if (node) adjustStickyFont(node);
+    }, 0);
 
     group.on('dblclick', () => {
       div
@@ -263,6 +285,9 @@ const GuitarBoard: React.FC = () => {
         .classed('edit-mode', false)
         .classed('view-mode', true)
         .on('mousedown.edit', null);
+
+      const node = div.node() as HTMLDivElement | null;
+      if (node) adjustStickyFont(node);
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });

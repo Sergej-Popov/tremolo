@@ -211,13 +211,31 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     newScaleY = ratio;
                 }
 
-                const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
-                applyTransform(element, newTransform);
+                if (element.classed('sticky-note')) {
+                    const stickyData = element.datum() as any;
+                    const width = stickyData.width * newScaleX;
+                    const height = stickyData.height * newScaleY;
+                    stickyData.width = width;
+                    stickyData.height = height;
+                    element.select('rect').attr('width', width).attr('height', height);
+                    element.select('foreignObject').attr('width', width).attr('height', height);
+                    element.select('.selection-outline').attr('width', width).attr('height', height);
+                    element.select('.rotate-handle').attr('x', width);
+                    const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
+                    applyTransform(element, newTransform);
+                    d3.select(this)
+                        .attr('cx', width)
+                        .attr('cy', height)
+                        .attr('r', handleRadius);
+                } else {
+                    const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
+                    applyTransform(element, newTransform);
 
-                d3.select(this)
-                    .attr('cx', data.width)
-                    .attr('cy', data.height)
-                    .attr('r', handleRadius / Math.max(newScaleX, newScaleY));
+                    d3.select(this)
+                        .attr('cx', data.width)
+                        .attr('cy', data.height)
+                        .attr('r', handleRadius / Math.max(newScaleX, newScaleY));
+                }
             })
     );
 }
