@@ -80,28 +80,33 @@ function applyTransform(element: Selection<any, any, any, any>, transform: Trans
 }
 
 export function makeDraggable(selection: Selection<any, any, any, any>) {
-    interface DragDatum { offsetX: number, offsetY: number, transform: TransformValues };
+    interface DragDatum { dragOffsetX: number, dragOffsetY: number, transform: TransformValues };
 
     selection.call(
         d3.drag()
             .on('start', function (event: MouseEvent) {
                 const element = d3.select(this);
-                const data: any = element.datum();
+                const overlay = element.select('.crop-controls');
+                if (!overlay.empty() && overlay.style('display') !== 'none') {
+                    finishCrop(element);
+                }
+                const data: any = element.datum() || {};
                 const transform: TransformValues = data.transform ?? defaultTransform();
 
-                const offsetX = event.x - transform.translateX;
-                const offsetY = event.y - transform.translateY;
+                const dragOffsetX = event.x - transform.translateX;
+                const dragOffsetY = event.y - transform.translateY;
 
-                element.datum<DragDatum>({ offsetX, offsetY, transform });
+                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform });
             })
             .on('drag', function (event: MouseEvent) {
                 const element = d3.select<any, DragDatum>(this);
-                const { offsetX, offsetY, transform } = element.datum();
+                const data = element.datum();
+                const { dragOffsetX, dragOffsetY, transform } = data;
 
                 const newTransform: TransformValues = {
                     ...transform,
-                    translateX: event.x - offsetX,
-                    translateY: event.y - offsetY,
+                    translateX: event.x - dragOffsetX,
+                    translateY: event.y - dragOffsetY,
                 };
 
                 applyTransform(element, newTransform);
@@ -144,6 +149,11 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
             .on('start', function (event: MouseEvent) {
                 const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                 if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+
+                const overlay = element.select('.crop-controls');
+                if (!overlay.empty() && overlay.style('display') !== 'none') {
+                    finishCrop(element);
+                }
 
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
                 const data = element.datum() as any;
@@ -206,6 +216,11 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                     if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
 
+                    const overlay = element.select('.crop-controls');
+                    if (!overlay.empty() && overlay.style('display') !== 'none') {
+                        finishCrop(element);
+                    }
+
                     const data = element.datum() as any;
                     const transform: TransformValues = data.transform ?? defaultTransform();
                     data.transform = transform;
@@ -249,6 +264,11 @@ function addOutline(element: Selection<any, any, any, any>) {
 
 function clearSelection() {
     if (!selectedElement) return;
+    // finish active crop before clearing selection
+    const overlay = selectedElement.select('.crop-controls');
+    if (!overlay.empty() && overlay.style('display') !== 'none') {
+        finishCrop(selectedElement);
+    }
     selectedElement.selectAll('.selection-outline').remove();
     selectedElement.selectAll('.resize-handle').remove();
     selectedElement.selectAll('.rotate-handle').remove();
@@ -296,3 +316,269 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             }
         });
 }
+
+interface CropValues {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+let cropInit = false;
+let clipIdCounter = 0;
+
+function updateCropOverlay(element: Selection<any, any, any, any>) {
+    const image = element.select('image');
+    const overlay = element.select('.crop-controls');
+    const rect = overlay.select<SVGRectElement>('.crop-rect');
+
+    const imgWidth = parseFloat(image.attr('width') ?? '0');
+    const imgHeight = parseFloat(image.attr('height') ?? '0');
+    const x = parseFloat(rect.attr('x') ?? '0');
+    const y = parseFloat(rect.attr('y') ?? '0');
+    const width = parseFloat(rect.attr('width') ?? '0');
+    const height = parseFloat(rect.attr('height') ?? '0');
+
+    if ([imgWidth, imgHeight, x, y, width, height].some(v => isNaN(v))) {
+        return;
+    }
+
+    overlay.select('.crop-handle-n')
+        .attr('cx', x + width / 2)
+        .attr('cy', y);
+    overlay.select('.crop-handle-e')
+        .attr('cx', x + width)
+        .attr('cy', y + height / 2);
+    overlay.select('.crop-handle-s')
+        .attr('cx', x + width / 2)
+        .attr('cy', y + height);
+    overlay.select('.crop-handle-w')
+        .attr('cx', x)
+        .attr('cy', y + height / 2);
+
+    overlay.select('.crop-shade-top')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', imgWidth)
+        .attr('height', y);
+
+    overlay.select('.crop-shade-bottom')
+        .attr('x', 0)
+        .attr('y', y + height)
+        .attr('width', imgWidth)
+        .attr('height', imgHeight - y - height);
+
+    overlay.select('.crop-shade-left')
+        .attr('x', 0)
+        .attr('y', y)
+        .attr('width', x)
+        .attr('height', height);
+
+    overlay.select('.crop-shade-right')
+        .attr('x', x + width)
+        .attr('y', y)
+        .attr('width', imgWidth - x - width)
+        .attr('height', height);
+}
+
+function startCrop(element: Selection<any, any, any, any>) {
+    const data = element.datum() as any || {};
+    let crop: CropValues = data.crop;
+    if (!crop) {
+        const image = element.select('image');
+        const bbox = (image.node() as SVGGraphicsElement).getBBox();
+        crop = { x: 0, y: 0, width: bbox.width, height: bbox.height };
+        data.crop = crop;
+        element.datum(data);
+    }
+    crop.x = crop.x ?? 0;
+    crop.y = crop.y ?? 0;
+    crop.width = crop.width ?? 0;
+    crop.height = crop.height ?? 0;
+    const overlay = element.select('.crop-controls');
+    const rect = overlay.select('.crop-rect');
+    rect
+        .attr('x', crop.x)
+        .attr('y', crop.y)
+        .attr('width', crop.width)
+        .attr('height', crop.height);
+
+    overlay.style('display', null);
+
+    updateCropOverlay(element);
+}
+
+function finishCrop(element: Selection<any, any, any, any>) {
+    const overlay = element.select('.crop-controls');
+    const rect = overlay.select('.crop-rect');
+    const clipRect = element.select('.clip-rect');
+    const data = element.datum() as any;
+
+    const x = parseFloat(rect.attr('x') ?? '0');
+    const y = parseFloat(rect.attr('y') ?? '0');
+    const width = parseFloat(rect.attr('width') ?? '0');
+    const height = parseFloat(rect.attr('height') ?? '0');
+
+    data.crop = { x, y, width, height } as CropValues;
+
+    clipRect
+        .attr('x', x)
+        .attr('y', y)
+        .attr('width', width)
+        .attr('height', height);
+
+    overlay.style('display', 'none');
+}
+
+function toggleCrop(element: Selection<any, any, any, any>) {
+    const overlay = element.select('.crop-controls');
+    if (overlay.style('display') === 'none') {
+        startCrop(element);
+    } else {
+        finishCrop(element);
+    }
+}
+
+export function makeCroppable(selection: Selection<any, any, any, any>) {
+    if (!cropInit) {
+        d3.select(window).on('keydown.makeCroppable', (event: KeyboardEvent) => {
+            if (event.key === 'c' && selectedElement && selectedElement.classed('croppable')) {
+                event.preventDefault();
+                toggleCrop(selectedElement);
+            }
+        });
+
+        cropInit = true;
+    }
+
+    selection
+        .classed('croppable', true)
+        .each(function () {
+            const element = d3.select(this);
+            const image = element.select('image');
+            const bbox = (image.node() as SVGGraphicsElement).getBBox();
+
+            const clipId = `clip-${clipIdCounter++}`;
+            const clip = element.append('clipPath')
+                .attr('id', clipId);
+            clip.append('rect')
+                .attr('class', 'clip-rect')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', bbox.width)
+                .attr('height', bbox.height);
+
+            image.attr('clip-path', `url(#${clipId})`);
+
+            const overlay = element.append('g')
+                .attr('class', 'crop-controls')
+                .style('display', 'none');
+
+            overlay.append('rect')
+                .attr('class', 'crop-rect')
+                .attr('fill', 'none')
+                .attr('stroke', '#7fbbf7')
+                .attr('stroke-width', 1);
+
+            const handleClasses = ['n', 'e', 's', 'w'];
+            for (const dir of handleClasses) {
+                overlay.append('circle')
+                    .attr('class', `crop-handle crop-handle-${dir}`)
+                    .attr('r', 6)
+                    .attr('fill', 'white')
+                    .attr('stroke', 'black')
+                    .style('vector-effect', 'non-scaling-stroke');
+            }
+
+            overlay.append('rect').attr('class', 'crop-shade-top');
+            overlay.append('rect').attr('class', 'crop-shade-right');
+            overlay.append('rect').attr('class', 'crop-shade-bottom');
+            overlay.append('rect').attr('class', 'crop-shade-left');
+
+            const rect = overlay.select<SVGRectElement>('.crop-rect');
+
+            const handleN = overlay.select<SVGCircleElement>('.crop-handle-n');
+            handleN.call(
+                d3.drag<SVGCircleElement, unknown>()
+                    .on('start', function (event: any) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+                        const y = parseFloat(rect.attr('y') ?? '0');
+                        const height = parseFloat(rect.attr('height') ?? '0');
+                        (this as any).__drag = { y, height };
+                    })
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newY = Math.min(drag.y + drag.height - 1, event.y);
+                        let newHeight = drag.height + (drag.y - newY);
+                        rect.attr('y', newY).attr('height', newHeight);
+                        updateCropOverlay(element);
+                    })
+            );
+
+            const handleS = overlay.select<SVGCircleElement>('.crop-handle-s');
+            handleS.call(
+                d3.drag<SVGCircleElement, unknown>()
+                    .on('start', function (event: any) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+                        const height = parseFloat(rect.attr('height') ?? '0');
+                        (this as any).__drag = { startY: event.y, height };
+                    })
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newHeight = Math.max(1, drag.height + event.y - drag.startY);
+                        rect.attr('height', newHeight);
+                        updateCropOverlay(element);
+                    })
+            );
+
+            const handleE = overlay.select<SVGCircleElement>('.crop-handle-e');
+            handleE.call(
+                d3.drag<SVGCircleElement, unknown>()
+                    .on('start', function (event: any) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+                        const width = parseFloat(rect.attr('width') ?? '0');
+                        (this as any).__drag = { startX: event.x, width };
+                    })
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newWidth = Math.max(1, drag.width + event.x - drag.startX);
+                        rect.attr('width', newWidth);
+                        updateCropOverlay(element);
+                    })
+            );
+
+            const handleW = overlay.select<SVGCircleElement>('.crop-handle-w');
+            handleW.call(
+                d3.drag<SVGCircleElement, unknown>()
+                    .on('start', function (event: any) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+                        const x = parseFloat(rect.attr('x') ?? '0');
+                        const width = parseFloat(rect.attr('width') ?? '0');
+                        (this as any).__drag = { startX: event.x, x, width };
+                    })
+                    .on('drag', function (event: any) {
+                        const drag = (this as any).__drag;
+                        if (!drag) return;
+                        let newX = Math.min(drag.x + drag.width - 1, event.x);
+                        let newWidth = drag.width + (drag.x - newX);
+                        rect.attr('x', newX).attr('width', newWidth);
+                        updateCropOverlay(element);
+                    })
+            );
+
+            element.datum<any>({ ...(element.datum() || {}), crop: { x: 0, y: 0, width: bbox.width, height: bbox.height }, clipId });
+
+            element.on('dblclick.makeCroppable', (event: MouseEvent) => {
+                event.stopPropagation();
+                toggleCrop(element);
+            });
+        });
+}
+

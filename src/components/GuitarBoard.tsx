@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -133,6 +133,7 @@ const GuitarBoard: React.FC = () => {
 
     group.call(makeDraggable);
     group.call(makeResizable, { rotatable: true });
+    group.call(makeCroppable);
 
     group.dispatch('click');
 
