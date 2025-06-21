@@ -7,12 +7,12 @@ import { chords, scales } from '../repertoire';
 import { Button, Slider, Drawer } from '@mui/material';
 
 const edgeOffset = 20;
-const svgWidth = 300;
-const svgHeight = 120;
+const boardWidth = 300;
+const boardHeight = 120;
 
 const fretCount = 12;
-const fretBoardWidth = svgWidth;
-const fretBoardHeight = svgHeight - (2 * edgeOffset);
+const fretBoardWidth = boardWidth;
+const fretBoardHeight = boardHeight - (2 * edgeOffset);
 const stringHeight = fretBoardHeight / 5;
 const noteRadius = stringHeight / 2 - 3;
 const noteFontSize = 12;
@@ -451,11 +451,11 @@ const GuitarBoard: React.FC = () => {
   return (
     <>
       <div id="tooltip"></div>
-      <div style={{ position: 'relative', width: svgWidth, height: svgHeight }}>
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
         <svg
           ref={svgRef}
-          width={svgWidth}
-          height={svgHeight}
+          width="100%"
+          height="100%"
           onMouseMove={handleMouseMove}
         ></svg>
         <Drawer
