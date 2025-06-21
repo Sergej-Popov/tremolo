@@ -75,10 +75,24 @@ const GuitarBoard: React.FC = () => {
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
   const [zoomValue, setZoomValue] = useState(1);
 
+  const boards = app?.boards ?? [0];
+  const [selectedBoard, setSelectedBoard] = useState<number>(boards[0]);
+  const fretRangesRef = useRef<Record<number, number[]>>({ 0: [1, fretCount] });
+  
   const [fretRange, setFretRange] = useState<number[]>([1, fretCount]);
 
+  useEffect(() => {
+    const newest = boards[boards.length - 1];
+    if (!(newest in fretRangesRef.current)) {
+      fretRangesRef.current[newest] = [1, fretCount];
+      setSelectedBoard(newest);
+    }
+  }, [boards]);
+
   const changeFretRange = (_: Event, newValue: number | number[]) => {
-    setFretRange(Array.isArray(newValue) ? newValue : [newValue, newValue]);
+    const range = Array.isArray(newValue) ? newValue : [newValue, newValue];
+    fretRangesRef.current[selectedBoard] = range;
+    setFretRange(range);
   };
 
 
@@ -89,9 +103,7 @@ const GuitarBoard: React.FC = () => {
     const noteLetter = calculateNote(string, fret);
     const fillColor = noteLetter.includes('#') && options.fadeNonNatural ? '#444444' : theme.notes[noteLetter];
 
-    const svg = d3.select(svgRef.current);
-
-    const g = svg.select('.guitar-board');
+    const g = d3.select(boardRef.current);
     const note = g.append('g')
       .attr('class', 'note')
       .datum<NoteDatum>({ string, fret });
@@ -121,7 +133,7 @@ const GuitarBoard: React.FC = () => {
 
   const addShape = (shape: ScaleOrChordShape) => {
 
-    d3.select(svgRef.current).selectAll('.note').remove();
+    d3.select(boardRef.current).selectAll('.note').remove();
 
     for (const [string, fret] of shape.notes) {
       addNote(string, fret);
@@ -265,7 +277,7 @@ const GuitarBoard: React.FC = () => {
 
 
   function fillAllNotes() {
-    d3.select(svgRef.current).selectAll('.note').remove();
+    d3.select(boardRef.current).selectAll('.note').remove();
 
     for (const string of stringNames) {
       for (let a = 0; a <= fretCount; a++) {
@@ -278,9 +290,7 @@ const GuitarBoard: React.FC = () => {
 
   const drawBoard = () => {
 
-    const svg = d3.select(svgRef.current);
-
-    const g = svg.select('.guitar-board');
+    const g = d3.select(boardRef.current);
 
     g.selectAll('.string').remove();
     g.selectAll('.fret').remove();
@@ -328,19 +338,21 @@ const GuitarBoard: React.FC = () => {
   }
 
   const fitFretBoard = () => {
-    const notes = d3.select(svgRef.current).selectAll('.note').data() as NoteDatum[];
+    const notes = d3.select(boardRef.current).selectAll('.note').data() as NoteDatum[];
     let min = notes.reduce((acc, note) => (acc < note.fret ? acc : note.fret), fretCount);
     let max = notes.reduce((acc, note) => (acc > note.fret ? acc : note.fret), 0) + 1;
 
     min = min > 1 ? min - 1 : min;
     max = max < fretCount ? max + 1 : max;
 
-    setFretRange([min, max]);
+    const range = [min, max];
+    fretRangesRef.current[selectedBoard] = range;
+    setFretRange(range);
   }
 
   useEffect(() => {
     drawBoard();
-  }, [drawBoard, fretRange]);
+  }, [drawBoard, fretRange, selectedBoard]);
 
   useEffect(() => {
     const handle = (e: MouseEvent) => updateCursor(e.clientX, e.clientY);
@@ -425,38 +437,44 @@ const GuitarBoard: React.FC = () => {
     let workspace = svg.select<SVGGElement>('.workspace');
     if (workspace.empty()) {
       workspace = svg.append('g').attr('class', 'workspace');
+      workspace.append('g').attr('class', 'pasted-images');
+      workspace.append('g').attr('class', 'embedded-videos');
+      workspace.append('g').attr('class', 'sticky-notes');
     }
     workspaceRef.current = workspace.node();
 
-  let board = workspace.select<SVGGElement>('.guitar-board');
-  if (board.empty()) {
-    board = workspace.append('g').attr('class', 'guitar-board')
-      .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
-    workspace.append('g').attr('class', 'pasted-images');
-    workspace.append('g').attr('class', 'embedded-videos');
-    workspace.append('g').attr('class', 'sticky-notes');
+    boards.forEach((id) => {
+      let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
+      if (b.empty()) {
+        b = workspace.append('g')
+          .attr('class', `guitar-board guitar-board-${id}`)
+          .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+        b.call(makeDraggable);
+        b.call(makeResizable, { rotatable: true });
+        b.on('click.board', () => setSelectedBoard(id));
+        b.on('dblclick.board', () => { setSelectedBoard(id); setShowPanel(true); });
+      }
+    });
 
-    board.call(makeDraggable);
-    board.call(makeResizable, { rotatable: true });
-  }
-  boardRef.current = board.node();
-  board.on('dblclick.board', () => setShowPanel(true));
+    boardRef.current = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`).node() || null;
+    setFretRange(fretRangesRef.current[selectedBoard] ?? [1, fretCount]);
+    drawBoard();
+  }, [boards, selectedBoard]);
 
+  useEffect(() => {
+    const svg = d3.select(svgRef.current);
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .filter(event => event.type !== 'dblclick')
       .scaleExtent([0.1, 10])
       .on('start', hideTooltip)
       .on('zoom', (event) => {
-        workspace.attr('transform', event.transform.toString());
+        d3.select(svgRef.current).select('.workspace').attr('transform', event.transform.toString());
         zoomRef.current = event.transform;
         setZoomValue(event.transform.k);
       });
 
     svg.call(zoom as any);
     zoomBehaviorRef.current = zoom;
-
-    drawBoard();
-
   }, []);
 
   useEffect(() => {

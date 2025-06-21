@@ -18,7 +18,7 @@ const Menu: React.FC = () => {
   return (
     <AppBar position="static" style={{ marginBottom: "15px" }}>
       <Toolbar>
-        <IconButton size="large" edge="start" color="inherit" onClick={addBoard} sx={{ mr: 1 }}>
+        <IconButton size="large" color="inherit" onClick={addBoard} sx={{ mr: 1, ml: 1 }}>
           <MusicNoteIcon />
         </IconButton>
         <Link to="/second">
