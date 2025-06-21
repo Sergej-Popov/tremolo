@@ -100,9 +100,9 @@ const GuitarBoard: React.FC = () => {
 
   const addImage = (src: string) => {
     const svg = d3.select(svgRef.current);
-    const g = svg.select('.guitar-board');
+    const imagesLayer = svg.select<SVGGElement>('.pasted-images');
 
-    const group = g.append('g')
+    const group = imagesLayer.append('g')
       .attr('class', 'pasted-image')
       .datum<PastedImageDatum>({ src });
 
@@ -223,12 +223,13 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const svg = d3.select(svgRef.current);
-    let g = svg.select<SVGGElement>('.guitar-board');
-    if (!g.empty()) return;
+    let board = svg.select<SVGGElement>('.guitar-board');
+    if (!board.empty()) return;
 
-    g = svg.append('g').attr('class', 'guitar-board');
+    board = svg.append('g').attr('class', 'guitar-board');
+    svg.append('g').attr('class', 'pasted-images');
 
-    g.call(makeDraggable);
+    board.call(makeDraggable);
 
     drawBoard();
 
