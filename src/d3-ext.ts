@@ -303,7 +303,12 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
         });
 
         d3.select(window).on('click.makeResizable', (event: MouseEvent) => {
-            if (selectedElement && !selectedElement.node()?.contains(event.target as Node)) {
+            const controls = document.getElementById('board-controls');
+            if (
+                selectedElement &&
+                !selectedElement.node()?.contains(event.target as Node) &&
+                !(controls && controls.contains(event.target as Node))
+            ) {
                 clearSelection();
             }
         });
