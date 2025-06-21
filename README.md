@@ -18,6 +18,10 @@ https://sergej-popov.github.io/tremolo/
 - **Delete** – remove the selected item.
 - **c** – crop selected image (or double-click an image to toggle cropping).
 
+## Instruction for Copilot, GPT, Codex and other LLM Agents
+* Remove items from TODO list when completing tasks.
+* Don't run linter.
+
 ## TODO general
 
 1. Add pan and zoom option.
