@@ -50,33 +50,61 @@ export const debugTooltip = function <GElement extends BaseType, Datum, PElement
     });
 }
 
+interface TransformValues {
+    translateX: number;
+    translateY: number;
+    scaleX: number;
+    scaleY: number;
+    rotate: number;
+}
+
+const defaultTransform = (): TransformValues => ({
+    translateX: 0,
+    translateY: 0,
+    scaleX: 1,
+    scaleY: 1,
+    rotate: 0,
+});
+
+function buildTransform(transform: TransformValues, bbox: DOMRect): string {
+    const { translateX, translateY, scaleX, scaleY, rotate } = transform;
+    const cx = bbox.width / 2;
+    const cy = bbox.height / 2;
+    return `translate(${translateX + scaleX * cx}, ${translateY + scaleY * cy}) rotate(${rotate}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
+}
+
+function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
+    (element.datum() as any).transform = transform;
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    element.attr('transform', buildTransform(transform, bbox));
+}
+
 export function makeDraggable(selection: Selection<any, any, any, any>) {
-    interface CoordinatesDatum { offsetX: number, offsetY: number, scaleX: number, scaleY: number };
+    interface DragDatum { offsetX: number, offsetY: number, transform: TransformValues };
 
     selection.call(
         d3.drag()
             .on('start', function (event: MouseEvent) {
                 const element = d3.select(this);
-                const transform = element.attr('transform') || '';
+                const data: any = element.datum();
+                const transform: TransformValues = data.transform ?? defaultTransform();
 
-                const translateMatch = /translate\(([^,]+),([^)]+)\)/.exec(transform) || ["", "0", "0"];
-                const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
+                const offsetX = event.x - transform.translateX;
+                const offsetY = event.y - transform.translateY;
 
-                const currentX = parseFloat(translateMatch[1]) || 0;
-                const currentY = parseFloat(translateMatch[2]) || 0;
-                const scaleX = parseFloat(scaleMatch[1]) || 1;
-                const scaleY = parseFloat(scaleMatch[2]) || 1;
-
-                const offsetX = event.x - currentX;
-                const offsetY = event.y - currentY;
-
-                element.datum<CoordinatesDatum>({ offsetX, offsetY, scaleX, scaleY });
+                element.datum<DragDatum>({ offsetX, offsetY, transform });
             })
             .on('drag', function (event: MouseEvent) {
-                const element = d3.select<any, CoordinatesDatum>(this);
-                const { offsetX, offsetY, scaleX, scaleY } = element.datum();
+                const element = d3.select<any, DragDatum>(this);
+                const { offsetX, offsetY, transform } = element.datum();
 
-                element.attr('transform', `translate(${event.x - offsetX}, ${event.y - offsetY}) scale(${scaleX}, ${scaleY})`);
+                const newTransform: TransformValues = {
+                    ...transform,
+                    translateX: event.x - offsetX,
+                    translateY: event.y - offsetY,
+                };
+
+                applyTransform(element, newTransform);
             })
     );
 }
@@ -86,6 +114,7 @@ let globalInit = false;
 
 interface ResizeOptions {
     lockAspectRatio?: boolean;
+    rotatable?: boolean;
 }
 
 function addResizeHandle(element: Selection<any, any, any, any>, options: ResizeOptions = {}) {
@@ -95,10 +124,10 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
     if (!element.select('.resize-handle').empty()) return;
 
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
-    const transform = element.attr('transform') || '';
-    const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
-    const scaleX = parseFloat(scaleMatch[1]) || 1;
-    const scaleY = parseFloat(scaleMatch[2]) || 1;
+    const data: any = element.datum();
+    const transform: TransformValues = data.transform ?? defaultTransform();
+    data.transform = transform;
+    const { scaleX, scaleY } = transform;
 
     const handle = element.append('circle')
         .attr('class', 'resize-handle')
@@ -116,31 +145,28 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                 if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
 
-                const transform = element.attr('transform') || '';
-                const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
-                const translateMatch = /translate\(([^,]+),([^)]+)\)/.exec(transform) || ["", "0", "0"];
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
-
-                const scaleX = parseFloat(scaleMatch[1]) || 1;
-                const scaleY = parseFloat(scaleMatch[2]) || 1;
-                const translateX = parseFloat(translateMatch[1]) || 0;
-                const translateY = parseFloat(translateMatch[2]) || 0;
+                const data = element.datum() as any;
+                const transform: TransformValues = data.transform ?? defaultTransform();
+                data.transform = transform;
+                const { scaleX, scaleY } = transform;
 
                 const startX = event.x;
                 const startY = event.y;
 
                 d3.select(this)
                     .attr('r', handleRadius / Math.max(scaleX, scaleY))
-                    .datum({ startX, startY, scaleX, scaleY, translateX, translateY, width: bbox.width, height: bbox.height });
+                    .datum({ startX, startY, transform, width: bbox.width, height: bbox.height });
             })
             .on('drag', function (event: MouseEvent) {
                 const data = d3.select<any, any>(this).datum();
+                const { transform } = data;
 
                 const dx = event.x - data.startX;
                 const dy = event.y - data.startY;
 
-                let newScaleX = Math.max(0.1, (data.width * data.scaleX + dx) / data.width);
-                let newScaleY = Math.max(0.1, (data.height * data.scaleY + dy) / data.height);
+                let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
+                let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
 
                 if (lockAspectRatio || (event as any).sourceEvent?.shiftKey) {
                     const ratio = Math.max(newScaleX, newScaleY);
@@ -148,7 +174,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     newScaleY = ratio;
                 }
 
-                element.attr('transform', `translate(${data.translateX}, ${data.translateY}) scale(${newScaleX}, ${newScaleY})`);
+                const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
+                applyTransform(element, newTransform);
 
                 d3.select(this)
                     .attr('cx', data.width)
@@ -158,14 +185,54 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
     );
 }
 
+function addRotateHandle(element: Selection<any, any, any, any>) {
+    const handleSize = 10;
+
+    if (!element.select('.rotate-handle').empty()) return;
+
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    element.append('text')
+        .attr('class', 'rotate-handle')
+        .attr('x', bbox.width)
+        .attr('y', -handleSize)
+        .text('\u21bb')
+        .attr('font-size', handleSize)
+        .style('cursor', 'grab')
+        .style('user-select', 'none')
+        .style('vector-effect', 'non-scaling-stroke')
+        .call(
+            d3.drag<SVGTextElement, unknown>()
+                .on('start', function (event: MouseEvent) {
+                    const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                    if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+
+                    const data = element.datum() as any;
+                    const transform: TransformValues = data.transform ?? defaultTransform();
+                    data.transform = transform;
+                    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+                    const centerX = transform.translateX + transform.scaleX * bbox.width / 2;
+                    const centerY = transform.translateY + transform.scaleY * bbox.height / 2;
+                    const startAngle = Math.atan2(event.y - centerY, event.x - centerX) - transform.rotate * Math.PI / 180;
+
+                    d3.select(this).datum({ centerX, centerY, startAngle, transform });
+                })
+                .on('drag', function (event: MouseEvent) {
+                    const data = d3.select<any, any>(this).datum();
+                    const { centerX, centerY, startAngle, transform } = data;
+                    const angle = Math.atan2(event.y - centerY, event.x - centerX) - startAngle;
+
+                    const newTransform: TransformValues = { ...transform, rotate: angle * 180 / Math.PI };
+                    applyTransform(element, newTransform);
+                })
+        );
+}
+
 function addOutline(element: Selection<any, any, any, any>) {
     if (!element.select('.selection-outline').empty()) return;
 
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
-    const transform = element.attr('transform') || '';
-    const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
-    const scaleX = parseFloat(scaleMatch[1]) || 1;
-    const scaleY = parseFloat(scaleMatch[2]) || 1;
+    const data = element.datum() as any;
+    const { scaleX, scaleY } = (data.transform ?? defaultTransform());
 
     element.append('rect')
         .attr('class', 'selection-outline')
@@ -184,6 +251,7 @@ function clearSelection() {
     if (!selectedElement) return;
     selectedElement.selectAll('.selection-outline').remove();
     selectedElement.selectAll('.resize-handle').remove();
+    selectedElement.selectAll('.rotate-handle').remove();
     selectedElement = null;
 }
 
@@ -193,6 +261,11 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             if (event.key === 'Delete' && selectedElement) {
                 selectedElement.remove();
                 selectedElement = null;
+            } else if (event.key === 'r' && selectedElement) {
+                const data = selectedElement.datum() as any;
+                const transform: TransformValues = data.transform ?? defaultTransform();
+                const newTransform: TransformValues = { ...transform, rotate: 0 };
+                applyTransform(selectedElement, newTransform);
             }
         });
 
@@ -218,5 +291,8 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             selectedElement = element;
             addOutline(element);
             addResizeHandle(element, options);
+            if (options.rotatable) {
+                addRotateHandle(element);
+            }
         });
 }
