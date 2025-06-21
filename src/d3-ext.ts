@@ -129,6 +129,20 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
 let selectedElement: Selection<any, any, any, any> | null = null;
 let globalInit = false;
 
+function dispatchSelectionChange() {
+    window.dispatchEvent(new CustomEvent('stickyselectionchange', { detail: selectedElement?.node() || null }));
+}
+
+export function updateSelectedColor(color: string) {
+    if (selectedElement && selectedElement.classed('sticky-note')) {
+        selectedElement.select('rect').attr('fill', color);
+    }
+}
+
+export function isStickySelected(): boolean {
+    return !!selectedElement && selectedElement.classed('sticky-note');
+}
+
 interface ResizeOptions {
     lockAspectRatio?: boolean;
     rotatable?: boolean;
@@ -286,6 +300,7 @@ function clearSelection() {
     selectedElement.selectAll('.resize-handle').remove();
     selectedElement.selectAll('.rotate-handle').remove();
     selectedElement = null;
+    dispatchSelectionChange();
 }
 
 export function makeResizable(selection: Selection<any, any, any, any>, options: ResizeOptions = {}) {
@@ -304,10 +319,15 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
 
         d3.select(window).on('click.makeResizable', (event: MouseEvent) => {
             const controls = document.getElementById('board-controls');
+            const colorSelect = document.getElementById('sticky-color-select');
+            const target = event.target as Node;
+            const isSvg = target instanceof SVGElement;
             if (
                 selectedElement &&
-                !selectedElement.node()?.contains(event.target as Node) &&
-                !(controls && controls.contains(event.target as Node))
+                isSvg &&
+                !selectedElement.node()?.contains(target) &&
+                !(controls && controls.contains(target)) &&
+                !(colorSelect && colorSelect.contains(target))
             ) {
                 clearSelection();
             }
@@ -332,6 +352,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             if (options.rotatable) {
                 addRotateHandle(element);
             }
+            dispatchSelectionChange();
         });
 }
 

@@ -13,6 +13,7 @@ https://sergej-popov.github.io/tremolo/
 - Paste text to create sticky notes that can be dragged, resized and rotated. Double-click a sticky note to edit its text.
 - Select a pasted object and press **Delete** to remove it.
 - Quickly add predefined chords or scales or display all notes.
+- Choose sticky note colour from the palette in the header when a sticky note is selected.
 
 ## Hotkeys
 - **Delete** – remove the selected item.
