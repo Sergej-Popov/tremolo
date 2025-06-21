@@ -24,19 +24,15 @@ https://sergej-popov.github.io/tremolo/
 
 ## TODO general
 
-1. Add pan and zoom option.
-2. paste elements (text, images, youtube videos etc) at cursor location, not screen origin
-3. resize proportionally by default
-4. [Large] Provide undo and redo support for board changes.
-5. Allow items to snap to a grid for precise alignment.
-6. Images pasted at set size, should use data from clipboard (is it available?)
-7. Controls are still affected by resizing
-8.  Drawing pen tool
-9.  Connectiing lines
-10. Add a dark and light theme toggle for the fretboard interface.
-11. Draw style themes
-12. Tool pannel
-13. Contextual menu panel
+1. [Large] Provide undo and redo support for board changes.
+2. Allow items to snap to a grid for precise alignment.
+3. Controls are still affected by resizing
+4.  Drawing pen tool
+5.  Connectiing lines
+6. Add a dark and light theme toggle for the fretboard interface.
+7. Draw style themes
+8. Tool pannel
+9. Contextual menu panel
 
 ## TODO collaboration
 
