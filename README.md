@@ -16,7 +16,7 @@ https://sergej-popov.github.io/tremolo/
 
 ## Hotkeys
 - **Delete** – remove the selected item.
- - **c** – crop selected image.
+- **c** – crop selected image (or double-click an image to toggle cropping).
 
 ## TODO
 1. ~~Add an ability to paste text. When text is pasted, it should be draggable and editable. Text should not be resizable. However when Up and Down arrow keys are pressed, the text font size should increase or decrease.~~ Implemented as sticky notes that can be rotated and resized.

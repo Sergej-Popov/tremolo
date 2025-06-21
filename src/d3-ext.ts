@@ -349,8 +349,15 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
 }
 
 function startCrop(element: Selection<any, any, any, any>) {
-    const data = element.datum() as any;
-    const crop: CropValues = data.crop;
+    const data = element.datum() as any || {};
+    let crop: CropValues = data.crop;
+    if (!crop) {
+        const image = element.select('image');
+        const bbox = (image.node() as SVGGraphicsElement).getBBox();
+        crop = { x: 0, y: 0, width: bbox.width, height: bbox.height };
+        data.crop = crop;
+        element.datum(data);
+    }
     const overlay = element.select('.crop-controls');
     const rect = overlay.select('.crop-rect');
     rect
@@ -484,6 +491,11 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             );
 
             element.datum<any>({ ...(element.datum() || {}), crop: { x: 0, y: 0, width: bbox.width, height: bbox.height }, clipId });
+
+            element.on('dblclick.makeCroppable', (event: MouseEvent) => {
+                event.stopPropagation();
+                toggleCrop(element);
+            });
         });
 }
 
