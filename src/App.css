@@ -30,4 +30,5 @@
 .sticky-text.edit-mode {
     user-select: text;
     pointer-events: all;
+    caret-color: black; /* Ensure the cursor is visible */
 }
