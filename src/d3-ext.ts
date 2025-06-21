@@ -296,3 +296,194 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             }
         });
 }
+
+interface CropValues {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+let cropInit = false;
+let clipIdCounter = 0;
+
+function updateCropOverlay(element: Selection<any, any, any, any>) {
+    const image = element.select('image');
+    const overlay = element.select('.crop-controls');
+    const rect = overlay.select<SVGRectElement>('.crop-rect');
+
+    const imgWidth = parseFloat(image.attr('width'));
+    const imgHeight = parseFloat(image.attr('height'));
+    const x = parseFloat(rect.attr('x'));
+    const y = parseFloat(rect.attr('y'));
+    const width = parseFloat(rect.attr('width'));
+    const height = parseFloat(rect.attr('height'));
+
+    overlay.select('.crop-handle')
+        .attr('cx', x + width)
+        .attr('cy', y + height);
+
+    overlay.select('.crop-shade-top')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', imgWidth)
+        .attr('height', y);
+
+    overlay.select('.crop-shade-bottom')
+        .attr('x', 0)
+        .attr('y', y + height)
+        .attr('width', imgWidth)
+        .attr('height', imgHeight - y - height);
+
+    overlay.select('.crop-shade-left')
+        .attr('x', 0)
+        .attr('y', y)
+        .attr('width', x)
+        .attr('height', height);
+
+    overlay.select('.crop-shade-right')
+        .attr('x', x + width)
+        .attr('y', y)
+        .attr('width', imgWidth - x - width)
+        .attr('height', height);
+}
+
+function startCrop(element: Selection<any, any, any, any>) {
+    const data = element.datum() as any;
+    const crop: CropValues = data.crop;
+    const overlay = element.select('.crop-controls');
+    const rect = overlay.select('.crop-rect');
+    rect
+        .attr('x', crop.x)
+        .attr('y', crop.y)
+        .attr('width', crop.width)
+        .attr('height', crop.height);
+
+    overlay.style('display', null);
+
+    updateCropOverlay(element);
+}
+
+function finishCrop(element: Selection<any, any, any, any>) {
+    const overlay = element.select('.crop-controls');
+    const rect = overlay.select('.crop-rect');
+    const clipRect = element.select('.clip-rect');
+    const data = element.datum() as any;
+
+    const x = parseFloat(rect.attr('x'));
+    const y = parseFloat(rect.attr('y'));
+    const width = parseFloat(rect.attr('width'));
+    const height = parseFloat(rect.attr('height'));
+
+    data.crop = { x, y, width, height } as CropValues;
+
+    clipRect
+        .attr('x', x)
+        .attr('y', y)
+        .attr('width', width)
+        .attr('height', height);
+
+    overlay.style('display', 'none');
+}
+
+function toggleCrop(element: Selection<any, any, any, any>) {
+    const overlay = element.select('.crop-controls');
+    if (overlay.style('display') === 'none') {
+        startCrop(element);
+    } else {
+        finishCrop(element);
+    }
+}
+
+export function makeCroppable(selection: Selection<any, any, any, any>) {
+    if (!cropInit) {
+        d3.select(window).on('keydown.makeCroppable', (event: KeyboardEvent) => {
+            if (event.key === 'c' && selectedElement && selectedElement.classed('croppable')) {
+                event.preventDefault();
+                toggleCrop(selectedElement);
+            }
+        });
+
+        cropInit = true;
+    }
+
+    selection
+        .classed('croppable', true)
+        .each(function () {
+            const element = d3.select(this);
+            const image = element.select('image');
+            const bbox = (image.node() as SVGGraphicsElement).getBBox();
+
+            const clipId = `clip-${clipIdCounter++}`;
+            const clip = element.append('clipPath')
+                .attr('id', clipId);
+            clip.append('rect')
+                .attr('class', 'clip-rect')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', bbox.width)
+                .attr('height', bbox.height);
+
+            image.attr('clip-path', `url(#${clipId})`);
+
+            const overlay = element.append('g')
+                .attr('class', 'crop-controls')
+                .style('display', 'none');
+
+            overlay.append('rect')
+                .attr('class', 'crop-rect')
+                .attr('fill', 'none')
+                .attr('stroke', '#7fbbf7')
+                .attr('stroke-width', 1)
+                .style('cursor', 'move');
+
+            overlay.append('circle')
+                .attr('class', 'crop-handle')
+                .attr('r', 6)
+                .attr('fill', 'white')
+                .attr('stroke', 'black')
+                .style('vector-effect', 'non-scaling-stroke');
+
+            overlay.append('rect').attr('class', 'crop-shade-top');
+            overlay.append('rect').attr('class', 'crop-shade-right');
+            overlay.append('rect').attr('class', 'crop-shade-bottom');
+            overlay.append('rect').attr('class', 'crop-shade-left');
+
+            const rect = overlay.select<SVGRectElement>('.crop-rect');
+            rect.call(
+                d3.drag<SVGRectElement, unknown>()
+                    .on('start', function (event: MouseEvent) {
+                        const x = parseFloat(rect.attr('x'));
+                        const y = parseFloat(rect.attr('y'));
+                        d3.select(this).datum({ offsetX: event.x - x, offsetY: event.y - y });
+                    })
+                    .on('drag', function (event: MouseEvent) {
+                        const data = d3.select<any, any>(this).datum();
+                        const newX = event.x - data.offsetX;
+                        const newY = event.y - data.offsetY;
+                        rect.attr('x', newX).attr('y', newY);
+                        updateCropOverlay(element);
+                    })
+            );
+
+            const handle = overlay.select<SVGCircleElement>('.crop-handle');
+            handle.call(
+                d3.drag<SVGCircleElement, unknown>()
+                    .on('start', function (event: MouseEvent) {
+                        const width = parseFloat(rect.attr('width'));
+                        const height = parseFloat(rect.attr('height'));
+                        d3.select(this).datum({ startX: event.x, startY: event.y, width, height });
+                    })
+                    .on('drag', function (event: MouseEvent) {
+                        const data = d3.select<any, any>(this).datum();
+                        let newWidth = Math.max(1, data.width + event.x - data.startX);
+                        let newHeight = Math.max(1, data.height + event.y - data.startY);
+                        rect.attr('width', newWidth).attr('height', newHeight);
+                        updateCropOverlay(element);
+                    })
+            );
+
+            element.datum<any>({ ...(element.datum() || {}), crop: { x: 0, y: 0, width: bbox.width, height: bbox.height }, clipId });
+        });
+}
+

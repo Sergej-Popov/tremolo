@@ -32,3 +32,26 @@
     pointer-events: all;
     caret-color: black; /* Ensure the cursor is visible */
 }
+
+.crop-controls {
+    pointer-events: none;
+}
+
+.crop-rect {
+    pointer-events: all;
+    stroke-dasharray: 4;
+}
+
+.crop-handle {
+    pointer-events: all;
+    cursor: nwse-resize;
+    fill: white;
+    stroke: black;
+}
+
+.crop-shade-top,
+.crop-shade-right,
+.crop-shade-bottom,
+.crop-shade-left {
+    fill: rgba(0, 0, 0, 0.3);
+}
