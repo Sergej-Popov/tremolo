@@ -90,20 +90,27 @@ export function makeResizable(selection: Selection<any, any, any, any>) {
             if (!element.select('.resize-handle').empty()) return;
 
             const bbox = (this as SVGGraphicsElement).getBBox();
+            const transform = element.attr('transform') || '';
+            const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
+            const scaleX = parseFloat(scaleMatch[1]) || 1;
+            const scaleY = parseFloat(scaleMatch[2]) || 1;
 
             const handle = element.append('circle')
                 .attr('class', 'resize-handle')
                 .attr('cx', bbox.width)
                 .attr('cy', bbox.height)
-                .attr('r', handleRadius)
+                .attr('r', handleRadius / Math.max(scaleX, scaleY))
                 .style('cursor', 'nwse-resize')
                 .attr('fill', 'white')
-                .attr('stroke', 'black');
+                .attr('stroke', 'black')
+                .style('vector-effect', 'non-scaling-stroke');
 
             handle.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
-                        event.stopPropagation();
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+
                         const transform = element.attr('transform') || '';
                         const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
                         const translateMatch = /translate\(([^,]+),([^)]+)\)/.exec(transform) || ["", "0", "0"];
@@ -117,7 +124,9 @@ export function makeResizable(selection: Selection<any, any, any, any>) {
                         const startX = event.x;
                         const startY = event.y;
 
-                        d3.select(this).datum({ startX, startY, scaleX, scaleY, translateX, translateY, width: bbox.width, height: bbox.height });
+                        d3.select(this)
+                            .attr('r', handleRadius / Math.max(scaleX, scaleY))
+                            .datum({ startX, startY, scaleX, scaleY, translateX, translateY, width: bbox.width, height: bbox.height });
                     })
                     .on('drag', function (event: MouseEvent) {
                         const data = d3.select<any, any>(this).datum();
@@ -125,14 +134,21 @@ export function makeResizable(selection: Selection<any, any, any, any>) {
                         const dx = event.x - data.startX;
                         const dy = event.y - data.startY;
 
-                        const newScaleX = Math.max(0.1, (data.width * data.scaleX + dx) / data.width);
-                        const newScaleY = Math.max(0.1, (data.height * data.scaleY + dy) / data.height);
+                        let newScaleX = Math.max(0.1, (data.width * data.scaleX + dx) / data.width);
+                        let newScaleY = Math.max(0.1, (data.height * data.scaleY + dy) / data.height);
+
+                        if ((event as any).sourceEvent?.shiftKey) {
+                            const ratio = Math.max(newScaleX, newScaleY);
+                            newScaleX = ratio;
+                            newScaleY = ratio;
+                        }
 
                         element.attr('transform', `translate(${data.translateX}, ${data.translateY}) scale(${newScaleX}, ${newScaleY})`);
 
                         d3.select(this)
                             .attr('cx', data.width)
-                            .attr('cy', data.height);
+                            .attr('cy', data.height)
+                            .attr('r', handleRadius / Math.max(newScaleX, newScaleY));
                     })
             );
         })
