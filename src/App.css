@@ -10,5 +10,10 @@
 
 .non-selectable {
     user-select: none; /* Prevents text selection */
-    pointer-events: none; /* Prevents mouse events, including selection */
-  }
+  pointer-events: none; /* Prevents mouse events, including selection */
+}
+
+.resize-handle {
+    pointer-events: all;
+    cursor: nwse-resize;
+}

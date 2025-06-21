@@ -51,28 +51,92 @@ export const debugTooltip = function <GElement extends BaseType, Datum, PElement
 }
 
 export function makeDraggable(selection: Selection<any, any, any, any>) {
-    interface CoordintatesDatum { offsetX: number, offsetY: number };
+    interface CoordinatesDatum { offsetX: number, offsetY: number, scaleX: number, scaleY: number };
 
     selection.call(
         d3.drag()
             .on('start', function (event: MouseEvent) {
                 const element = d3.select(this);
-                const transform = element.attr('transform');
+                const transform = element.attr('transform') || '';
 
-                const translate = transform ? new RegExp(/translate\(([^,]+),([^)]+)\)/).exec(transform) ?? ["0", "0", "0"] : ["0", "0", "0"];
-                const currentX = parseFloat(translate[1]) || 0;
-                const currentY = parseFloat(translate[2]) || 0;
+                const translateMatch = /translate\(([^,]+),([^)]+)\)/.exec(transform) || ["", "0", "0"];
+                const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
+
+                const currentX = parseFloat(translateMatch[1]) || 0;
+                const currentY = parseFloat(translateMatch[2]) || 0;
+                const scaleX = parseFloat(scaleMatch[1]) || 1;
+                const scaleY = parseFloat(scaleMatch[2]) || 1;
 
                 const offsetX = event.x - currentX;
                 const offsetY = event.y - currentY;
 
-                element.datum({ offsetX, offsetY });
+                element.datum<CoordinatesDatum>({ offsetX, offsetY, scaleX, scaleY });
             })
             .on('drag', function (event: MouseEvent) {
-                const element = d3.select<any, CoordintatesDatum>(this);
-                const { offsetX, offsetY } = element.datum();
+                const element = d3.select<any, CoordinatesDatum>(this);
+                const { offsetX, offsetY, scaleX, scaleY } = element.datum();
 
-                element.attr('transform', `translate(${event.x - offsetX}, ${event.y - offsetY})`);
+                element.attr('transform', `translate(${event.x - offsetX}, ${event.y - offsetY}) scale(${scaleX}, ${scaleY})`);
             })
     );
+}
+
+export function makeResizable(selection: Selection<any, any, any, any>) {
+    const handleRadius = 6;
+
+    selection
+        .on('mouseenter.makeResizable', function () {
+            const element = d3.select(this);
+            if (!element.select('.resize-handle').empty()) return;
+
+            const bbox = (this as SVGGraphicsElement).getBBox();
+
+            const handle = element.append('circle')
+                .attr('class', 'resize-handle')
+                .attr('cx', bbox.width)
+                .attr('cy', bbox.height)
+                .attr('r', handleRadius)
+                .style('cursor', 'nwse-resize')
+                .attr('fill', 'white')
+                .attr('stroke', 'black');
+
+            handle.call(
+                d3.drag<SVGCircleElement, unknown>()
+                    .on('start', function (event: MouseEvent) {
+                        event.stopPropagation();
+                        const transform = element.attr('transform') || '';
+                        const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
+                        const translateMatch = /translate\(([^,]+),([^)]+)\)/.exec(transform) || ["", "0", "0"];
+                        const bbox = (element.node() as SVGGraphicsElement).getBBox();
+
+                        const scaleX = parseFloat(scaleMatch[1]) || 1;
+                        const scaleY = parseFloat(scaleMatch[2]) || 1;
+                        const translateX = parseFloat(translateMatch[1]) || 0;
+                        const translateY = parseFloat(translateMatch[2]) || 0;
+
+                        const startX = event.x;
+                        const startY = event.y;
+
+                        d3.select(this).datum({ startX, startY, scaleX, scaleY, translateX, translateY, width: bbox.width, height: bbox.height });
+                    })
+                    .on('drag', function (event: MouseEvent) {
+                        const data = d3.select<any, any>(this).datum();
+
+                        const dx = event.x - data.startX;
+                        const dy = event.y - data.startY;
+
+                        const newScaleX = Math.max(0.1, (data.width * data.scaleX + dx) / data.width);
+                        const newScaleY = Math.max(0.1, (data.height * data.scaleY + dy) / data.height);
+
+                        element.attr('transform', `translate(${data.translateX}, ${data.translateY}) scale(${newScaleX}, ${newScaleY})`);
+
+                        d3.select(this)
+                            .attr('cx', data.width)
+                            .attr('cy', data.height);
+                    })
+            );
+        })
+        .on('mouseleave.makeResizable', function () {
+            d3.select(this).selectAll('.resize-handle').remove();
+        });
 }
