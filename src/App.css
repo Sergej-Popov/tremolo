@@ -17,3 +17,7 @@
     pointer-events: all;
     cursor: nwse-resize;
 }
+
+.sticky-note div {
+    outline: none;
+}

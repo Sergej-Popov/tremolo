@@ -42,6 +42,11 @@ interface PastedImageDatum { src: string }
 
 interface PastedVideoDatum { url: string, videoId: string }
 
+interface StickyNoteDatum { text: string }
+
+const stickyWidth = 150;
+const stickyHeight = 100;
+
 const videoWidth = 320;
 const videoHeight = 180;
 const videoPadding = 10;
@@ -174,6 +179,47 @@ const GuitarBoard: React.FC = () => {
     return group;
   }
 
+  const addSticky = (text: string) => {
+    const svg = d3.select(svgRef.current);
+    const notesLayer = svg.select<SVGGElement>('.sticky-notes');
+
+    const group = notesLayer.append('g')
+      .attr('class', 'sticky-note')
+      .datum<StickyNoteDatum & { transform: any }>({ text, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+
+    group.append('rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', stickyWidth)
+      .attr('height', stickyHeight)
+      .attr('fill', '#fef68a')
+      .attr('stroke', 'black');
+
+    const fo = group.append('foreignObject')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', stickyWidth)
+      .attr('height', stickyHeight);
+
+    fo.append('xhtml:div')
+      .style('width', '100%')
+      .style('height', '100%')
+      .style('box-sizing', 'border-box')
+      .style('font-family', 'Segoe UI')
+      .style('padding', '4px')
+      .style('overflow', 'hidden')
+      .attr('contentEditable', 'true')
+      .text(text)
+      .on('mousedown', (event: MouseEvent) => event.stopPropagation());
+
+    group.call(makeDraggable);
+    group.call(makeResizable, { rotatable: true });
+
+    group.dispatch('click');
+
+    return group;
+  }
+
 
   function fillAllNotes() {
     d3.select(svgRef.current).selectAll('.note').remove();
@@ -257,9 +303,16 @@ const GuitarBoard: React.FC = () => {
     const handlePaste = (event: ClipboardEvent) => {
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
-        const id = extractVideoId(text.trim());
+        const trimmed = text.trim();
+        const id = extractVideoId(trimmed);
         if (id) {
-          addVideo(text.trim());
+          addVideo(trimmed);
+          event.preventDefault();
+          return;
+        }
+
+        if (trimmed.length > 0) {
+          addSticky(trimmed);
           event.preventDefault();
           return;
         }
@@ -294,6 +347,7 @@ const GuitarBoard: React.FC = () => {
       .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
     svg.append('g').attr('class', 'pasted-images');
     svg.append('g').attr('class', 'embedded-videos');
+    svg.append('g').attr('class', 'sticky-notes');
 
     board.call(makeDraggable);
     board.call(makeResizable, { rotatable: true });
