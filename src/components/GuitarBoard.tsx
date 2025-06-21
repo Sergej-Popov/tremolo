@@ -201,16 +201,38 @@ const GuitarBoard: React.FC = () => {
       .attr('width', stickyWidth)
       .attr('height', stickyHeight);
 
-    fo.append('xhtml:div')
+    const div = fo.append('xhtml:div')
+      .classed('sticky-text', true)
+      .classed('view-mode', true)
       .style('width', '100%')
       .style('height', '100%')
       .style('box-sizing', 'border-box')
       .style('font-family', 'Segoe UI')
       .style('padding', '4px')
       .style('overflow', 'hidden')
-      .attr('contentEditable', 'true')
-      .text(text)
-      .on('mousedown', (event: MouseEvent) => event.stopPropagation());
+      .text(text);
+
+    group.on('dblclick', () => {
+      div
+        .attr('contentEditable', 'true')
+        .classed('view-mode', false)
+        .classed('edit-mode', true)
+        .on('mousedown.edit', (event: MouseEvent) => event.stopPropagation());
+
+      setTimeout(() => {
+        (div.node() as HTMLDivElement)?.focus();
+      }, 0);
+    });
+
+    div.on('blur', () => {
+      const data = group.datum() as StickyNoteDatum & { transform: any };
+      data.text = div.text();
+      div
+        .attr('contentEditable', 'false')
+        .classed('edit-mode', false)
+        .classed('view-mode', true)
+        .on('mousedown.edit', null);
+    });
 
     group.call(makeDraggable);
     group.call(makeResizable, { rotatable: true });

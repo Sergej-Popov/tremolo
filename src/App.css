@@ -21,3 +21,13 @@
 .sticky-note div {
     outline: none;
 }
+
+.sticky-text.view-mode {
+    user-select: none;
+    pointer-events: none;
+}
+
+.sticky-text.edit-mode {
+    user-select: text;
+    pointer-events: all;
+}
