@@ -7,8 +7,8 @@ import { chords, scales } from '../repertoire';
 import { Button, Slider, Drawer } from '@mui/material';
 
 const edgeOffset = 20;
-const boardWidth = 300;
-const boardHeight = 120;
+const boardWidth = 500;
+const boardHeight = 160;
 
 const fretCount = 12;
 const fretBoardWidth = boardWidth;

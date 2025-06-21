@@ -23,7 +23,7 @@ function App() {
       <SnackbarProvider>
         <AppProvider>
           <Router basename={getBasename()}>
-            <Box sx={{ flexGrow: 1 }}>
+            <Box sx={{ flexGrow: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Menu />
               <Routes>
                 <Route path="/" element={<MainPage />} />

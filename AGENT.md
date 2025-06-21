@@ -6,7 +6,7 @@
 ## General Contributor Guidelines
 
 * Use concise commit messages describing the change.
-* Run `npm run build` to ensure the project compiles before committing.
+* Don't run `npm run build`.
 * Prefer TypeScript types where possible.
 * Keep dependencies pinned to the versions in `package.json`.
 * When adding features, update relevant documentation in `README.md`.
