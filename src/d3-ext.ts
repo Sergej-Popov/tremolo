@@ -169,7 +169,7 @@ function addOutline(element: Selection<any, any, any, any>) {
         .attr('width', bbox.width)
         .attr('height', bbox.height)
         .attr('fill', 'none')
-        .attr('stroke', 'blue')
+    .attr('stroke', '#7fbbf7')
         .attr('stroke-width', 1 / Math.max(scaleX, scaleY))
         .style('pointer-events', 'none')
         .style('vector-effect', 'non-scaling-stroke');
