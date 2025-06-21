@@ -26,14 +26,13 @@ https://sergej-popov.github.io/tremolo/
 
 1. [Large] Provide undo and redo support for board changes.
 2. Allow items to snap to a grid for precise alignment.
-3. Images pasted at set size, should use data from clipboard (is it available?)
-4. Controls are still affected by resizing
-5.  Drawing pen tool
-6.  Connectiing lines
-7. Add a dark and light theme toggle for the fretboard interface.
-8. Draw style themes
-9. Tool pannel
-10. Contextual menu panel
+3. Controls are still affected by resizing
+4.  Drawing pen tool
+5.  Connectiing lines
+6. Add a dark and light theme toggle for the fretboard interface.
+7. Draw style themes
+8. Tool pannel
+9. Contextual menu panel
 
 ## TODO collaboration
 

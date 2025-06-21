@@ -417,6 +417,7 @@ const GuitarBoard: React.FC = () => {
     }
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.2, 5])
       .on('start', hideTooltip)
       .on('zoom', (event) => {
         workspace.attr('transform', event.transform.toString());
