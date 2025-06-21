@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useContext } from 'react';
+import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
 import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip } from '../d3-ext';
 
@@ -63,6 +63,7 @@ function extractVideoId(url: string): string | null {
 const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
+  const setStickySelected = app?.setStickySelected ?? (() => {});
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -197,7 +198,7 @@ const GuitarBoard: React.FC = () => {
     return group;
   }
 
-  const addSticky = (text: string, pos: { x: number, y: number }) => {
+  const addSticky = useCallback((text: string, pos: { x: number, y: number }) => {
     const svg = d3.select(svgRef.current);
     const notesLayer = svg.select<SVGGElement>('.sticky-notes');
 
@@ -261,7 +262,7 @@ const GuitarBoard: React.FC = () => {
     group.dispatch('click');
 
     return group;
-  }
+  }, [stickyColor]);
 
 
   function fillAllNotes() {
@@ -349,6 +350,20 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    setStickySelected(false);
+    const handler = (e: Event) => {
+      const node = (e as CustomEvent).detail as Node | null;
+      if (!node) {
+        setStickySelected(false);
+      } else {
+        setStickySelected(d3.select(node).classed('sticky-note'));
+      }
+    };
+    window.addEventListener('selectionchange', handler);
+    return () => window.removeEventListener('selectionchange', handler);
+  }, [setStickySelected]);
+
+  useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
@@ -389,7 +404,7 @@ const GuitarBoard: React.FC = () => {
     return () => {
       window.removeEventListener('paste', handlePaste);
     };
-  }, []);
+  }, [addSticky]);
 
   const updateCursor = (clientX: number, clientY: number) => {
     if (!svgRef.current) return;
