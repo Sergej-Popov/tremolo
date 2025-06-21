@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
 import { updateSelectedColor } from './d3-ext';
@@ -12,10 +13,14 @@ const Menu: React.FC = () => {
   const stickyColor = app?.stickyColor ?? noteColors[0];
   const setStickyColor = app?.setStickyColor ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
+  const addBoard = app?.addBoard ?? (() => {});
 
   return (
     <AppBar position="static" style={{ marginBottom: "15px" }}>
       <Toolbar>
+        <IconButton size="large" edge="start" color="inherit" onClick={addBoard} sx={{ mr: 1 }}>
+          <MusicNoteIcon />
+        </IconButton>
         <Link to="/second">
           <IconButton
             size="large"
