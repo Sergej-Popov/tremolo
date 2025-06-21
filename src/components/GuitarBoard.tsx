@@ -40,6 +40,15 @@ interface NoteDatum { string: noteString, fret: number }
 
 interface PastedImageDatum { src: string }
 
+interface PastedVideoDatum { url: string, videoId: string }
+
+const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
+
+function extractVideoId(url: string): string | null {
+  const match = url.match(youtubeRegex);
+  return match ? match[1] : null;
+}
+
 const GuitarBoard: React.FC = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -115,6 +124,37 @@ const GuitarBoard: React.FC = () => {
 
     group.call(makeDraggable);
     group.call(makeResizable);
+
+    return group;
+  }
+
+  const addVideo = (url: string) => {
+    const videoId = extractVideoId(url);
+    if (!videoId) return null;
+
+    const svg = d3.select(svgRef.current);
+    const videosLayer = svg.select<SVGGElement>('.embedded-videos');
+
+    const group = videosLayer.append('g')
+      .attr('class', 'embedded-video')
+      .datum<PastedVideoDatum>({ url, videoId });
+
+    const fo = group.append('foreignObject')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', 160)
+      .attr('height', 90);
+
+    fo.append('xhtml:iframe')
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .attr('src', `https://www.youtube.com/embed/${videoId}`)
+      .attr('frameBorder', '0')
+      .attr('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture')
+      .attr('allowFullScreen', 'true');
+
+    group.call(makeDraggable);
+    group.call(makeResizable, { lockAspectRatio: true });
 
     return group;
   }
@@ -202,6 +242,16 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
+      const text = event.clipboardData?.getData('text/plain');
+      if (text) {
+        const id = extractVideoId(text.trim());
+        if (id) {
+          addVideo(text.trim());
+          event.preventDefault();
+          return;
+        }
+      }
+
       const items = event.clipboardData?.items;
       if (!items) return;
 
@@ -229,6 +279,7 @@ const GuitarBoard: React.FC = () => {
 
     board = svg.append('g').attr('class', 'guitar-board');
     svg.append('g').attr('class', 'pasted-images');
+    svg.append('g').attr('class', 'embedded-videos');
 
     board.call(makeDraggable);
     board.call(makeResizable);

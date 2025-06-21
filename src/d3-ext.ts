@@ -84,7 +84,12 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
 let selectedElement: Selection<any, any, any, any> | null = null;
 let globalInit = false;
 
-function addResizeHandle(element: Selection<any, any, any, any>) {
+interface ResizeOptions {
+    lockAspectRatio?: boolean;
+}
+
+function addResizeHandle(element: Selection<any, any, any, any>, options: ResizeOptions = {}) {
+    const { lockAspectRatio = false } = options;
     const handleRadius = 6;
 
     if (!element.select('.resize-handle').empty()) return;
@@ -137,7 +142,7 @@ function addResizeHandle(element: Selection<any, any, any, any>) {
                 let newScaleX = Math.max(0.1, (data.width * data.scaleX + dx) / data.width);
                 let newScaleY = Math.max(0.1, (data.height * data.scaleY + dy) / data.height);
 
-                if ((event as any).sourceEvent?.shiftKey) {
+                if (lockAspectRatio || (event as any).sourceEvent?.shiftKey) {
                     const ratio = Math.max(newScaleX, newScaleY);
                     newScaleX = ratio;
                     newScaleY = ratio;
@@ -182,7 +187,7 @@ function clearSelection() {
     selectedElement = null;
 }
 
-export function makeResizable(selection: Selection<any, any, any, any>) {
+export function makeResizable(selection: Selection<any, any, any, any>, options: ResizeOptions = {}) {
     if (!globalInit) {
         d3.select(window).on('keydown.makeResizable', (event: KeyboardEvent) => {
             if (event.key === 'Delete' && selectedElement) {
@@ -212,6 +217,6 @@ export function makeResizable(selection: Selection<any, any, any, any>) {
 
             selectedElement = element;
             addOutline(element);
-            addResizeHandle(element);
+            addResizeHandle(element, options);
         });
 }
