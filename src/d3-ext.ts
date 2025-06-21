@@ -86,6 +86,10 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
         d3.drag()
             .on('start', function (event: MouseEvent) {
                 const element = d3.select(this);
+                const overlay = element.select('.crop-controls');
+                if (!overlay.empty() && overlay.style('display') !== 'none') {
+                    finishCrop(element);
+                }
                 const data: any = element.datum();
                 const transform: TransformValues = data.transform ?? defaultTransform();
 
@@ -144,6 +148,11 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
             .on('start', function (event: MouseEvent) {
                 const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                 if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
+
+                const overlay = element.select('.crop-controls');
+                if (!overlay.empty() && overlay.style('display') !== 'none') {
+                    finishCrop(element);
+                }
 
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
                 const data = element.datum() as any;
@@ -206,6 +215,11 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                     if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
 
+                    const overlay = element.select('.crop-controls');
+                    if (!overlay.empty() && overlay.style('display') !== 'none') {
+                        finishCrop(element);
+                    }
+
                     const data = element.datum() as any;
                     const transform: TransformValues = data.transform ?? defaultTransform();
                     data.transform = transform;
@@ -249,6 +263,11 @@ function addOutline(element: Selection<any, any, any, any>) {
 
 function clearSelection() {
     if (!selectedElement) return;
+    // finish active crop before clearing selection
+    const overlay = selectedElement.select('.crop-controls');
+    if (!overlay.empty() && overlay.style('display') !== 'none') {
+        finishCrop(selectedElement);
+    }
     selectedElement.selectAll('.selection-outline').remove();
     selectedElement.selectAll('.resize-handle').remove();
     selectedElement.selectAll('.rotate-handle').remove();
@@ -481,6 +500,8 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleN.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const y = parseFloat(rect.attr('y') ?? '0');
                         const height = parseFloat(rect.attr('height') ?? '0');
                         d3.select(this).datum({ startY: event.y, y, height });
@@ -498,6 +519,8 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleS.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const height = parseFloat(rect.attr('height') ?? '0');
                         d3.select(this).datum({ startY: event.y, height });
                     })
@@ -513,6 +536,8 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleE.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const width = parseFloat(rect.attr('width') ?? '0');
                         d3.select(this).datum({ startX: event.x, width });
                     })
@@ -528,6 +553,8 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
             handleW.call(
                 d3.drag<SVGCircleElement, unknown>()
                     .on('start', function (event: MouseEvent) {
+                        const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                        if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const x = parseFloat(rect.attr('x') ?? '0');
                         const width = parseFloat(rect.attr('width') ?? '0');
                         d3.select(this).datum({ startX: event.x, x, width });
