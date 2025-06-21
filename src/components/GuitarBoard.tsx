@@ -125,6 +125,8 @@ const GuitarBoard: React.FC = () => {
     group.call(makeDraggable);
     group.call(makeResizable);
 
+    group.dispatch('click');
+
     return group;
   }
 
@@ -142,8 +144,8 @@ const GuitarBoard: React.FC = () => {
     const fo = group.append('foreignObject')
       .attr('x', 0)
       .attr('y', 0)
-      .attr('width', 160)
-      .attr('height', 90);
+      .attr('width', 240)
+      .attr('height', 135);
 
     fo.append('xhtml:iframe')
       .attr('width', '100%')
@@ -155,6 +157,8 @@ const GuitarBoard: React.FC = () => {
 
     group.call(makeDraggable);
     group.call(makeResizable, { lockAspectRatio: true });
+
+    group.dispatch('click');
 
     return group;
   }
@@ -228,10 +232,8 @@ const GuitarBoard: React.FC = () => {
     let min = notes.reduce((acc, note) => (acc < note.fret ? acc : note.fret), fretCount);
     let max = notes.reduce((acc, note) => (acc > note.fret ? acc : note.fret), 0) + 1;
 
-    console.log({ notes, min, max });
     min = min > 1 ? min - 1 : min;
     max = max < fretCount ? max + 1 : max;
-    console.log({ notes, min, max });
 
     setFretRange([min, max]);
   }
