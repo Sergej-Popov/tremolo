@@ -7,7 +7,7 @@ import { chords, scales } from '../repertoire';
 import { Button, Slider, Drawer } from '@mui/material';
 
 const edgeOffset = 20;
-const boardWidth = 300;
+const boardWidth = 500;
 const boardHeight = 120;
 
 const fretCount = 12;
@@ -419,7 +419,7 @@ const GuitarBoard: React.FC = () => {
     board.call(makeResizable, { rotatable: true });
   }
   boardRef.current = board.node();
-  board.on('click.board', () => setShowPanel(true));
+  board.on('dblclick.board', () => setShowPanel(true));
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.2, 5])
@@ -439,7 +439,6 @@ const GuitarBoard: React.FC = () => {
     const handle = (e: MouseEvent) => {
       const target = e.target as Node;
       if (boardRef.current?.contains(target) || controlsRef.current?.contains(target)) {
-        if (boardRef.current?.contains(target)) setShowPanel(true);
         return;
       }
       setShowPanel(false);
@@ -462,6 +461,8 @@ const GuitarBoard: React.FC = () => {
           anchor="bottom"
           open={showPanel}
           onClose={() => setShowPanel(false)}
+          hideBackdrop
+          ModalProps={{ keepMounted: true }}
           PaperProps={{ id: 'board-controls', ref: controlsRef, sx: { p: 2 } }}
         >
             <div>
