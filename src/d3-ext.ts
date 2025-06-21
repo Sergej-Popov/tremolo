@@ -320,11 +320,14 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
         d3.select(window).on('click.makeResizable', (event: MouseEvent) => {
             const controls = document.getElementById('board-controls');
             const colorSelect = document.getElementById('sticky-color-select');
+            const target = event.target as Node;
+            const isSvg = target instanceof SVGElement;
             if (
                 selectedElement &&
-                !selectedElement.node()?.contains(event.target as Node) &&
-                !(controls && controls.contains(event.target as Node)) &&
-                !(colorSelect && colorSelect.contains(event.target as Node))
+                isSvg &&
+                !selectedElement.node()?.contains(target) &&
+                !(controls && controls.contains(target)) &&
+                !(colorSelect && colorSelect.contains(target))
             ) {
                 clearSelection();
             }
