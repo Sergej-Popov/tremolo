@@ -80,7 +80,7 @@ function applyTransform(element: Selection<any, any, any, any>, transform: Trans
 }
 
 export function makeDraggable(selection: Selection<any, any, any, any>) {
-    interface DragDatum { offsetX: number, offsetY: number, transform: TransformValues };
+    interface DragDatum { dragOffsetX: number, dragOffsetY: number, transform: TransformValues };
 
     selection.call(
         d3.drag()
@@ -90,22 +90,23 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 if (!overlay.empty() && overlay.style('display') !== 'none') {
                     finishCrop(element);
                 }
-                const data: any = element.datum();
+                const data: any = element.datum() || {};
                 const transform: TransformValues = data.transform ?? defaultTransform();
 
-                const offsetX = event.x - transform.translateX;
-                const offsetY = event.y - transform.translateY;
+                const dragOffsetX = event.x - transform.translateX;
+                const dragOffsetY = event.y - transform.translateY;
 
-                element.datum<DragDatum>({ offsetX, offsetY, transform });
+                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform });
             })
             .on('drag', function (event: MouseEvent) {
                 const element = d3.select<any, DragDatum>(this);
-                const { offsetX, offsetY, transform } = element.datum();
+                const data = element.datum();
+                const { dragOffsetX, dragOffsetY, transform } = data;
 
                 const newTransform: TransformValues = {
                     ...transform,
-                    translateX: event.x - offsetX,
-                    translateY: event.y - offsetY,
+                    translateX: event.x - dragOffsetX,
+                    translateY: event.y - dragOffsetY,
                 };
 
                 applyTransform(element, newTransform);
