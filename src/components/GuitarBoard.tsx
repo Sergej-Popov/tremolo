@@ -127,7 +127,7 @@ const GuitarBoard: React.FC = () => {
       .attr('height', 100);
 
     group.call(makeDraggable);
-    group.call(makeResizable);
+    group.call(makeResizable, { rotatable: true });
 
     group.dispatch('click');
 
@@ -167,7 +167,7 @@ const GuitarBoard: React.FC = () => {
       .attr('allowFullScreen', 'true');
 
     group.call(makeDraggable);
-    group.call(makeResizable, { lockAspectRatio: true });
+    group.call(makeResizable, { lockAspectRatio: true, rotatable: true });
 
     group.dispatch('click');
 
@@ -295,7 +295,7 @@ const GuitarBoard: React.FC = () => {
     svg.append('g').attr('class', 'embedded-videos');
 
     board.call(makeDraggable);
-    board.call(makeResizable);
+    board.call(makeResizable, { rotatable: true });
 
     drawBoard();
 
