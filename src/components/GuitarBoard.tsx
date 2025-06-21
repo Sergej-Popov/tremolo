@@ -117,7 +117,7 @@ const GuitarBoard: React.FC = () => {
 
     const group = imagesLayer.append('g')
       .attr('class', 'pasted-image')
-      .datum<PastedImageDatum>({ src });
+      .datum<PastedImageDatum & { transform: any }>({ src, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
 
     group.append('image')
       .attr('href', src)
@@ -143,7 +143,7 @@ const GuitarBoard: React.FC = () => {
 
     const group = videosLayer.append('g')
       .attr('class', 'embedded-video')
-      .datum<PastedVideoDatum>({ url, videoId });
+      .datum<PastedVideoDatum & { transform: any }>({ url, videoId, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
 
     group.append('rect')
       .attr('x', 0)
@@ -290,7 +290,8 @@ const GuitarBoard: React.FC = () => {
     let board = svg.select<SVGGElement>('.guitar-board');
     if (!board.empty()) return;
 
-    board = svg.append('g').attr('class', 'guitar-board');
+    board = svg.append('g').attr('class', 'guitar-board')
+      .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
     svg.append('g').attr('class', 'pasted-images');
     svg.append('g').attr('class', 'embedded-videos');
 

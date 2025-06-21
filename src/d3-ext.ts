@@ -58,40 +58,44 @@ interface TransformValues {
     rotate: number;
 }
 
-function parseTransform(transform: string): TransformValues {
-    const translateMatch = /translate\(([^,]+),([^)]+)\)/.exec(transform) || ["", "0", "0"];
-    const scaleMatch = /scale\(([^,]+),([^)]+)\)/.exec(transform) || ["", "1", "1"];
-    const rotateMatch = /rotate\(([^)]+)\)/.exec(transform) || ["", "0"];
+const defaultTransform = (): TransformValues => ({
+    translateX: 0,
+    translateY: 0,
+    scaleX: 1,
+    scaleY: 1,
+    rotate: 0,
+});
 
-    return {
-        translateX: parseFloat(translateMatch[1]) || 0,
-        translateY: parseFloat(translateMatch[2]) || 0,
-        scaleX: parseFloat(scaleMatch[1]) || 1,
-        scaleY: parseFloat(scaleMatch[2]) || 1,
-        rotate: parseFloat(rotateMatch[1]) || 0,
-    };
+function buildTransform(transform: TransformValues, bbox: DOMRect): string {
+    const { translateX, translateY, scaleX, scaleY, rotate } = transform;
+    const cx = bbox.width / 2;
+    const cy = bbox.height / 2;
+    return `translate(${translateX + scaleX * cx}, ${translateY + scaleY * cy}) rotate(${rotate}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
 }
 
-function buildTransform({ translateX, translateY, scaleX, scaleY, rotate }: TransformValues): string {
-    return `translate(${translateX}, ${translateY}) scale(${scaleX}, ${scaleY}) rotate(${rotate})`;
+function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
+    (element.datum() as any).transform = transform;
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    element.attr('transform', buildTransform(transform, bbox));
 }
 
 export function makeDraggable(selection: Selection<any, any, any, any>) {
-    interface CoordinatesDatum { offsetX: number, offsetY: number, transform: TransformValues };
+    interface DragDatum { offsetX: number, offsetY: number, transform: TransformValues };
 
     selection.call(
         d3.drag()
             .on('start', function (event: MouseEvent) {
                 const element = d3.select(this);
-                const transform = parseTransform(element.attr('transform') || '');
+                const data: any = element.datum();
+                const transform: TransformValues = data.transform ?? defaultTransform();
 
                 const offsetX = event.x - transform.translateX;
                 const offsetY = event.y - transform.translateY;
 
-                element.datum<CoordinatesDatum>({ offsetX, offsetY, transform });
+                element.datum<DragDatum>({ offsetX, offsetY, transform });
             })
             .on('drag', function (event: MouseEvent) {
-                const element = d3.select<any, CoordinatesDatum>(this);
+                const element = d3.select<any, DragDatum>(this);
                 const { offsetX, offsetY, transform } = element.datum();
 
                 const newTransform: TransformValues = {
@@ -100,7 +104,7 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                     translateY: event.y - offsetY,
                 };
 
-                element.attr('transform', buildTransform(newTransform));
+                applyTransform(element, newTransform);
             })
     );
 }
@@ -120,8 +124,10 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
     if (!element.select('.resize-handle').empty()) return;
 
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
-    const transform = element.attr('transform') || '';
-    const { scaleX, scaleY } = parseTransform(transform);
+    const data: any = element.datum();
+    const transform: TransformValues = data.transform ?? defaultTransform();
+    data.transform = transform;
+    const { scaleX, scaleY } = transform;
 
     const handle = element.append('circle')
         .attr('class', 'resize-handle')
@@ -140,7 +146,9 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
 
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
-                const transform = parseTransform(element.attr('transform') || '');
+                const data = element.datum() as any;
+                const transform: TransformValues = data.transform ?? defaultTransform();
+                data.transform = transform;
                 const { scaleX, scaleY } = transform;
 
                 const startX = event.x;
@@ -167,7 +175,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 }
 
                 const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
-                element.attr('transform', buildTransform(newTransform));
+                applyTransform(element, newTransform);
 
                 d3.select(this)
                     .attr('cx', data.width)
@@ -198,7 +206,9 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                     if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
 
-                    const transform = parseTransform(element.attr('transform') || '');
+                    const data = element.datum() as any;
+                    const transform: TransformValues = data.transform ?? defaultTransform();
+                    data.transform = transform;
                     const bbox = (element.node() as SVGGraphicsElement).getBBox();
                     const centerX = transform.translateX + transform.scaleX * bbox.width / 2;
                     const centerY = transform.translateY + transform.scaleY * bbox.height / 2;
@@ -212,7 +222,7 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const angle = Math.atan2(event.y - centerY, event.x - centerX) - startAngle;
 
                     const newTransform: TransformValues = { ...transform, rotate: angle * 180 / Math.PI };
-                    element.attr('transform', buildTransform(newTransform));
+                    applyTransform(element, newTransform);
                 })
         );
 }
@@ -221,7 +231,8 @@ function addOutline(element: Selection<any, any, any, any>) {
     if (!element.select('.selection-outline').empty()) return;
 
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
-    const { scaleX, scaleY } = parseTransform(element.attr('transform') || '');
+    const data = element.datum() as any;
+    const { scaleX, scaleY } = (data.transform ?? defaultTransform());
 
     element.append('rect')
         .attr('class', 'selection-outline')
@@ -250,6 +261,11 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             if (event.key === 'Delete' && selectedElement) {
                 selectedElement.remove();
                 selectedElement = null;
+            } else if (event.key === 'r' && selectedElement) {
+                const data = selectedElement.datum() as any;
+                const transform: TransformValues = data.transform ?? defaultTransform();
+                const newTransform: TransformValues = { ...transform, rotate: 0 };
+                applyTransform(selectedElement, newTransform);
             }
         });
 
