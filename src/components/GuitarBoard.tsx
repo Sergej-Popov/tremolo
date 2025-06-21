@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -62,6 +62,7 @@ const GuitarBoard: React.FC = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
 
   const [fretRange, setFretRange] = useState<number[]>([1, fretCount]);
@@ -332,19 +333,25 @@ const GuitarBoard: React.FC = () => {
   }, [drawBoard, fretRange]);
 
   useEffect(() => {
+    const handle = (e: MouseEvent) => updateCursor(e.clientX, e.clientY);
+    window.addEventListener('mousemove', handle);
+    return () => window.removeEventListener('mousemove', handle);
+  }, []);
+
+  useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
         const trimmed = text.trim();
         const id = extractVideoId(trimmed);
         if (id) {
-          addVideo(trimmed, cursorPos);
+          addVideo(trimmed, cursorRef.current);
           event.preventDefault();
           return;
         }
 
         if (trimmed.length > 0) {
-          addSticky(trimmed, cursorPos);
+          addSticky(trimmed, cursorRef.current);
           event.preventDefault();
           return;
         }
@@ -358,7 +365,7 @@ const GuitarBoard: React.FC = () => {
           const file = item.getAsFile();
           if (!file) continue;
           const url = URL.createObjectURL(file);
-          addImage(url, cursorPos);
+          addImage(url, cursorRef.current);
           event.preventDefault();
         }
       }
@@ -370,14 +377,19 @@ const GuitarBoard: React.FC = () => {
     };
   }, []);
 
-  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+  const updateCursor = (clientX: number, clientY: number) => {
     if (!svgRef.current) return;
     const pt = svgRef.current.createSVGPoint();
-    pt.x = event.clientX;
-    pt.y = event.clientY;
+    pt.x = clientX;
+    pt.y = clientY;
     const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
     const [x, y] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
-    setCursorPos({ x, y });
+    cursorRef.current = { x, y };
+    setCursorPos(cursorRef.current);
+  };
+
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    updateCursor(event.clientX, event.clientY);
   };
 
   useEffect(() => {
@@ -401,6 +413,7 @@ const GuitarBoard: React.FC = () => {
     }
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .on('start', hideTooltip)
       .on('zoom', (event) => {
         workspace.attr('transform', event.transform.toString());
         zoomRef.current = event.transform;

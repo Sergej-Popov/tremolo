@@ -1,15 +1,27 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
 
-export const tooltip = function <GElement extends BaseType, Datum, PElement extends BaseType, PDatum>(selection: Selection<GElement, Datum, PElement, PDatum>, contentCallback: (any, Datum) => string) {
-    const tooltipDiv = d3.select('body').append('div')
+function ensureTooltip() {
+    let div = d3.select<HTMLElement, unknown>('#tooltip');
+    if (div.empty()) {
+        div = d3.select('body').append('div').attr('id', 'tooltip');
+    }
+    return div
         .attr('class', 'd3-tooltip')
         .style('position', 'absolute')
-        .style('opacity', 0)
         .style('background-color', 'lightgray')
         .style('padding', '5px')
         .style('border-radius', '5px')
         .style('pointer-events', 'none');
+}
+
+export function hideTooltip() {
+    d3.select('#tooltip').style('opacity', 0);
+}
+
+export const tooltip = function <GElement extends BaseType, Datum, PElement extends BaseType, PDatum>(selection: Selection<GElement, Datum, PElement, PDatum>, contentCallback: (any, Datum) => string) {
+    const tooltipDiv = ensureTooltip();
+    tooltipDiv.style('opacity', 0);
 
     selection
         .on('mouseover', function (event: MouseEvent, d) {
