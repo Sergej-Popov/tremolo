@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -114,6 +114,7 @@ const GuitarBoard: React.FC = () => {
       .attr('height', 100);
 
     group.call(makeDraggable);
+    group.call(makeResizable);
 
     return group;
   }
@@ -230,6 +231,7 @@ const GuitarBoard: React.FC = () => {
     svg.append('g').attr('class', 'pasted-images');
 
     board.call(makeDraggable);
+    board.call(makeResizable);
 
     drawBoard();
 
