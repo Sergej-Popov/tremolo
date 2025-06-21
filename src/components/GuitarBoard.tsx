@@ -38,7 +38,7 @@ const theme = {
 
 interface NoteDatum { string: noteString, fret: number }
 
-interface PastedImageDatum { src: string }
+interface PastedImageDatum { src: string, width: number, height: number }
 
 interface PastedVideoDatum { url: string, videoId: string }
 
@@ -120,20 +120,20 @@ const GuitarBoard: React.FC = () => {
     fitFretBoard();
   }
 
-  const addImage = (src: string, pos: { x: number, y: number }) => {
+  const addImage = (src: string, pos: { x: number, y: number }, width: number, height: number) => {
     const svg = d3.select(svgRef.current);
     const imagesLayer = svg.select<SVGGElement>('.pasted-images');
 
     const group = imagesLayer.append('g')
       .attr('class', 'pasted-image')
-      .datum<PastedImageDatum & { transform: any }>({ src, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+      .datum<PastedImageDatum & { transform: any }>({ src, width, height, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
 
     group.append('image')
       .attr('href', src)
       .attr('x', 0)
       .attr('y', 0)
-      .attr('width', 100)
-      .attr('height', 100);
+      .attr('width', width)
+      .attr('height', height);
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
 
@@ -365,7 +365,11 @@ const GuitarBoard: React.FC = () => {
           const file = item.getAsFile();
           if (!file) continue;
           const url = URL.createObjectURL(file);
-          addImage(url, cursorRef.current);
+          const img = new Image();
+          img.onload = () => {
+            addImage(url, cursorRef.current, img.width, img.height);
+          };
+          img.src = url;
           event.preventDefault();
         }
       }
