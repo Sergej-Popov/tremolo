@@ -4,17 +4,17 @@ import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransfo
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
-import { Button, Slider } from '@mui/material';
+import { Button, Slider, Drawer } from '@mui/material';
 
 const edgeOffset = 20;
-const svgWidth = 500;
-const svgHeight = 200
+const boardWidth = 500;
+const boardHeight = 160;
 
 const fretCount = 12;
-const fretBoardWidth = svgWidth;
-const fretBoardHeight = svgHeight - (2 * edgeOffset);
+const fretBoardWidth = boardWidth;
+const fretBoardHeight = boardHeight - (2 * edgeOffset);
 const stringHeight = fretBoardHeight / 5;
-const noteRadius = stringHeight / 2 - 3;
+const noteRadius = stringHeight / 2 - 1;
 const noteFontSize = 16;
 const fretWidth = fretBoardWidth / (fretCount - 1);
 
@@ -61,6 +61,9 @@ function extractVideoId(url: string): string | null {
 const GuitarBoard: React.FC = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
+  const boardRef = useRef<SVGGElement | null>(null);
+  const controlsRef = useRef<HTMLDivElement | null>(null);
+  const [showPanel, setShowPanel] = useState(false);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
   const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
@@ -404,19 +407,22 @@ const GuitarBoard: React.FC = () => {
     }
     workspaceRef.current = workspace.node();
 
-    let board = workspace.select<SVGGElement>('.guitar-board');
-    if (board.empty()) {
-      board = workspace.append('g').attr('class', 'guitar-board')
-        .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
-      workspace.append('g').attr('class', 'pasted-images');
-      workspace.append('g').attr('class', 'embedded-videos');
-      workspace.append('g').attr('class', 'sticky-notes');
+  let board = workspace.select<SVGGElement>('.guitar-board');
+  if (board.empty()) {
+    board = workspace.append('g').attr('class', 'guitar-board')
+      .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+    workspace.append('g').attr('class', 'pasted-images');
+    workspace.append('g').attr('class', 'embedded-videos');
+    workspace.append('g').attr('class', 'sticky-notes');
 
-      board.call(makeDraggable);
-      board.call(makeResizable, { rotatable: true });
-    }
+    board.call(makeDraggable);
+    board.call(makeResizable, { rotatable: true });
+  }
+  boardRef.current = board.node();
+  board.on('dblclick.board', () => setShowPanel(true));
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .filter(event => event.type !== 'dblclick')
       .scaleExtent([0.2, 5])
       .on('start', hideTooltip)
       .on('zoom', (event) => {
@@ -430,42 +436,79 @@ const GuitarBoard: React.FC = () => {
 
   }, []);
 
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (boardRef.current?.contains(target) || controlsRef.current?.contains(target)) {
+        return;
+      }
+      setShowPanel(false);
+    };
+    window.addEventListener('click', handle);
+    return () => window.removeEventListener('click', handle);
+  }, []);
+
   return (
     <>
       <div id="tooltip"></div>
-      <svg ref={svgRef} width={svgWidth * 3} height={svgHeight * 2} onMouseMove={handleMouseMove}></svg>
-
-      <div>
-        <Slider
-          style={{ maxWidth: '300px' }}
-          getAriaLabel={() => 'Frets'}
-          value={fretRange}
-          onChange={changeFretRange}
-          valueLabelDisplay="auto"
-          step={1}
-          marks
-          min={1}
-          max={fretCount}
-        />
-      </div>
-      <div>
-        {chords.map((chord) => (
-          <Button onClick={() => addShape(chord)} key={chord.name} variant="contained" color="primary">
-            {chord.name}
-          </Button>
-        ))}
-      </div>
-      <div>
-        {scales.map((scale) => (
-          <Button onClick={() => addShape(scale)} key={scale.name} variant="contained" color="primary">
-            {scale.name}
-          </Button>
-        ))}
-      </div>
-      <div>
-        <Button onClick={fillAllNotes} variant="contained" color="primary">
-          All Notes
-        </Button>
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <svg
+          ref={svgRef}
+          width="100%"
+          height="100%"
+          onMouseMove={handleMouseMove}
+        ></svg>
+        <Drawer
+          anchor="bottom"
+          open={showPanel}
+          onClose={() => setShowPanel(false)}
+          hideBackdrop
+          ModalProps={{ keepMounted: true }}
+          PaperProps={{ id: 'board-controls', ref: controlsRef, sx: { p: 2 } }}
+        >
+            <div>
+              <Slider
+                style={{ maxWidth: '180px' }}
+                getAriaLabel={() => 'Frets'}
+                value={fretRange}
+                onChange={changeFretRange}
+                valueLabelDisplay="auto"
+                step={1}
+                marks
+                min={1}
+                max={fretCount}
+              />
+            </div>
+            <div>
+              {chords.map((chord) => (
+                <Button
+                  onClick={() => addShape(chord)}
+                  key={chord.name}
+                  variant="contained"
+                  color="primary"
+                >
+                  {chord.name}
+                </Button>
+              ))}
+            </div>
+            <div>
+              {scales.map((scale) => (
+                <Button
+                  onClick={() => addShape(scale)}
+                  key={scale.name}
+                  variant="contained"
+                  color="primary"
+                >
+                  {scale.name}
+                </Button>
+              ))}
+            </div>
+            <div>
+              <Button onClick={fillAllNotes} variant="contained" color="primary">
+                All Notes
+              </Button>
+            </div>
+        </Drawer>
       </div>
     </>
   );

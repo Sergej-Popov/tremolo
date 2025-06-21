@@ -64,3 +64,11 @@
 .crop-shade-left {
     fill: rgba(0, 0, 0, 0.3);
 }
+#root, html, body {
+    height: 100%;
+    margin: 0;
+}
+
+#root > div {
+    height: 100%;
+}
