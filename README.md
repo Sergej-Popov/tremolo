@@ -8,6 +8,7 @@ https://sergej-popov.github.io/tremolo/
 
 ## Features
 - Drag and resize the guitar board.
+- Add multiple guitar boards in the same workspace.
 - Paste images that can be positioned and resized.
 - Paste YouTube links to embed videos while preserving aspect ratio.
 - Paste text to create sticky notes that can be dragged, resized and rotated. Double-click a sticky note to edit its text.
@@ -39,9 +40,7 @@ https://sergej-popov.github.io/tremolo/
 ## TODO music
 
 1. Provide an option to toggle note names on or off.
-2. Ability to create multiple boards. The buttons should be interacting with the 
-
 
 ## TODO bugs and technical
 
-1. Refactor d3 extensions, to a folder with separate
+1. Refactor d3 extensions, to a folder with separate files.
