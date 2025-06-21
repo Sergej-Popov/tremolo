@@ -78,6 +78,15 @@ export const defaultTransform = (): TransformValues => ({
     rotate: 0,
 });
 
+export function adjustStickyFont(el: HTMLDivElement) {
+    let size = 12;
+    el.style.fontSize = `${size}px`;
+    while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
+        size -= 1;
+        el.style.fontSize = `${size}px`;
+    }
+}
+
 function buildTransform(transform: TransformValues, bbox: DOMRect): string {
     const { translateX, translateY, scaleX, scaleY, rotate } = transform;
     const cx = bbox.width / 2;
@@ -146,6 +155,7 @@ export function isStickySelected(): boolean {
 interface ResizeOptions {
     lockAspectRatio?: boolean;
     rotatable?: boolean;
+    onResizeEnd?: (element: Selection<any, any, any, any>) => void;
 }
 
 function addResizeHandle(element: Selection<any, any, any, any>, options: ResizeOptions = {}) {
@@ -192,7 +202,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
                 d3.select(this)
                     .attr('r', handleRadius / Math.max(scaleX, scaleY))
-                    .datum({ startX, startY, transform, width: bbox.width, height: bbox.height });
+                    .datum({ startX, startY, transform, width: bbox.width, height: bbox.height, origWidth: bbox.width, origHeight: bbox.height });
             })
             .on('drag', function (event: MouseEvent) {
                 const data = d3.select<any, any>(this).datum();
@@ -213,8 +223,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
                 if (element.classed('sticky-note')) {
                     const stickyData = element.datum() as any;
-                    const width = stickyData.width * newScaleX;
-                    const height = stickyData.height * newScaleY;
+                    const width = data.origWidth * newScaleX;
+                    const height = data.origHeight * newScaleY;
                     stickyData.width = width;
                     stickyData.height = height;
                     element.select('rect').attr('width', width).attr('height', height);
@@ -235,6 +245,11 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                         .attr('cx', data.width)
                         .attr('cy', data.height)
                         .attr('r', handleRadius / Math.max(newScaleX, newScaleY));
+                }
+            })
+            .on('end', function () {
+                if (element.classed('sticky-note') && typeof options.onResizeEnd === 'function') {
+                    options.onResizeEnd(element);
                 }
             })
     );

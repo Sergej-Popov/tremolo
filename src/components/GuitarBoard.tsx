@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -210,14 +210,6 @@ const GuitarBoard: React.FC = () => {
     return group;
   }
 
-  const adjustStickyFont = (el: HTMLDivElement) => {
-    let size = 12;
-    el.style.fontSize = `${size}px`;
-    while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
-      size -= 1;
-      el.style.fontSize = `${size}px`;
-    }
-  };
 
   const addSticky = useCallback((text: string, pos: { x: number, y: number }) => {
     const svg = d3.select(svgRef.current);
@@ -293,7 +285,13 @@ const GuitarBoard: React.FC = () => {
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
 
     group.call(makeDraggable);
-    group.call(makeResizable, { rotatable: true });
+    group.call(makeResizable, {
+      rotatable: true,
+      onResizeEnd: (el) => {
+        const divNode = el.select<HTMLDivElement>('foreignObject > .sticky-text').node();
+        if (divNode) adjustStickyFont(divNode);
+      }
+    });
 
     group.dispatch('click');
 
@@ -401,6 +399,10 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') {
+        return; // let the browser handle paste inside editable sticky
+      }
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
         const trimmed = text.trim();
