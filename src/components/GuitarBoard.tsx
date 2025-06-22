@@ -65,6 +65,7 @@ const GuitarBoard: React.FC = () => {
   const stickyColor = app?.stickyColor ?? '#fef68a';
   const stickyAlign = app?.stickyAlign ?? 'center';
   const debug = app?.debug ?? false;
+  const addBoard = app?.addBoard ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
@@ -525,7 +526,9 @@ const GuitarBoard: React.FC = () => {
             duplicateElement(info);
             event.preventDefault();
             return;
-          } catch {}
+          } catch (err) {
+            console.error('Failed to parse tremolo data:', trimmed, err);
+          }
         }
         const id = extractVideoId(trimmed);
         if (id) {
