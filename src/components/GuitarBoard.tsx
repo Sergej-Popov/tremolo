@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -64,6 +64,7 @@ const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
   const stickyAlign = app?.stickyAlign ?? 'center';
+  const debug = app?.debug ?? false;
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
@@ -164,6 +165,10 @@ const GuitarBoard: React.FC = () => {
     group.call(makeResizable, { rotatable: true });
     group.call(makeCroppable);
 
+    if (debug) {
+      addDebugCross(group);
+    }
+
     group.dispatch('click');
 
     return group;
@@ -205,6 +210,10 @@ const GuitarBoard: React.FC = () => {
 
     group.call(makeDraggable);
     group.call(makeResizable, { lockAspectRatio: true, rotatable: true });
+
+    if (debug) {
+      addDebugCross(group);
+    }
 
     group.dispatch('click');
 
@@ -301,6 +310,10 @@ const GuitarBoard: React.FC = () => {
         if (divNode) adjustStickyFont(divNode);
       }
     });
+
+    if (debug) {
+      addDebugCross(group);
+    }
 
     group.dispatch('click');
 
@@ -476,6 +489,18 @@ const GuitarBoard: React.FC = () => {
       workspace.append('g').attr('class', 'pasted-images');
       workspace.append('g').attr('class', 'embedded-videos');
       workspace.append('g').attr('class', 'sticky-notes');
+      if (debug) {
+        workspace.append('text')
+          .attr('id', 'global-debug-cross')
+          .attr('x', 0)
+          .attr('y', 0)
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('font-size', 20)
+          .attr('class', 'debug-cross-global')
+          .style('pointer-events', 'none')
+          .text('\u271b');
+      }
     }
     workspaceRef.current = workspace.node();
 
@@ -487,6 +512,9 @@ const GuitarBoard: React.FC = () => {
           .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
         b.call(makeDraggable);
         b.call(makeResizable, { rotatable: true });
+        if (debug) {
+          addDebugCross(b);
+        }
         b.on('click.board', () => setSelectedBoard(id));
         b.on('dblclick.board', () => { setSelectedBoard(id); setShowPanel(true); });
       }
@@ -496,6 +524,11 @@ const GuitarBoard: React.FC = () => {
     setFretRange(fretRangesRef.current[selectedBoard] ?? [1, fretCount]);
     drawBoard();
   }, [boards, selectedBoard]);
+
+  useEffect(() => {
+    d3.select('#global-debug-cross').style('display', debug ? 'block' : 'none');
+    d3.selectAll('.component-debug-cross').style('display', debug ? 'block' : 'none');
+  }, [debug]);
 
   useEffect(() => {
     const svg = d3.select(svgRef.current);

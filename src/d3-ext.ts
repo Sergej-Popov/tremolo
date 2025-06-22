@@ -1,6 +1,22 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
 
+let debugEnabled = false;
+
+export function setDebugMode(enabled: boolean) {
+    debugEnabled = enabled;
+}
+
+export function isDebugMode(): boolean {
+    return debugEnabled;
+}
+
+export function debugLog(...args: unknown[]) {
+    if (debugEnabled) {
+        console.log(...args);
+    }
+}
+
 function ensureTooltip() {
     let div = d3.select<HTMLElement, unknown>('#tooltip');
     if (div.empty()) {
@@ -42,6 +58,8 @@ export const tooltip = function <GElement extends BaseType, Datum, PElement exte
 };
 
 export const debugTooltip = function <GElement extends BaseType, Datum, PElement extends BaseType, PDatum>(selection: Selection<GElement, Datum, PElement, PDatum>) {
+    selection.on('.debugTooltip', null);
+    if (!debugEnabled) return;
     selection.call(tooltip, (event: MouseEvent, d: any) => {
         const target = event.target as SVGElement;
 
@@ -96,6 +114,33 @@ export function adjustStickyFont(el: HTMLDivElement) {
         el.style.overflow = 'auto';
         el.onwheel = (e) => e.stopPropagation();
     }
+}
+
+export function addDebugCross(element: Selection<any, any, any, any>, size = 8) {
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const cross = element.append('text')
+        .attr('class', 'component-debug-cross')
+        .attr('x', bbox.width / 2)
+        .attr('y', bbox.height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-size', size)
+        .attr('fill', 'red')
+        .style('pointer-events', 'none')
+        .text('\u2715');
+    cross.style('display', debugEnabled ? 'block' : 'none');
+    return cross;
+}
+
+export function updateDebugCross(element: Selection<any, any, any, any>, size = 8) {
+    const cross = element.select<SVGTextElement>('.component-debug-cross');
+    if (cross.empty()) return;
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    cross
+        .attr('x', bbox.width / 2)
+        .attr('y', bbox.height / 2)
+        .attr('font-size', size)
+        .style('display', debugEnabled ? 'block' : 'none');
 }
 
 function buildTransform(transform: TransformValues, bbox: DOMRect): string {
@@ -199,6 +244,12 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
         .style('user-select', 'none')
         .style('vector-effect', 'non-scaling-stroke');
 
+    if (!element.select('.component-debug-cross').empty()) {
+        updateDebugCross(element);
+    } else if (debugEnabled) {
+        addDebugCross(element);
+    }
+
     handle.call(
         d3.drag<SVGTextElement, unknown>()
             .on('start', function (event: MouseEvent) {
@@ -216,6 +267,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 data.transform = transform;
                 const startX = event.x;
                 const startY = event.y;
+                debugLog('resize start', bbox.width, bbox.height);
 
                 d3.select(this)
                     .datum({ startX, startY, transform, width: bbox.width, height: bbox.height, origWidth: bbox.width, origHeight: bbox.height });
@@ -252,6 +304,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     d3.select(this)
                         .attr('x', width + handleSize)
                         .attr('y', height + handleSize);
+                    updateDebugCross(element);
+                    debugLog('resize drag', width, height);
                 } else {
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
                     applyTransform(element, newTransform);
@@ -259,12 +313,16 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     d3.select(this)
                         .attr('x', data.width + handleSize)
                         .attr('y', data.height + handleSize);
+                    updateDebugCross(element);
+                    debugLog('resize drag', newScaleX, newScaleY);
                 }
             })
             .on('end', function () {
                 if (element.classed('sticky-note') && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
+                updateDebugCross(element);
+                debugLog('resize end');
             })
     );
 }
@@ -298,18 +356,19 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const data = element.datum() as any;
                     const transform: TransformValues = data.transform ?? defaultTransform();
                     data.transform = transform;
-                    const bbox = (element.node() as SVGGraphicsElement).getBBox();
-                    const centerX = transform.translateX + transform.scaleX * bbox.width / 2;
-                    const centerY = transform.translateY + transform.scaleY * bbox.height / 2;
-                    const startAngle = Math.atan2(event.y - centerY, event.x - centerX);
-                    const cumulative = transform.rotate * Math.PI / 180;
+                const bbox = (element.node() as SVGGraphicsElement).getBBox();
+                const centerX = transform.translateX + transform.scaleX * bbox.width / 2;
+                const centerY = transform.translateY + transform.scaleY * bbox.height / 2;
+                const startAngle = Math.atan2(event.y - centerY, event.x - centerX);
+                const cumulative = transform.rotate * Math.PI / 180;
+                debugLog('rotate start', startAngle);
 
                     d3.select(this).datum({ centerX, centerY, lastAngle: startAngle, cumulative, transform });
                 })
                 .on('drag', function (event: MouseEvent) {
                     const data = d3.select<any, any>(this).datum();
                     const { centerX, centerY, transform } = data;
-                    const current = Math.atan2(event.y - centerY, event.x - centerX);
+                const current = Math.atan2(event.y - centerY, event.x - centerX);
                     let delta = current - data.lastAngle;
                     if (delta > Math.PI) delta -= 2 * Math.PI;
                     if (delta < -Math.PI) delta += 2 * Math.PI;
@@ -318,6 +377,8 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
 
                     const newTransform: TransformValues = { ...transform, rotate: data.cumulative * 180 / Math.PI };
                     applyTransform(element, newTransform);
+                    updateDebugCross(element);
+                    debugLog('rotate', newTransform.rotate);
                 })
         );
 }
@@ -406,6 +467,13 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             addResizeHandle(element, options);
             if (options.rotatable) {
                 addRotateHandle(element);
+            }
+            if (debugEnabled) {
+                if (element.select('.component-debug-cross').empty()) {
+                    addDebugCross(element);
+                } else {
+                    updateDebugCross(element);
+                }
             }
             dispatchSelectionChange();
         });

@@ -19,6 +19,7 @@ https://sergej-popov.github.io/tremolo/
 - Quickly add predefined chords or scales or display all notes.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.
 - Change sticky note text alignment using the header buttons when a note is selected.
+- Toggle debug mode with **d** to show extra info and crosses over elements.
 
 ## Hotkeys
 - **Delete** – remove the selected item.

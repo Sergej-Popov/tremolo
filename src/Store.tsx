@@ -1,4 +1,5 @@
 import React, { createContext, useState, ReactNode } from "react";
+import { setDebugMode } from './d3-ext';
 
 import { noteColors } from "./theme";
 
@@ -13,6 +14,8 @@ interface AppState {
   setStickySelected: React.Dispatch<React.SetStateAction<boolean>>;
   boards: number[];
   addBoard: () => void;
+  debug: boolean;
+  setDebug: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const AppContext = createContext<AppState | undefined>(undefined);
@@ -25,13 +28,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [stickyAlign, setStickyAlign] = useState<'left' | 'center' | 'right'>('center');
   const [stickySelected, setStickySelected] = useState<boolean>(false);
   const [boards, setBoards] = useState<number[]>([0]);
+  const [debug, setDebug] = useState<boolean>(false);
 
   const addBoard = () => {
     setBoards((ids) => [...ids, ids.length ? Math.max(...ids) + 1 : 0]);
   };
 
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'd') {
+        setDebug((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  React.useEffect(() => {
+    setDebugMode(debug);
+  }, [debug]);
+
   return (
-    <AppContext.Provider value={{ data, setData, stickyColor, setStickyColor, stickyAlign, setStickyAlign, stickySelected, setStickySelected, boards, addBoard }}>
+    <AppContext.Provider value={{ data, setData, stickyColor, setStickyColor, stickyAlign, setStickyAlign, stickySelected, setStickySelected, boards, addBoard, debug, setDebug }}>
       {children}
     </AppContext.Provider>
   );

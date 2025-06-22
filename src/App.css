@@ -91,6 +91,14 @@
 .crop-shade-left {
     fill: rgba(0, 0, 0, 0.3);
 }
+
+.debug-cross-global {
+    fill: black;
+}
+
+.component-debug-cross {
+    fill: red;
+}
 #root, html, body {
     height: 100%;
     margin: 0;
