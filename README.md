@@ -19,11 +19,15 @@ https://sergej-popov.github.io/tremolo/
 - Quickly add predefined chords or scales or display all notes.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.
 - Change sticky note text alignment using the header buttons when a note is selected.
+- Set a fixed font size for a sticky note from the header dropdown or choose "Auto" for automatic sizing (6–48px in even steps).
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
 
 ## Hotkeys
 - **Delete** – remove the selected item.
 - **c** – crop selected image (or double-click an image to toggle cropping).
+- **Ctrl+C** – copy selected element to the clipboard.
+- **Ctrl+V** – paste copied element at the cursor location.
+- **Ctrl+D** – duplicate the selected element at the cursor.
 
 ## TODO general
 
