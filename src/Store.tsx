@@ -42,6 +42,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       if (e.key === 'd') {
         setDebug((prev) => !prev);
       }
+      if (e.key === 'b') {
+        setDrawingMode((prev) => !prev);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);

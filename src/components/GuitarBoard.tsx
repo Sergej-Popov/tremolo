@@ -81,7 +81,7 @@ const GuitarBoard: React.FC = () => {
   const [zoomValue, setZoomValue] = useState(1);
   const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const drawing = useRef(false);
-  const lastPoint = useRef<{ x: number; y: number; pressure: number } | null>(null);
+  const lastPoint = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const boards = app?.boards ?? [0];
   const boardsRef = useRef<number[]>(boards);
@@ -522,6 +522,22 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (zoomBehaviorRef.current && svgRef.current) {
+      zoomBehaviorRef.current.filter(event => {
+        if (event.type === 'dblclick') return false;
+        const e = event as any;
+        if (e.ctrlKey) return false;
+        if (drawingMode) return false;
+        const target = e.target as Element;
+        return target === svgRef.current || target === workspaceRef.current;
+      });
+    }
+    if (workspaceRef.current) {
+      d3.select(workspaceRef.current).style('pointer-events', drawingMode ? 'none' : 'all');
+    }
+  }, [drawingMode]);
+
+  useEffect(() => {
     setStickySelected(false);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
@@ -674,7 +690,7 @@ const GuitarBoard: React.FC = () => {
       });
     drawingSel.current = g;
     drawing.current = true;
-    lastPoint.current = { x, y, pressure: event.pressure || 0.5 };
+    lastPoint.current = { x, y, time: performance.now() };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -683,20 +699,25 @@ const GuitarBoard: React.FC = () => {
     const prev = lastPoint.current;
     if (!prev) return;
     const { x, y } = toWorkspace(event.clientX, event.clientY);
-    const pressure = event.pressure || 0.5;
-    const stroke = Math.max(1, pressure * 6);
-    drawingSel.current.append('line')
-      .attr('x1', prev.x)
-      .attr('y1', prev.y)
-      .attr('x2', x)
-      .attr('y2', y)
+    const now = performance.now();
+    const dt = now - prev.time;
+    const dist = Math.hypot(x - prev.x, y - prev.y);
+    const speed = dt > 0 ? dist / dt : 0;
+    const minStroke = 1;
+    const maxStroke = 6;
+    const stroke = Math.max(minStroke, Math.min(maxStroke, maxStroke - speed * 2));
+    const midX = (prev.x + x) / 2;
+    const midY = (prev.y + y) / 2;
+    drawingSel.current.append('path')
+      .attr('d', `M ${prev.x} ${prev.y} Q ${prev.x} ${prev.y} ${midX} ${midY}`)
       .attr('stroke', 'black')
+      .attr('fill', 'none')
       .attr('stroke-linecap', 'round')
       .attr('stroke-linejoin', 'round')
       .attr('stroke-width', stroke);
     const data: any = drawingSel.current.datum();
-    data.lines.push({ x1: prev.x, y1: prev.y, x2: x, y2: y, stroke });
-    lastPoint.current = { x, y, pressure };
+    data.lines.push({ x1: prev.x, y1: prev.y, x2: midX, y2: midY, stroke });
+    lastPoint.current = { x: midX, y: midY, time: now };
   };
 
   const finishDrawing = () => {
@@ -714,13 +735,9 @@ const GuitarBoard: React.FC = () => {
       stroke: ln.stroke,
     }));
     applyTransform(g, { translateX: bbox.x, translateY: bbox.y, scaleX: 1, scaleY: 1, rotate: 0 });
-    g.selectAll<SVGLineElement, unknown>('line').each(function () {
-      const line = d3.select(this);
-      line
-        .attr('x1', parseFloat(line.attr('x1')) - bbox.x)
-        .attr('y1', parseFloat(line.attr('y1')) - bbox.y)
-        .attr('x2', parseFloat(line.attr('x2')) - bbox.x)
-        .attr('y2', parseFloat(line.attr('y2')) - bbox.y);
+    g.selectAll<SVGPathElement, any>('path').each(function (d: any, i: number) {
+      const ln = data.lines[i];
+      d3.select(this).attr('d', `M ${ln.x1} ${ln.y1} Q ${ln.x1} ${ln.y1} ${ln.x2} ${ln.y2}`);
     });
     g.call(makeDraggable);
     g.call(makeResizable, { rotatable: true });
@@ -819,6 +836,7 @@ const GuitarBoard: React.FC = () => {
         if (event.type === 'dblclick') return false;
         const e = event as any;
         if (e.ctrlKey) return false;
+        if (drawingMode) return false;
         const target = e.target as Element;
         return target === svgRef.current || target === workspaceRef.current;
       })
