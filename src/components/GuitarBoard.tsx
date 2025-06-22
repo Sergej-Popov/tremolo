@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -38,13 +38,13 @@ const theme = {
   }
 }
 
-interface NoteDatum { string: noteString, fret: number }
+interface NoteDatum { id: string; type: 'note'; string: noteString; fret: number }
 
-interface PastedImageDatum { src: string, width: number, height: number }
+interface PastedImageDatum { id: string; type: 'image'; src: string; width: number; height: number }
 
-interface PastedVideoDatum { url: string, videoId: string }
+interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: string }
 
-interface StickyNoteDatum { text: string, align: 'left' | 'center' | 'right' }
+interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
 const stickyWidth = 225;
 const stickyHeight = 150;
@@ -114,7 +114,7 @@ const GuitarBoard: React.FC = () => {
 
     const note = board.append('g')
       .attr('class', 'note')
-      .datum<NoteDatum>({ string, fret });
+      .datum<NoteDatum>({ id: generateId(), type: 'note', string, fret });
 
     note.append('circle')
       .attr('cx', x)
@@ -160,7 +160,7 @@ const GuitarBoard: React.FC = () => {
 
     const group = imagesLayer.append('g')
       .attr('class', 'pasted-image')
-      .datum<PastedImageDatum & { transform: any }>({ src, width, height, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+      .datum<PastedImageDatum & { transform: any }>({ id: generateId(), type: 'image', src, width, height, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
 
     group.append('image')
       .attr('href', src)
@@ -194,6 +194,8 @@ const GuitarBoard: React.FC = () => {
     const group = videosLayer.append('g')
       .attr('class', 'embedded-video')
       .datum<PastedVideoDatum & { width: number, height: number, transform: any }>({
+        id: generateId(),
+        type: 'video',
         url,
         videoId,
         width: videoWidth + videoPadding * 2,
@@ -244,6 +246,8 @@ const GuitarBoard: React.FC = () => {
     const group = notesLayer.append('g')
       .attr('class', 'sticky-note')
       .datum<StickyNoteDatum & { width: number, height: number, transform: any, fontSize: number | null }>({
+        id: generateId(),
+        type: 'sticky',
         text,
         align: stickyAlign,
         width: stickyWidth,
@@ -636,7 +640,9 @@ const GuitarBoard: React.FC = () => {
         b = workspace
           .append('g')
           .attr('class', `guitar-board guitar-board-${id}`)
-          .datum<{ transform: any }>({
+          .datum<{ id: string; type: 'board'; transform: any }>({
+            id: generateId(),
+            type: 'board',
             transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
           });
         b.call(makeDraggable);

@@ -6,6 +6,13 @@ let svgRoot: SVGSVGElement | null = null;
 
 let debugEnabled = false;
 
+export function generateId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+        return (crypto as any).randomUUID();
+    }
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
 export function setDebugMode(enabled: boolean) {
     debugEnabled = enabled;
 }
