@@ -379,16 +379,19 @@ const GuitarBoard: React.FC = () => {
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
       addBoard();
-      setTimeout(() => {
+      const apply = () => {
         const workspace = d3.select(workspaceRef.current);
         const g = workspace.select<SVGGElement>(`.guitar-board-${newId}`);
-        if (!g.empty()) {
-          applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
-          if (Array.isArray(info.data.notes)) {
-            info.data.notes.forEach((n: any) => addNoteToBoard(g, n.string, n.fret));
-          }
+        if (g.empty()) {
+          requestAnimationFrame(apply);
+          return;
         }
-      }, 0);
+        applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
+        if (Array.isArray(info.data.notes)) {
+          info.data.notes.forEach((n: any) => addNoteToBoard(g, n.string, n.fret));
+        }
+      };
+      apply();
     }
   };
 
