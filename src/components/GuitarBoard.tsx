@@ -44,7 +44,7 @@ interface PastedImageDatum { src: string, width: number, height: number }
 
 interface PastedVideoDatum { url: string, videoId: string }
 
-interface StickyNoteDatum { text: string }
+interface StickyNoteDatum { text: string, align: 'left' | 'center' | 'right' }
 
 const stickyWidth = 150;
 const stickyHeight = 100;
@@ -63,6 +63,7 @@ function extractVideoId(url: string): string | null {
 const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
+  const stickyAlign = app?.stickyAlign ?? 'center';
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
@@ -219,6 +220,7 @@ const GuitarBoard: React.FC = () => {
       .attr('class', 'sticky-note')
       .datum<StickyNoteDatum & { width: number, height: number, transform: any }>({
         text,
+        align: stickyAlign,
         width: stickyWidth,
         height: stickyHeight,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
@@ -246,7 +248,8 @@ const GuitarBoard: React.FC = () => {
       .style('box-sizing', 'border-box')
       .style('font-family', 'Segoe UI')
       .style('font-size', '12px')
-      .style('padding', '8px')
+      .style('padding', '12px')
+      .style('text-align', stickyAlign)
       .style('overflow', 'hidden')
       .style('white-space', 'pre-wrap')
       .style('word-break', 'break-word')

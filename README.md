@@ -18,6 +18,7 @@ https://sergej-popov.github.io/tremolo/
 - Select a pasted object and press **Delete** to remove it.
 - Quickly add predefined chords or scales or display all notes.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.
+- Change sticky note text alignment using the header buttons when a note is selected.
 
 ## Hotkeys
 - **Delete** – remove the selected item.

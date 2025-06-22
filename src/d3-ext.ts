@@ -95,7 +95,6 @@ export function adjustStickyFont(el: HTMLDivElement) {
         el.classList.add('scrollable');
         el.style.overflow = 'auto';
         el.onwheel = (e) => e.stopPropagation();
-        el.onmousedown = (e) => e.stopPropagation();
     }
 }
 
@@ -157,6 +156,15 @@ function dispatchSelectionChange() {
 export function updateSelectedColor(color: string) {
     if (selectedElement && selectedElement.classed('sticky-note')) {
         selectedElement.select('rect').attr('fill', color);
+    }
+}
+
+export function updateSelectedAlignment(align: 'left' | 'center' | 'right') {
+    if (selectedElement && selectedElement.classed('sticky-note')) {
+        selectedElement.select<HTMLElement>('foreignObject > .sticky-text')
+            .style('text-align', align);
+        const data = selectedElement.datum() as any;
+        data.align = align;
     }
 }
 
