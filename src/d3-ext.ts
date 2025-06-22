@@ -1,6 +1,43 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
 
+let zoomTransform: d3.ZoomTransform = d3.zoomIdentity;
+let svgRoot: SVGSVGElement | null = null;
+
+let debugEnabled = false;
+
+export function setDebugMode(enabled: boolean) {
+    debugEnabled = enabled;
+}
+
+export function setZoomTransform(transform: d3.ZoomTransform) {
+    zoomTransform = transform;
+}
+
+export function setSvgRoot(svg: SVGSVGElement | null) {
+    svgRoot = svg;
+}
+
+function toWorkspaceCoords(event: MouseEvent | d3.D3DragEvent<any, any, any>): [number, number] {
+    if (!svgRoot) return [0, 0];
+    const domEvent: MouseEvent = (event as any).sourceEvent ?? event;
+    const pt = svgRoot.createSVGPoint();
+    pt.x = domEvent.clientX;
+    pt.y = domEvent.clientY;
+    const svgPoint = pt.matrixTransform(svgRoot.getScreenCTM()!.inverse());
+    return zoomTransform.invert([svgPoint.x, svgPoint.y]);
+}
+
+export function isDebugMode(): boolean {
+    return debugEnabled;
+}
+
+export function debugLog(...args: unknown[]) {
+    if (debugEnabled) {
+        console.log(...args);
+    }
+}
+
 function ensureTooltip() {
     let div = d3.select<HTMLElement, unknown>('#tooltip');
     if (div.empty()) {
@@ -42,6 +79,8 @@ export const tooltip = function <GElement extends BaseType, Datum, PElement exte
 };
 
 export const debugTooltip = function <GElement extends BaseType, Datum, PElement extends BaseType, PDatum>(selection: Selection<GElement, Datum, PElement, PDatum>) {
+    selection.on('.debugTooltip', null);
+    if (!debugEnabled) return;
     selection.call(tooltip, (event: MouseEvent, d: any) => {
         const target = event.target as SVGElement;
 
@@ -78,17 +117,73 @@ export const defaultTransform = (): TransformValues => ({
     rotate: 0,
 });
 
-function buildTransform(transform: TransformValues, bbox: DOMRect): string {
+export function adjustStickyFont(el: HTMLDivElement) {
+    let size = 12;
+    el.classList.remove('scrollable');
+    el.style.overflow = 'hidden';
+    el.style.fontSize = `${size}px`;
+    el.onwheel = null;
+    el.onmousedown = null;
+
+    while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
+        size -= 1;
+        el.style.fontSize = `${size}px`;
+    }
+
+    if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
+        el.classList.add('scrollable');
+        el.style.overflow = 'auto';
+        el.onwheel = (e) => e.stopPropagation();
+    }
+}
+
+export function addDebugCross(element: Selection<any, any, any, any>, size = 12) {
+    const data: any = element.datum() || {};
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+    const cross = element.append('text')
+        .attr('class', 'component-debug-cross')
+        .attr('x', width / 2)
+        .attr('y', height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-size', size)
+        .attr('fill', 'red')
+        .style('pointer-events', 'none')
+        .text('+');
+    cross.style('display', debugEnabled ? 'block' : 'none');
+    return cross;
+}
+
+export function updateDebugCross(element: Selection<any, any, any, any>, size = 12) {
+    const cross = element.select<SVGTextElement>('.component-debug-cross');
+    if (cross.empty()) return;
+    const data: any = element.datum() || {};
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+    cross
+        .attr('x', width / 2)
+        .attr('y', height / 2)
+        .attr('font-size', size)
+        .style('display', debugEnabled ? 'block' : 'none');
+}
+
+function buildTransform(transform: TransformValues, size: { width: number; height: number }): string {
     const { translateX, translateY, scaleX, scaleY, rotate } = transform;
-    const cx = bbox.width / 2;
-    const cy = bbox.height / 2;
-    return `translate(${translateX + scaleX * cx}, ${translateY + scaleY * cy}) rotate(${rotate}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
+    const cx = (size.width * scaleX) / 2;
+    const cy = (size.height * scaleY) / 2;
+    return `translate(${translateX}, ${translateY}) rotate(${rotate}, ${cx}, ${cy}) scale(${scaleX}, ${scaleY})`;
 }
 
 export function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
-    (element.datum() as any).transform = transform;
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
-    element.attr('transform', buildTransform(transform, bbox));
+    const data: any = element.datum() || {};
+    data.transform = transform;
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+    element.attr('transform', buildTransform(transform, { width, height }));
+    if (selectedElement && element.node() === selectedElement.node()) {
+        dispatchSelectionChange();
+    }
 }
 
 export function makeDraggable(selection: Selection<any, any, any, any>) {
@@ -105,9 +200,11 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const data: any = element.datum() || {};
                 const transform: TransformValues = data.transform ?? defaultTransform();
 
-                const dragOffsetX = event.x - transform.translateX;
-                const dragOffsetY = event.y - transform.translateY;
+                const [startX, startY] = toWorkspaceCoords(event);
+                const dragOffsetX = startX - transform.translateX;
+                const dragOffsetY = startY - transform.translateY;
 
+                debugLog('drag start', transform.translateX, transform.translateY);
                 element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform });
             })
             .on('drag', function (event: MouseEvent) {
@@ -115,13 +212,15 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const data = element.datum();
                 const { dragOffsetX, dragOffsetY, transform } = data;
 
+                const [mx, my] = toWorkspaceCoords(event);
                 const newTransform: TransformValues = {
                     ...transform,
-                    translateX: event.x - dragOffsetX,
-                    translateY: event.y - dragOffsetY,
+                    translateX: mx - dragOffsetX,
+                    translateY: my - dragOffsetY,
                 };
 
                 applyTransform(element, newTransform);
+                debugLog('drag', newTransform.translateX, newTransform.translateY);
             })
     );
 }
@@ -139,6 +238,15 @@ export function updateSelectedColor(color: string) {
     }
 }
 
+export function updateSelectedAlignment(align: 'left' | 'center' | 'right') {
+    if (selectedElement && selectedElement.classed('sticky-note')) {
+        selectedElement.select<HTMLElement>('foreignObject > .sticky-text')
+            .style('text-align', align);
+        const data = selectedElement.datum() as any;
+        data.align = align;
+    }
+}
+
 export function isStickySelected(): boolean {
     return !!selectedElement && selectedElement.classed('sticky-note');
 }
@@ -146,32 +254,40 @@ export function isStickySelected(): boolean {
 interface ResizeOptions {
     lockAspectRatio?: boolean;
     rotatable?: boolean;
+    onResizeEnd?: (element: Selection<any, any, any, any>) => void;
 }
 
 function addResizeHandle(element: Selection<any, any, any, any>, options: ResizeOptions = {}) {
     const { lockAspectRatio = true } = options;
-    const handleRadius = 6;
+    const handleSize = 16;
 
     if (!element.select('.resize-handle').empty()) return;
 
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const data: any = element.datum();
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
-    const { scaleX, scaleY } = transform;
 
-    const handle = element.append('circle')
+    const handle = element.append('text')
         .attr('class', 'resize-handle')
-        .attr('cx', bbox.width)
-        .attr('cy', bbox.height)
-        .attr('r', handleRadius / Math.max(scaleX, scaleY))
+        .attr('x', width + handleSize / transform.scaleX)
+        .attr('y', height + handleSize / transform.scaleY)
+        .text('\u2921')
+        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'nwse-resize')
-        .attr('fill', 'white')
-        .attr('stroke', 'black')
+        .style('user-select', 'none')
         .style('vector-effect', 'non-scaling-stroke');
 
+    if (!element.select('.component-debug-cross').empty()) {
+        updateDebugCross(element);
+    } else if (debugEnabled) {
+        addDebugCross(element);
+    }
+
     handle.call(
-        d3.drag<SVGCircleElement, unknown>()
+        d3.drag<SVGTextElement, unknown>()
             .on('start', function (event: MouseEvent) {
                 const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                 if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -183,23 +299,23 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
                 const data = element.datum() as any;
+                const width = data.width ?? bbox.width;
+                const height = data.height ?? bbox.height;
                 const transform: TransformValues = data.transform ?? defaultTransform();
                 data.transform = transform;
-                const { scaleX, scaleY } = transform;
-
-                const startX = event.x;
-                const startY = event.y;
+                const [startX, startY] = toWorkspaceCoords(event);
+                debugLog('resize start', width, height);
 
                 d3.select(this)
-                    .attr('r', handleRadius / Math.max(scaleX, scaleY))
-                    .datum({ startX, startY, transform, width: bbox.width, height: bbox.height });
+                    .datum({ startX, startY, transform, width, height, origWidth: width, origHeight: height });
             })
             .on('drag', function (event: MouseEvent) {
                 const data = d3.select<any, any>(this).datum();
                 const { transform } = data;
 
-                const dx = event.x - data.startX;
-                const dy = event.y - data.startY;
+                const [mx, my] = toWorkspaceCoords(event);
+                const dx = mx - data.startX;
+                const dy = my - data.startY;
 
                 let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
                 let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
@@ -211,29 +327,77 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     newScaleY = ratio;
                 }
 
-                const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
-                applyTransform(element, newTransform);
+                if (element.classed('sticky-note')) {
+                    const stickyData = element.datum() as any;
+                    const width = data.origWidth * newScaleX;
+                    const height = data.origHeight * newScaleY;
+                    stickyData.width = width;
+                    stickyData.height = height;
+                    element.select('rect').attr('width', width).attr('height', height);
+                    element.select('foreignObject').attr('width', width).attr('height', height);
+                    element.select('.selection-outline').attr('width', width).attr('height', height);
+                    element.select('.rotate-handle')
+                        .attr('x', width + handleSize)
+                        .attr('font-size', handleSize);
+                    const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
+                    applyTransform(element, newTransform);
+                    d3.select(this)
+                        .attr('x', width + handleSize)
+                        .attr('y', height + handleSize)
+                        .attr('font-size', handleSize);
+                    updateDebugCross(element);
+                    debugLog('resize drag', width, height);
+                } else {
+                    const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
+                    applyTransform(element, newTransform);
 
-                d3.select(this)
-                    .attr('cx', data.width)
-                    .attr('cy', data.height)
-                    .attr('r', handleRadius / Math.max(newScaleX, newScaleY));
+                    const scaledWidth = data.width * newScaleX;
+                    const scaledHeight = data.height * newScaleY;
+
+                    d3.select(this)
+                        .attr('x', data.width + handleSize / newScaleX)
+                        .attr('y', data.height + handleSize / newScaleY)
+                        .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
+
+                    const rotateHandle = element.select('.rotate-handle');
+                    if (!rotateHandle.empty()) {
+                        rotateHandle
+                            .attr('x', data.width + handleSize / newScaleX)
+                            .attr('y', -handleSize / newScaleY)
+                            .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
+                    }
+
+                    updateDebugCross(element);
+                    debugLog('resize drag', newScaleX, newScaleY);
+                }
+            })
+            .on('end', function () {
+                if (element.classed('sticky-note') && typeof options.onResizeEnd === 'function') {
+                    options.onResizeEnd(element);
+                }
+                updateDebugCross(element);
+                debugLog('resize end');
             })
     );
 }
 
 function addRotateHandle(element: Selection<any, any, any, any>) {
-    const handleSize = 10;
+    const handleSize = 16;
 
     if (!element.select('.rotate-handle').empty()) return;
 
+    const data: any = element.datum();
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
+    const transform: TransformValues = data.transform ?? defaultTransform();
+    data.transform = transform;
     element.append('text')
         .attr('class', 'rotate-handle')
-        .attr('x', bbox.width)
-        .attr('y', -handleSize)
+        .attr('x', width + handleSize / transform.scaleX)
+        .attr('y', -handleSize / transform.scaleY)
         .text('\u21bb')
-        .attr('font-size', handleSize)
+        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'grab')
         .style('user-select', 'none')
         .style('vector-effect', 'non-scaling-stroke')
@@ -251,20 +415,33 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const data = element.datum() as any;
                     const transform: TransformValues = data.transform ?? defaultTransform();
                     data.transform = transform;
-                    const bbox = (element.node() as SVGGraphicsElement).getBBox();
-                    const centerX = transform.translateX + transform.scaleX * bbox.width / 2;
-                    const centerY = transform.translateY + transform.scaleY * bbox.height / 2;
-                    const startAngle = Math.atan2(event.y - centerY, event.x - centerX) - transform.rotate * Math.PI / 180;
+                const bbox = (element.node() as SVGGraphicsElement).getBBox();
+                const width = data.width ?? bbox.width;
+                const height = data.height ?? bbox.height;
+                const centerX = transform.translateX + (width * transform.scaleX) / 2;
+                const centerY = transform.translateY + (height * transform.scaleY) / 2;
+                const [sx, sy] = toWorkspaceCoords(event);
+                const startAngle = Math.atan2(sy - centerY, sx - centerX);
+                const cumulative = transform.rotate * Math.PI / 180;
+                debugLog('rotate start', startAngle);
 
-                    d3.select(this).datum({ centerX, centerY, startAngle, transform });
+                    d3.select(this).datum({ centerX, centerY, lastAngle: startAngle, cumulative, transform });
                 })
                 .on('drag', function (event: MouseEvent) {
                     const data = d3.select<any, any>(this).datum();
-                    const { centerX, centerY, startAngle, transform } = data;
-                    const angle = Math.atan2(event.y - centerY, event.x - centerX) - startAngle;
+                    const { centerX, centerY, transform } = data;
+                const [px, py] = toWorkspaceCoords(event);
+                const current = Math.atan2(py - centerY, px - centerX);
+                    let delta = current - data.lastAngle;
+                    if (delta > Math.PI) delta -= 2 * Math.PI;
+                    if (delta < -Math.PI) delta += 2 * Math.PI;
+                    data.cumulative += delta;
+                    data.lastAngle = current;
 
-                    const newTransform: TransformValues = { ...transform, rotate: angle * 180 / Math.PI };
+                    const newTransform: TransformValues = { ...transform, rotate: data.cumulative * 180 / Math.PI };
                     applyTransform(element, newTransform);
+                    updateDebugCross(element);
+                    debugLog('rotate', newTransform.rotate);
                 })
         );
 }
@@ -272,16 +449,18 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
 function addOutline(element: Selection<any, any, any, any>) {
     if (!element.select('.selection-outline').empty()) return;
 
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const data = element.datum() as any;
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
     const { scaleX, scaleY } = (data.transform ?? defaultTransform());
 
     element.append('rect')
         .attr('class', 'selection-outline')
-        .attr('x', bbox.x)
-        .attr('y', bbox.y)
-        .attr('width', bbox.width)
-        .attr('height', bbox.height)
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', width)
+        .attr('height', height)
         .attr('fill', 'none')
     .attr('stroke', '#7fbbf7')
         .attr('stroke-width', 1 / Math.max(scaleX, scaleY))
@@ -320,6 +499,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
         d3.select(window).on('click.makeResizable', (event: MouseEvent) => {
             const controls = document.getElementById('board-controls');
             const colorSelect = document.getElementById('sticky-color-select');
+            const alignControls = document.getElementById('sticky-align-controls');
             const target = event.target as Node;
             const isSvg = target instanceof SVGElement;
             if (
@@ -327,7 +507,8 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
                 isSvg &&
                 !selectedElement.node()?.contains(target) &&
                 !(controls && controls.contains(target)) &&
-                !(colorSelect && colorSelect.contains(target))
+                !(colorSelect && colorSelect.contains(target)) &&
+                !(alignControls && alignControls.contains(target))
             ) {
                 clearSelection();
             }
@@ -351,6 +532,13 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             addResizeHandle(element, options);
             if (options.rotatable) {
                 addRotateHandle(element);
+            }
+            if (debugEnabled) {
+                if (element.select('.component-debug-cross').empty()) {
+                    addDebugCross(element);
+                } else {
+                    updateDebugCross(element);
+                }
             }
             dispatchSelectionChange();
         });
@@ -383,17 +571,17 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
     }
 
     overlay.select('.crop-handle-n')
-        .attr('cx', x + width / 2)
-        .attr('cy', y);
+        .attr('x', x + width / 2)
+        .attr('y', y);
     overlay.select('.crop-handle-e')
-        .attr('cx', x + width)
-        .attr('cy', y + height / 2);
+        .attr('x', x + width)
+        .attr('y', y + height / 2);
     overlay.select('.crop-handle-s')
-        .attr('cx', x + width / 2)
-        .attr('cy', y + height);
+        .attr('x', x + width / 2)
+        .attr('y', y + height);
     overlay.select('.crop-handle-w')
-        .attr('cx', x)
-        .attr('cy', y + height / 2);
+        .attr('x', x)
+        .attr('y', y + height / 2);
 
     overlay.select('.crop-shade-top')
         .attr('x', 0)
@@ -521,11 +709,14 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
 
             const handleClasses = ['n', 'e', 's', 'w'];
             for (const dir of handleClasses) {
-                overlay.append('circle')
+                const char = dir === 'n' || dir === 's' ? '\u2195' : '\u2194';
+                overlay.append('text')
                     .attr('class', `crop-handle crop-handle-${dir}`)
-                    .attr('r', 6)
-                    .attr('fill', 'white')
-                    .attr('stroke', 'black')
+                    .text(char)
+                    .attr('font-size', 16)
+                    .attr('text-anchor', 'middle')
+                    .attr('dominant-baseline', 'middle')
+                    .style('user-select', 'none')
                     .style('vector-effect', 'non-scaling-stroke');
             }
 
@@ -536,9 +727,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
 
             const rect = overlay.select<SVGRectElement>('.crop-rect');
 
-            const handleN = overlay.select<SVGCircleElement>('.crop-handle-n');
+            const handleN = overlay.select<SVGTextElement>('.crop-handle-n');
             handleN.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -556,9 +747,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                     })
             );
 
-            const handleS = overlay.select<SVGCircleElement>('.crop-handle-s');
+            const handleS = overlay.select<SVGTextElement>('.crop-handle-s');
             handleS.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -574,9 +765,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                     })
             );
 
-            const handleE = overlay.select<SVGCircleElement>('.crop-handle-e');
+            const handleE = overlay.select<SVGTextElement>('.crop-handle-e');
             handleE.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -592,9 +783,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                     })
             );
 
-            const handleW = overlay.select<SVGCircleElement>('.crop-handle-w');
+            const handleW = overlay.select<SVGTextElement>('.crop-handle-w');
             handleW.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
