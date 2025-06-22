@@ -8,7 +8,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import CodeIcon from '@mui/icons-material/Code';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedLanguage } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedLanguage, updateSelectedCodeFontSize } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -29,6 +29,7 @@ const Menu: React.FC = () => {
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeLang, setCodeLang] = React.useState<string>('javascript');
+  const [codeFont, setCodeFont] = React.useState<string>('12');
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -39,9 +40,11 @@ const Menu: React.FC = () => {
       } else if (el && d3.select(el).classed('code-block')) {
         const data = d3.select(el).datum() as any;
         setCodeLang(data.language || 'javascript');
+        setCodeFont((data.fontSize ?? 12).toString());
       } else {
         setFontSize('auto');
         setCodeLang('javascript');
+        setCodeFont('12');
       }
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
@@ -133,23 +136,40 @@ const Menu: React.FC = () => {
           <CodeIcon />
         </IconButton>
         {codeSelected && (
-          <Box id="code-lang-select" sx={{ mr: 2 }}>
-            <Select
-              size="small"
-              value={codeLang}
-              onChange={(e) => {
-                const lang = e.target.value as string;
-                setCodeLang(lang);
-                updateSelectedLanguage(lang);
-              }}
-            >
-              <MenuItem value="javascript">JavaScript</MenuItem>
-              <MenuItem value="python">Python</MenuItem>
-              <MenuItem value="java">Java</MenuItem>
-              <MenuItem value="cpp">C++</MenuItem>
-              <MenuItem value="plaintext">Plain Text</MenuItem>
-            </Select>
-          </Box>
+          <>
+            <Box id="code-lang-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeLang}
+                onChange={(e) => {
+                  const lang = e.target.value as string;
+                  setCodeLang(lang);
+                  updateSelectedLanguage(lang);
+                }}
+              >
+                <MenuItem value="javascript">JavaScript</MenuItem>
+                <MenuItem value="python">Python</MenuItem>
+                <MenuItem value="java">Java</MenuItem>
+                <MenuItem value="cpp">C++</MenuItem>
+                <MenuItem value="plaintext">Plain Text</MenuItem>
+              </Select>
+            </Box>
+            <Box id="code-font-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeFont}
+                onChange={(e) => {
+                  const val = e.target.value as string;
+                  setCodeFont(val);
+                  updateSelectedCodeFontSize(parseInt(val));
+                }}
+              >
+                {Array.from({ length: 10 }, (_, i) => 8 + i * 2).map((s) => (
+                  <MenuItem key={s} value={s.toString()}>{`${s}px`}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+          </>
         )}
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />

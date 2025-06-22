@@ -46,7 +46,7 @@ interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: st
 
 interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
-interface CodeBlockDatum { id: string; type: 'code'; text: string; language: string }
+interface CodeBlockDatum { id: string; type: 'code'; text: string; language: string; fontSize: number }
 
 const stickyWidth = 225;
 const stickyHeight = 150;
@@ -371,6 +371,7 @@ const GuitarBoard: React.FC = () => {
         type: 'code',
         text: Array(10).fill('').join('\n'),
         language,
+        fontSize: 12,
         width: codeWidth,
         height: codeHeight,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 }
@@ -400,14 +401,17 @@ const GuitarBoard: React.FC = () => {
       .style('padding', '12px');
 
     const code = pre.append('xhtml:code')
-      .classed(language, true)
+      .classed(`language-${language}`, true)
+      .style('font-size', '12px')
       .attr('contentEditable', 'true')
       .text(Array(10).fill('').join('\n'));
 
     setTimeout(() => {
       const node = code.node() as HTMLElement | null;
       if (node && (window as any).hljs) {
-        (window as any).hljs.highlightElement(node);
+        const hl = (window as any).hljs;
+        hl.highlightElement(node);
+        if (hl.lineNumbersBlock) hl.lineNumbersBlock(node);
       }
     }, 0);
 
@@ -415,7 +419,9 @@ const GuitarBoard: React.FC = () => {
       const data = group.datum() as CodeBlockDatum & { transform: any };
       data.text = code.textContent || '';
       if ((window as any).hljs) {
-        (window as any).hljs.highlightElement(code.node() as HTMLElement);
+        const hl = (window as any).hljs;
+        hl.highlightElement(code.node() as HTMLElement);
+        if (hl.lineNumbersBlock) hl.lineNumbersBlock(code.node() as HTMLElement);
       }
     });
 
@@ -488,13 +494,17 @@ const GuitarBoard: React.FC = () => {
       d.width = info.data.width;
       d.height = info.data.height;
       d.language = info.data.language;
+      d.fontSize = info.data.fontSize ?? 12;
       g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
       g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
       const code = g.select<HTMLElement>('foreignObject > pre > code')
-        .classed(info.data.language, true)
+        .classed(`language-${info.data.language}`, true)
+        .style('font-size', `${d.fontSize}px`)
         .text(info.data.text);
       if ((window as any).hljs) {
-        (window as any).hljs.highlightElement(code.node());
+        const hl = (window as any).hljs;
+        hl.highlightElement(code.node());
+        if (hl.lineNumbersBlock) hl.lineNumbersBlock(code.node());
       }
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'drawing') {

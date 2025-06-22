@@ -60,6 +60,12 @@
     caret-color: black; /* Ensure the cursor is visible */
 }
 
+.code-block pre {
+    margin: 0;
+    height: 100%;
+    box-sizing: border-box;
+}
+
 .code-block code {
     outline: none;
     display: block;
@@ -68,6 +74,18 @@
     box-sizing: border-box;
     font-family: monospace;
     white-space: pre;
+}
+
+.code-block td.hljs-ln-numbers {
+    user-select: none;
+    text-align: right;
+    padding-right: 8px;
+    border-right: 1px solid #ccc;
+    vertical-align: top;
+}
+
+.code-block td.hljs-ln-code {
+    padding-left: 8px;
 }
 
 .crop-controls {

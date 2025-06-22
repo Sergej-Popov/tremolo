@@ -332,14 +332,25 @@ export function updateSelectedFontSize(size: number | 'auto') {
     }
 }
 
+export function updateSelectedCodeFontSize(size: number) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const code = selectedElement.select<HTMLElement>('foreignObject > pre > code').node();
+        const data = selectedElement.datum() as any;
+        data.fontSize = size;
+        if (code) d3.select(code).style('font-size', `${size}px`);
+    }
+}
+
 export function updateSelectedLanguage(lang: string) {
     if (selectedElement && selectedElement.classed('code-block')) {
         const code = selectedElement.select<HTMLElement>('foreignObject > pre > code');
-        code.attr('class', lang);
+        code.attr('class', `language-${lang}`);
         const data = selectedElement.datum() as any;
         data.language = lang;
         if ((window as any).hljs) {
-            (window as any).hljs.highlightElement(code.node());
+            const hl = (window as any).hljs;
+            hl.highlightElement(code.node());
+            if (hl.lineNumbersBlock) hl.lineNumbersBlock(code.node());
         }
     }
 }
@@ -450,7 +461,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     newScaleY = ratio;
                 }
 
-                if (element.classed('sticky-note')) {
+                if (element.classed('sticky-note') || element.classed('code-block')) {
                     const stickyData = element.datum() as any;
                     const width = data.origWidth * newScaleX;
                     const height = data.origHeight * newScaleY;
@@ -495,7 +506,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 }
             })
             .on('end', function () {
-                if (element.classed('sticky-note') && typeof options.onResizeEnd === 'function') {
+                if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
                 updateDebugCross(element);
