@@ -18,11 +18,12 @@ export function setSvgRoot(svg: SVGSVGElement | null) {
     svgRoot = svg;
 }
 
-function toWorkspaceCoords(event: MouseEvent): [number, number] {
+function toWorkspaceCoords(event: MouseEvent | d3.D3DragEvent<any, any, any>): [number, number] {
     if (!svgRoot) return [0, 0];
+    const domEvent: MouseEvent = (event as any).sourceEvent ?? event;
     const pt = svgRoot.createSVGPoint();
-    pt.x = event.clientX;
-    pt.y = event.clientY;
+    pt.x = domEvent.clientX;
+    pt.y = domEvent.clientY;
     const svgPoint = pt.matrixTransform(svgRoot.getScreenCTM()!.inverse());
     return zoomTransform.invert([svgPoint.x, svgPoint.y]);
 }
