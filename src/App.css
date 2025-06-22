@@ -99,6 +99,11 @@
 .component-debug-cross {
     fill: red;
 }
+
+.grid-overlay {
+    pointer-events: none;
+    opacity: 1;
+}
 #root, html, body {
     height: 100%;
     margin: 0;

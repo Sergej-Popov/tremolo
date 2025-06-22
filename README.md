@@ -8,6 +8,7 @@ https://sergej-popov.github.io/tremolo/
 
 ## Features
 - Drag and resize the guitar board.
+- Hold **Ctrl** while dragging to snap elements to a 10 px grid. A grid overlay appears while snapping or in debug mode. Hold **Shift** to constrain movement to one axis. Rotating with **Ctrl** snaps to 15° steps.
 - Add multiple guitar boards in the same workspace.
 - Paste images that can be positioned and resized.
 - Paste YouTube links to embed videos while preserving aspect ratio.
@@ -32,13 +33,12 @@ https://sergej-popov.github.io/tremolo/
 ## TODO general
 
 1. [Large] Provide undo and redo support for board changes.
-2. Allow items to snap to a grid for precise alignment.
-3. Drawing pen tool
-4. Connectiing lines
-5. Add a dark and light theme toggle for the fretboard interface.
-6. Draw style themes
-7. Tool pannel
-8. Contextual menu panel
+2. Drawing pen tool
+3. Connectiing lines
+4. Add a dark and light theme toggle for the fretboard interface.
+5. Draw style themes
+6. Tool pannel
+7. Contextual menu panel
 
 ## TODO collaboration
 
