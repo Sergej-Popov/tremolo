@@ -83,6 +83,7 @@ const GuitarBoard: React.FC = () => {
   const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const drawing = useRef(false);
   const lastPoint = useRef<{ x: number; y: number; time: number } | null>(null);
+  const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
 
   const boards = app?.boards ?? [0];
@@ -417,12 +418,10 @@ const GuitarBoard: React.FC = () => {
           lines: info.data.lines.map((ln: any) => ({ ...ln }))
         });
       info.data.lines.forEach((ln: any) => {
-        g.append('line')
-          .attr('x1', ln.x1)
-          .attr('y1', ln.y1)
-          .attr('x2', ln.x2)
-          .attr('y2', ln.y2)
+        g.append('path')
+          .attr('d', `M ${ln.x1} ${ln.y1} Q ${ln.cx} ${ln.cy} ${ln.x2} ${ln.y2}`)
           .attr('stroke', 'black')
+          .attr('fill', 'none')
           .attr('stroke-linecap', 'round')
           .attr('stroke-linejoin', 'round')
           .attr('stroke-width', ln.stroke);
@@ -693,6 +692,7 @@ const GuitarBoard: React.FC = () => {
     drawingSel.current = g;
     drawing.current = true;
     lastPoint.current = { x, y, time: performance.now() };
+    lastMid.current = { x, y };
     lastStroke.current = typeof brushWidth === 'number' ? brushWidth : 4;
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -700,11 +700,15 @@ const GuitarBoard: React.FC = () => {
   const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!drawing.current || !drawingSel.current) return;
     const prev = lastPoint.current;
-    if (!prev) return;
+    const midPrev = lastMid.current;
+    if (!prev || !midPrev) return;
     const { x, y } = toWorkspace(event.clientX, event.clientY);
+    const smoothing = 0.2;
+    const sx = prev.x + (x - prev.x) * smoothing;
+    const sy = prev.y + (y - prev.y) * smoothing;
     const now = performance.now();
     const dt = now - prev.time;
-    const dist = Math.hypot(x - prev.x, y - prev.y);
+    const dist = Math.hypot(sx - prev.x, sy - prev.y);
     const speed = dt > 0 ? dist / dt : 0;
     const minStroke = 1;
     const maxStroke = 6;
@@ -717,18 +721,19 @@ const GuitarBoard: React.FC = () => {
       stroke = brushWidth;
     }
     lastStroke.current = stroke;
-    const midX = (prev.x + x) / 2;
-    const midY = (prev.y + y) / 2;
+    const midX = (prev.x + sx) / 2;
+    const midY = (prev.y + sy) / 2;
     drawingSel.current.append('path')
-      .attr('d', `M ${prev.x} ${prev.y} Q ${prev.x} ${prev.y} ${midX} ${midY}`)
+      .attr('d', `M ${midPrev.x} ${midPrev.y} Q ${prev.x} ${prev.y} ${midX} ${midY}`)
       .attr('stroke', 'black')
       .attr('fill', 'none')
       .attr('stroke-linecap', 'round')
       .attr('stroke-linejoin', 'round')
       .attr('stroke-width', stroke);
     const data: any = drawingSel.current.datum();
-    data.lines.push({ x1: prev.x, y1: prev.y, x2: midX, y2: midY, stroke });
-    lastPoint.current = { x: midX, y: midY, time: now };
+    data.lines.push({ x1: midPrev.x, y1: midPrev.y, cx: prev.x, cy: prev.y, x2: midX, y2: midY, stroke });
+    lastMid.current = { x: midX, y: midY };
+    lastPoint.current = { x: sx, y: sy, time: now };
   };
 
   const finishDrawing = () => {
@@ -741,6 +746,8 @@ const GuitarBoard: React.FC = () => {
     data.lines = data.lines.map((ln: any) => ({
       x1: ln.x1 - bbox.x,
       y1: ln.y1 - bbox.y,
+      cx: ln.cx - bbox.x,
+      cy: ln.cy - bbox.y,
       x2: ln.x2 - bbox.x,
       y2: ln.y2 - bbox.y,
       stroke: ln.stroke,
@@ -748,7 +755,7 @@ const GuitarBoard: React.FC = () => {
     applyTransform(g, { translateX: bbox.x, translateY: bbox.y, scaleX: 1, scaleY: 1, rotate: 0 });
     g.selectAll<SVGPathElement, any>('path').each(function (d: any, i: number) {
       const ln = data.lines[i];
-      d3.select(this).attr('d', `M ${ln.x1} ${ln.y1} Q ${ln.x1} ${ln.y1} ${ln.x2} ${ln.y2}`);
+      d3.select(this).attr('d', `M ${ln.x1} ${ln.y1} Q ${ln.cx} ${ln.cy} ${ln.x2} ${ln.y2}`);
     });
     g.call(makeDraggable);
     g.call(makeResizable, { rotatable: true });
@@ -756,6 +763,7 @@ const GuitarBoard: React.FC = () => {
     drawing.current = false;
     drawingSel.current = null;
     lastPoint.current = null;
+    lastMid.current = null;
   };
 
   const handlePointerUp = (event: React.PointerEvent<SVGSVGElement>) => {
