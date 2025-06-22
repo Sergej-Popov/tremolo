@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Box, CssBaseline, ThemeProvider } from "@mui/material";
 
+import HelpDialog from "./HelpDialog";
+
 
 import MainPage from "./pages/MainPage";
 import SecondPage from "./pages/SecondPage";
@@ -29,6 +31,7 @@ function App() {
                 <Route path="/" element={<MainPage />} />
                 <Route path="/second" element={<SecondPage />} />
               </Routes>
+              <HelpDialog />
             </Box>
           </Router>
         </AppProvider>
