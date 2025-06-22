@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -75,7 +75,7 @@ const GuitarBoard: React.FC = () => {
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
-  const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
+  const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
   const [zoomValue, setZoomValue] = useState(1);
 
   const boards = app?.boards ?? [0];
@@ -426,8 +426,8 @@ const GuitarBoard: React.FC = () => {
         const data: any = sel.datum() || {};
         const width = (data.width ?? bbox.width) * (data.transform?.scaleX ?? 1);
         const height = (data.height ?? bbox.height) * (data.transform?.scaleY ?? 1);
-        const t = data.transform || { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1 };
-        setSelectedBounds({ x: t.translateX, y: t.translateY, width, height });
+        const t = data.transform || { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 };
+        setSelectedBounds({ x: t.translateX, y: t.translateY, width, height, rotate: t.rotate ?? 0 });
       }
     };
     window.addEventListener('stickyselectionchange', handler);
@@ -570,11 +570,13 @@ const GuitarBoard: React.FC = () => {
       .on('zoom', (event) => {
         d3.select(svgRef.current).select('.workspace').attr('transform', event.transform.toString());
         zoomRef.current = event.transform;
+        setZoomTransform(event.transform);
         setZoomValue(event.transform.k);
       });
 
     svg.call(zoom as any);
     zoomBehaviorRef.current = zoom;
+    setZoomTransform(d3.zoomIdentity);
   }, []);
 
   useEffect(() => {
@@ -613,9 +615,9 @@ const GuitarBoard: React.FC = () => {
         {debug && (
           <Box sx={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, px: 1 }}>
             <Typography variant="body2">
-              Debugging: {`(${cursorPos.x.toFixed(1)}, ${cursorPos.y.toFixed(1)})`}
+              Debugging: {`x:${cursorPos.x.toFixed(1)} y:${cursorPos.y.toFixed(1)}`}
               {selectedBounds &&
-                ` | sel: x:${selectedBounds.x.toFixed(1)}, y:${selectedBounds.y.toFixed(1)}, w:${selectedBounds.width.toFixed(1)}, h:${selectedBounds.height.toFixed(1)}`}
+                ` | sel: x:${selectedBounds.x.toFixed(1)}, y:${selectedBounds.y.toFixed(1)}, w:${selectedBounds.width.toFixed(1)}, h:${selectedBounds.height.toFixed(1)}, a:${selectedBounds.rotate.toFixed(1)}`}
             </Typography>
           </Box>
         )}

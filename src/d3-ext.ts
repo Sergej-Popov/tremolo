@@ -1,10 +1,16 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
 
+let zoomTransform: d3.ZoomTransform = d3.zoomIdentity;
+
 let debugEnabled = false;
 
 export function setDebugMode(enabled: boolean) {
     debugEnabled = enabled;
+}
+
+export function setZoomTransform(transform: d3.ZoomTransform) {
+    zoomTransform = transform;
 }
 
 export function isDebugMode(): boolean {
@@ -179,8 +185,9 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const data: any = element.datum() || {};
                 const transform: TransformValues = data.transform ?? defaultTransform();
 
-                const dragOffsetX = event.x - transform.translateX;
-                const dragOffsetY = event.y - transform.translateY;
+                const [startX, startY] = zoomTransform.invert([event.x, event.y]);
+                const dragOffsetX = startX - transform.translateX;
+                const dragOffsetY = startY - transform.translateY;
 
                 debugLog('drag start', transform.translateX, transform.translateY);
                 element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform });
@@ -190,10 +197,11 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const data = element.datum();
                 const { dragOffsetX, dragOffsetY, transform } = data;
 
+                const [mx, my] = zoomTransform.invert([event.x, event.y]);
                 const newTransform: TransformValues = {
                     ...transform,
-                    translateX: event.x - dragOffsetX,
-                    translateY: event.y - dragOffsetY,
+                    translateX: mx - dragOffsetX,
+                    translateY: my - dragOffsetY,
                 };
 
                 applyTransform(element, newTransform);
@@ -280,8 +288,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 const height = data.height ?? bbox.height;
                 const transform: TransformValues = data.transform ?? defaultTransform();
                 data.transform = transform;
-                const startX = event.x;
-                const startY = event.y;
+                const [startX, startY] = zoomTransform.invert([event.x, event.y]);
                 debugLog('resize start', width, height);
 
                 d3.select(this)
@@ -291,8 +298,9 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 const data = d3.select<any, any>(this).datum();
                 const { transform } = data;
 
-                const dx = event.x - data.startX;
-                const dy = event.y - data.startY;
+                const [mx, my] = zoomTransform.invert([event.x, event.y]);
+                const dx = mx - data.startX;
+                const dy = my - data.startY;
 
                 let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
                 let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
@@ -379,7 +387,8 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                 const height = data.height ?? bbox.height;
                 const centerX = transform.translateX + width / 2;
                 const centerY = transform.translateY + height / 2;
-                const startAngle = Math.atan2(event.y - centerY, event.x - centerX);
+                const [sx, sy] = zoomTransform.invert([event.x, event.y]);
+                const startAngle = Math.atan2(sy - centerY, sx - centerX);
                 const cumulative = transform.rotate * Math.PI / 180;
                 debugLog('rotate start', startAngle);
 
@@ -388,7 +397,8 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                 .on('drag', function (event: MouseEvent) {
                     const data = d3.select<any, any>(this).datum();
                     const { centerX, centerY, transform } = data;
-                const current = Math.atan2(event.y - centerY, event.x - centerX);
+                const [px, py] = zoomTransform.invert([event.x, event.y]);
+                const current = Math.atan2(py - centerY, px - centerX);
                     let delta = current - data.lastAngle;
                     if (delta > Math.PI) delta -= 2 * Math.PI;
                     if (delta < -Math.PI) delta += 2 * Math.PI;
