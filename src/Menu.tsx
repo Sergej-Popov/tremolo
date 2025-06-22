@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import * as d3 from 'd3';
 import { Link } from 'react-router-dom';
 import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -20,6 +21,20 @@ const Menu: React.FC = () => {
   const stickySelected = app?.stickySelected ?? false;
   const addBoard = app?.addBoard ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
+
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      const el: HTMLElement | null = e.detail;
+      if (el && d3.select(el).classed('sticky-note')) {
+        const data = d3.select(el).datum() as any;
+        setFontSize(data.fontSize != null ? data.fontSize.toString() : 'auto');
+      } else {
+        setFontSize('auto');
+      }
+    };
+    window.addEventListener('stickyselectionchange', handler as EventListener);
+    return () => window.removeEventListener('stickyselectionchange', handler as EventListener);
+  }, []);
 
   return (
     <AppBar position="static" style={{ marginBottom: "15px" }}>
@@ -95,7 +110,7 @@ const Menu: React.FC = () => {
                 }}
               >
                 <MenuItem value="auto">Auto</MenuItem>
-                {Array.from({ length: 31 }, (_, i) => i + 6).map((s) => (
+                {Array.from({ length: 16 }, (_, i) => 6 + i * 2).map((s) => (
                   <MenuItem key={s} value={s.toString()}>{`${s}px`}</MenuItem>
                 ))}
               </Select>

@@ -408,19 +408,22 @@ const GuitarBoard: React.FC = () => {
     fitFretBoard();
   }
 
-  const drawBoard = () => {
+  const drawBoard = (
+    boardSel: d3.Selection<SVGGElement, any, any, any> | null = d3.select(boardRef.current),
+    range: number[] = fretRange
+  ) => {
+    if (!boardSel) return;
 
-    const g = d3.select(boardRef.current);
+    boardSel.selectAll('.string').remove();
+    boardSel.selectAll('.fret').remove();
+    boardSel.selectAll('.background').remove();
 
-    g.selectAll('.string').remove();
-    g.selectAll('.fret').remove();
-    g.selectAll('.background').remove();
+    const x1 = fretWidth * (Math.min(...range) - 1);
+    const x2 = fretWidth * (Math.max(...range) - 1);
+    const fretRangeCount = Math.max(...range) - Math.min(...range) + 1;
 
-    const x1 = fretWidth * (Math.min(...fretRange) - 1)
-    const x2 = fretWidth * (Math.max(...fretRange) - 1)
-    const fretRangeCount = Math.max(...fretRange) - Math.min(...fretRange) + 1;
-
-    g.selectAll('.string')
+    boardSel
+      .selectAll('.string')
       .data(stringNames)
       .join('line')
       .attr('class', 'string')
@@ -429,33 +432,34 @@ const GuitarBoard: React.FC = () => {
       .attr('x2', x2)
       .attr('y2', (_, index) => index * fretBoardHeight / 5 + edgeOffset)
       .attr('stroke', 'black')
-      // .attr('stroke-width', (_, index) => Math.ceil((index + 1) / 2) + 1); // old logic, 3 thickneses 2, 3, 4. But odd values have fuzzy lines
-      .attr('stroke-width', (_, index) => index < 3 ? 2 : 4)
+      .attr('stroke-width', (_, index) => (index < 3 ? 2 : 4))
       .lower()
       .call(debugTooltip);
 
-    g.selectAll('.fret')
+    boardSel
+      .selectAll('.fret')
       .data(new Array(fretRangeCount).fill(null))
       .join('line')
       .attr('class', 'fret')
       .attr('x1', (_, index) => index * fretWidth + x1)
-      .attr('y1', + edgeOffset)
+      .attr('y1', edgeOffset)
       .attr('x2', (_, index) => index * fretWidth + x1)
       .attr('y2', fretBoardHeight + edgeOffset)
       .attr('stroke', 'black')
       .attr('stroke-dasharray', '5')
       .insert('line', ':first-child')
       .lower()
-      .call(debugTooltip)
+      .call(debugTooltip);
 
-    g.insert('rect', ':first-child')
+    boardSel
+      .insert('rect', ':first-child')
       .attr('class', 'background')
       .attr('x', x1)
       .attr('y', edgeOffset)
       .attr('width', (fretRangeCount - 1) * fretWidth)
       .attr('height', fretBoardHeight)
       .attr('fill', 'white');
-  }
+  };
 
   const fitFretBoard = () => {
     const notes = d3.select(boardRef.current).selectAll('.note').data() as NoteDatum[];
@@ -629,16 +633,23 @@ const GuitarBoard: React.FC = () => {
     boards.forEach((id) => {
       let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
       if (b.empty()) {
-        b = workspace.append('g')
+        b = workspace
+          .append('g')
           .attr('class', `guitar-board guitar-board-${id}`)
-          .datum<{ transform: any }>({ transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+          .datum<{ transform: any }>({
+            transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+          });
         b.call(makeDraggable);
         b.call(makeResizable, { rotatable: true });
         if (debug) {
           addDebugCross(b);
         }
         b.on('click.board', () => setSelectedBoard(id));
-        b.on('dblclick.board', () => { setSelectedBoard(id); setShowPanel(true); });
+        b.on('dblclick.board', () => {
+          setSelectedBoard(id);
+          setShowPanel(true);
+        });
+        drawBoard(b, fretRangesRef.current[id] ?? [1, fretCount]);
       }
     });
 
