@@ -18,6 +18,8 @@ interface AppState {
   setDebug: React.Dispatch<React.SetStateAction<boolean>>;
   drawingMode: boolean;
   setDrawingMode: React.Dispatch<React.SetStateAction<boolean>>;
+  brushWidth: number | 'auto';
+  setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
 }
 
 export const AppContext = createContext<AppState | undefined>(undefined);
@@ -32,6 +34,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [boards, setBoards] = useState<number[]>([0]);
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
+  const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
 
   const addBoard = () => {
     setBoards((ids) => [...ids, ids.length ? Math.max(...ids) + 1 : 0]);
@@ -55,7 +58,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   }, [debug]);
 
   return (
-    <AppContext.Provider value={{ data, setData, stickyColor, setStickyColor, stickyAlign, setStickyAlign, stickySelected, setStickySelected, boards, addBoard, debug, setDebug, drawingMode, setDrawingMode }}>
+    <AppContext.Provider value={{ data, setData, stickyColor, setStickyColor, stickyAlign, setStickyAlign, stickySelected, setStickySelected, boards, addBoard, debug, setDebug, drawingMode, setDrawingMode, brushWidth, setBrushWidth }}>
       {children}
     </AppContext.Provider>
   );

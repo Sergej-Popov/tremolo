@@ -68,6 +68,7 @@ const GuitarBoard: React.FC = () => {
   const addBoard = app?.addBoard ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
+  const brushWidth = app?.brushWidth ?? 'auto';
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -82,6 +83,7 @@ const GuitarBoard: React.FC = () => {
   const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const drawing = useRef(false);
   const lastPoint = useRef<{ x: number; y: number; time: number } | null>(null);
+  const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
 
   const boards = app?.boards ?? [0];
   const boardsRef = useRef<number[]>(boards);
@@ -691,6 +693,7 @@ const GuitarBoard: React.FC = () => {
     drawingSel.current = g;
     drawing.current = true;
     lastPoint.current = { x, y, time: performance.now() };
+    lastStroke.current = typeof brushWidth === 'number' ? brushWidth : 4;
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -705,7 +708,15 @@ const GuitarBoard: React.FC = () => {
     const speed = dt > 0 ? dist / dt : 0;
     const minStroke = 1;
     const maxStroke = 6;
-    const stroke = Math.max(minStroke, Math.min(maxStroke, maxStroke - speed * 2));
+    let stroke: number;
+    if (brushWidth === 'auto') {
+      const t = Math.min(speed / 0.3, 1);
+      const target = minStroke + (maxStroke - minStroke) * Math.pow(1 - t, 2);
+      stroke = lastStroke.current * 0.7 + target * 0.3;
+    } else {
+      stroke = brushWidth;
+    }
+    lastStroke.current = stroke;
     const midX = (prev.x + x) / 2;
     const midY = (prev.y + y) / 2;
     drawingSel.current.append('path')
