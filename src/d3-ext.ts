@@ -259,7 +259,7 @@ export function updateSelectedFontSize(size: number | 'auto') {
 }
 
 export interface ElementCopy {
-    type: 'image' | 'video' | 'sticky';
+    type: 'image' | 'video' | 'sticky' | 'board';
     data: any;
 }
 
@@ -269,8 +269,12 @@ export function getSelectedElementData(): ElementCopy | null {
     if (selectedElement.classed('pasted-image')) type = 'image';
     else if (selectedElement.classed('embedded-video')) type = 'video';
     else if (selectedElement.classed('sticky-note')) type = 'sticky';
+    else if (selectedElement.classed('guitar-board')) type = 'board';
     if (!type) return null;
     const data = { ...(selectedElement.datum() as any) };
+    if (type === 'board') {
+        data.notes = selectedElement.selectAll('.note').data();
+    }
     return { type, data };
 }
 
@@ -700,7 +704,7 @@ function toggleCrop(element: Selection<any, any, any, any>) {
 export function makeCroppable(selection: Selection<any, any, any, any>) {
     if (!cropInit) {
         d3.select(window).on('keydown.makeCroppable', (event: KeyboardEvent) => {
-            if (event.key === 'c' && selectedElement && selectedElement.classed('croppable')) {
+            if (event.key === 'c' && !event.ctrlKey && selectedElement && selectedElement.classed('croppable')) {
                 event.preventDefault();
                 toggleCrop(selectedElement);
             }

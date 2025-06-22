@@ -79,6 +79,7 @@ const GuitarBoard: React.FC = () => {
   const [zoomValue, setZoomValue] = useState(1);
 
   const boards = app?.boards ?? [0];
+  const boardsRef = useRef<number[]>(boards);
   const [selectedBoard, setSelectedBoard] = useState<number>(boards[0]);
   const fretRangesRef = useRef<Record<number, number[]>>({ 0: [1, fretCount] });
   
@@ -90,6 +91,7 @@ const GuitarBoard: React.FC = () => {
       fretRangesRef.current[newest] = [1, fretCount];
       setSelectedBoard(newest);
     }
+    boardsRef.current = boards;
   }, [boards]);
 
   const changeFretRange = (_: Event, newValue: number | number[]) => {
@@ -99,15 +101,18 @@ const GuitarBoard: React.FC = () => {
   };
 
 
-  const addNote = (string: noteString, fret: number, options: { fadeNonNatural: boolean } = { fadeNonNatural: false }) => {
-
+  const addNoteToBoard = (
+    board: d3.Selection<SVGGElement, any, any, any>,
+    string: noteString,
+    fret: number,
+    options: { fadeNonNatural: boolean } = { fadeNonNatural: false }
+  ) => {
     const x = fret * fretWidth - fretWidth / 2;
     const y = (6 - stringNames.indexOf(string) - 1) * stringHeight + edgeOffset;
     const noteLetter = calculateNote(string, fret);
     const fillColor = noteLetter.includes('#') && options.fadeNonNatural ? '#444444' : theme.notes[noteLetter];
 
-    const g = d3.select(boardRef.current);
-    const note = g.append('g')
+    const note = board.append('g')
       .attr('class', 'note')
       .datum<NoteDatum>({ string, fret });
 
@@ -132,6 +137,10 @@ const GuitarBoard: React.FC = () => {
       .attr('class', 'non-selectable');
 
     return note;
+  };
+
+  const addNote = (string: noteString, fret: number, options: { fadeNonNatural: boolean } = { fadeNonNatural: false }) => {
+    return addNoteToBoard(d3.select(boardRef.current), string, fret, options);
   }
 
   const addShape = (shape: ScaleOrChordShape) => {
@@ -367,6 +376,19 @@ const GuitarBoard: React.FC = () => {
         .node();
       if (div) adjustStickyFont(div, d.fontSize);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
+    } else if (info.type === 'board') {
+      const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
+      addBoard();
+      setTimeout(() => {
+        const workspace = d3.select(workspaceRef.current);
+        const g = workspace.select<SVGGElement>(`.guitar-board-${newId}`);
+        if (!g.empty()) {
+          applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
+          if (Array.isArray(info.data.notes)) {
+            info.data.notes.forEach((n: any) => addNoteToBoard(g, n.string, n.fret));
+          }
+        }
+      }, 0);
     }
   };
 
@@ -484,6 +506,14 @@ const GuitarBoard: React.FC = () => {
         return; // let the browser handle paste inside editable sticky
       }
       const text = event.clipboardData?.getData('text/plain');
+      if (text && text.startsWith('tremolo:')) {
+        try {
+          const info = JSON.parse(text.slice(8));
+          duplicateElement(info);
+          event.preventDefault();
+          return;
+        } catch {}
+      }
       if (text) {
         const trimmed = text.trim();
         const id = extractVideoId(trimmed);
@@ -524,22 +554,21 @@ const GuitarBoard: React.FC = () => {
     };
   }, [addSticky]);
 
-  const copyBuffer = useRef<import('../d3-ext').ElementCopy | null>(null);
-
   useEffect(() => {
+    const handleCopy = (e: ClipboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') {
+        return;
+      }
+      const info = getSelectedElementData();
+      if (info) {
+        e.preventDefault();
+        e.clipboardData?.setData('text/plain', `tremolo:${JSON.stringify(info)}`);
+      }
+    };
+
     const handleKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key.toLowerCase() === 'c') {
-        const info = getSelectedElementData();
-        if (info) {
-          copyBuffer.current = info;
-          e.preventDefault();
-        }
-      } else if (e.ctrlKey && e.key.toLowerCase() === 'v') {
-        if (copyBuffer.current) {
-          duplicateElement(copyBuffer.current);
-          e.preventDefault();
-        }
-      } else if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+      if (e.ctrlKey && e.key.toLowerCase() === 'd') {
         const info = getSelectedElementData();
         if (info) {
           duplicateElement(info);
@@ -547,8 +576,13 @@ const GuitarBoard: React.FC = () => {
         }
       }
     };
+
+    window.addEventListener('copy', handleCopy);
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('copy', handleCopy);
+      window.removeEventListener('keydown', handleKey);
+    };
   }, []);
 
   const updateCursor = (clientX: number, clientY: number) => {

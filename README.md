@@ -24,6 +24,9 @@ https://sergej-popov.github.io/tremolo/
 ## Hotkeys
 - **Delete** – remove the selected item.
 - **c** – crop selected image (or double-click an image to toggle cropping).
+- **Ctrl+C** – copy selected element to the clipboard.
+- **Ctrl+V** – paste copied element at the cursor location.
+- **Ctrl+D** – duplicate the selected element at the cursor.
 
 ## TODO general
 
