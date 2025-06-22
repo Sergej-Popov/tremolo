@@ -515,10 +515,10 @@ const GuitarBoard: React.FC = () => {
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
         const trimmed = text.trim();
-        const idx = trimmed.indexOf('tremolo:');
-        if (idx !== -1) {
+        const match = trimmed.match(/tremolo:(\{.*\})/s);
+        if (match) {
           try {
-            const info = JSON.parse(trimmed.slice(idx + 8));
+            const info = JSON.parse(match[1]);
             duplicateElement(info);
             event.preventDefault();
             return;
