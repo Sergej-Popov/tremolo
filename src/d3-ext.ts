@@ -170,9 +170,9 @@ export function updateDebugCross(element: Selection<any, any, any, any>, size = 
 
 function buildTransform(transform: TransformValues, size: { width: number; height: number }): string {
     const { translateX, translateY, scaleX, scaleY, rotate } = transform;
-    const cx = size.width / 2;
-    const cy = size.height / 2;
-    return `translate(${translateX}, ${translateY}) translate(${cx}, ${cy}) rotate(${rotate}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
+    const cx = (size.width * scaleX) / 2;
+    const cy = (size.height * scaleY) / 2;
+    return `translate(${translateX}, ${translateY}) rotate(${rotate}, ${cx}, ${cy}) scale(${scaleX}, ${scaleY})`;
 }
 
 export function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
@@ -317,8 +317,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 const dx = mx - data.startX;
                 const dy = my - data.startY;
 
-                let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
-                let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
+                let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx * 2) / data.width);
+                let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy * 2) / data.height);
 
                 const shift = (event as any).sourceEvent?.shiftKey;
                 if (lockAspectRatio ? !shift : shift) {
@@ -348,9 +348,20 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
                     applyTransform(element, newTransform);
 
+                    const scaledWidth = data.width * newScaleX;
+                    const scaledHeight = data.height * newScaleY;
+
                     d3.select(this)
-                        .attr('x', data.width + handleSize)
-                        .attr('y', data.height + handleSize);
+                        .attr('x', data.width + handleSize / newScaleX)
+                        .attr('y', data.height + handleSize / newScaleY);
+
+                    const rotateHandle = element.select('.rotate-handle');
+                    if (!rotateHandle.empty()) {
+                        rotateHandle
+                            .attr('x', data.width + handleSize / newScaleX)
+                            .attr('y', -handleSize / newScaleY);
+                    }
+
                     updateDebugCross(element);
                     debugLog('resize drag', newScaleX, newScaleY);
                 }
@@ -400,8 +411,8 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
                 const width = data.width ?? bbox.width;
                 const height = data.height ?? bbox.height;
-                const centerX = transform.translateX + width / 2;
-                const centerY = transform.translateY + height / 2;
+                const centerX = transform.translateX + (width * transform.scaleX) / 2;
+                const centerY = transform.translateY + (height * transform.scaleY) / 2;
                 const [sx, sy] = toWorkspaceCoords(event);
                 const startAngle = Math.atan2(sy - centerY, sx - centerX);
                 const cumulative = transform.rotate * Math.PI / 180;
