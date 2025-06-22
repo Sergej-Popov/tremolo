@@ -154,6 +154,9 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     (element.datum() as any).transform = transform;
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     element.attr('transform', buildTransform(transform, bbox));
+    if (selectedElement && element.node() === selectedElement.node()) {
+        dispatchSelectionChange();
+    }
 }
 
 export function makeDraggable(selection: Selection<any, any, any, any>) {

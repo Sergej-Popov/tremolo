@@ -533,8 +533,24 @@ const GuitarBoard: React.FC = () => {
   }, [boards, selectedBoard]);
 
   useEffect(() => {
-    d3.select('#global-debug-cross').style('display', debug ? 'block' : 'none');
-    d3.selectAll('.component-debug-cross').style('display', debug ? 'block' : 'none');
+    const workspace = d3.select(workspaceRef.current);
+    if (!workspace.empty()) {
+      let cross = workspace.select('#global-debug-cross');
+      if (debug && cross.empty()) {
+        cross = workspace.append('text')
+          .attr('id', 'global-debug-cross')
+          .attr('x', 0)
+          .attr('y', 0)
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('font-size', 40)
+          .attr('class', 'debug-cross-global')
+          .style('pointer-events', 'none')
+          .text('+');
+      }
+      cross.style('display', debug ? 'block' : 'none');
+      d3.selectAll('.component-debug-cross').style('display', debug ? 'block' : 'none');
+    }
   }, [debug]);
 
   useEffect(() => {
@@ -590,7 +606,8 @@ const GuitarBoard: React.FC = () => {
           <Box sx={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, px: 1 }}>
             <Typography variant="body2">
               Debugging: {`(${cursorPos.x.toFixed(1)}, ${cursorPos.y.toFixed(1)})`}
-              {selectedBounds && ` | sel: ${selectedBounds.x.toFixed(1)}, ${selectedBounds.y.toFixed(1)}, ${selectedBounds.width.toFixed(1)}, ${selectedBounds.height.toFixed(1)}`}
+              {selectedBounds &&
+                ` | sel: x:${selectedBounds.x.toFixed(1)}, y:${selectedBounds.y.toFixed(1)}, w:${selectedBounds.width.toFixed(1)}, h:${selectedBounds.height.toFixed(1)}`}
             </Typography>
           </Box>
         )}
