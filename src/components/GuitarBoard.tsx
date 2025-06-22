@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
 import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, isCroppableSelected, updateSelectedLanguage } from '../d3-ext';
+import { highlightCode } from '../shiki';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -391,8 +392,10 @@ const GuitarBoard: React.FC = () => {
       .attr('width', codeWidth)
       .attr('height', codeHeight);
 
-    const pre = fo.append('xhtml:pre')
-      .style('margin', '0')
+    const container = fo.append('xhtml:div')
+      .classed('code-container', true)
+      .classed('view-mode', true)
+      .style('width', '100%')
       .style('height', '100%')
       .style('box-sizing', 'border-box')
       .style('overflow', 'auto')
@@ -400,32 +403,34 @@ const GuitarBoard: React.FC = () => {
       .style('font-size', '12px')
       .style('padding', '12px');
 
-    const code = pre.append('xhtml:code')
-      .classed(`language-${language}`, true)
-      .style('font-size', '12px')
-      .attr('contentEditable', 'true')
-      .text(Array(10).fill('').join('\n'));
-
-    setTimeout(() => {
-      const node = code.node() as HTMLElement | null;
-      if (node && (window as any).hljs) {
-        const hl = (window as any).hljs;
-        hl.highlightElement(node);
-        if (hl.lineNumbersBlock) hl.lineNumbersBlock(node);
-      }
-    }, 0);
-
-    code.on('blur', () => {
-      const data = group.datum() as CodeBlockDatum & { transform: any };
-      data.text = code.textContent || '';
-      if ((window as any).hljs) {
-        const hl = (window as any).hljs;
-        hl.highlightElement(code.node() as HTMLElement);
-        if (hl.lineNumbersBlock) hl.lineNumbersBlock(code.node() as HTMLElement);
-      }
+    highlightCode(Array(10).fill('').join('\n'), language).then(html => {
+      container.html(html);
     });
 
-    code.on('mousedown', (e: MouseEvent) => e.stopPropagation());
+    const edit = () => {
+      container
+        .classed('edit-mode', true)
+        .classed('view-mode', false)
+        .attr('contentEditable', 'true')
+        .text((group.datum() as any).text);
+      setTimeout(() => (container.node() as HTMLElement)?.focus(), 0);
+    };
+
+    group.on('dblclick', edit);
+
+    container.on('blur', () => {
+      const data = group.datum() as CodeBlockDatum & { transform: any };
+      data.text = container.textContent || '';
+      container
+        .classed('edit-mode', false)
+        .classed('view-mode', true)
+        .attr('contentEditable', 'false');
+      highlightCode(data.text, data.language).then(html => {
+        container.html(html);
+      });
+    });
+
+    container.on('mousedown', (e: MouseEvent) => e.stopPropagation());
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
 
@@ -495,17 +500,14 @@ const GuitarBoard: React.FC = () => {
       d.height = info.data.height;
       d.language = info.data.language;
       d.fontSize = info.data.fontSize ?? 12;
+      d.text = info.data.text;
       g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
       g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
-      const code = g.select<HTMLElement>('foreignObject > pre > code')
-        .classed(`language-${info.data.language}`, true)
-        .style('font-size', `${d.fontSize}px`)
-        .text(info.data.text);
-      if ((window as any).hljs) {
-        const hl = (window as any).hljs;
-        hl.highlightElement(code.node());
-        if (hl.lineNumbersBlock) hl.lineNumbersBlock(code.node());
-      }
+      const container = g.select<HTMLElement>('foreignObject > .code-container')
+        .style('font-size', `${d.fontSize}px`);
+      highlightCode(info.data.text, info.data.language).then(html => {
+        container.html(html);
+      });
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'drawing') {
       const svg = d3.select(svgRef.current);

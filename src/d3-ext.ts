@@ -334,23 +334,21 @@ export function updateSelectedFontSize(size: number | 'auto') {
 
 export function updateSelectedCodeFontSize(size: number) {
     if (selectedElement && selectedElement.classed('code-block')) {
-        const code = selectedElement.select<HTMLElement>('foreignObject > pre > code').node();
+        const container = selectedElement.select<HTMLElement>('foreignObject > .code-container').node();
         const data = selectedElement.datum() as any;
         data.fontSize = size;
-        if (code) d3.select(code).style('font-size', `${size}px`);
+        if (container) d3.select(container).style('font-size', `${size}px`);
     }
 }
 
 export function updateSelectedLanguage(lang: string) {
     if (selectedElement && selectedElement.classed('code-block')) {
-        const code = selectedElement.select<HTMLElement>('foreignObject > pre > code');
-        code.attr('class', `language-${lang}`);
+        const container = selectedElement.select<HTMLElement>('foreignObject > .code-container');
         const data = selectedElement.datum() as any;
         data.language = lang;
-        if ((window as any).hljs) {
-            const hl = (window as any).hljs;
-            hl.highlightElement(code.node());
-            if (hl.lineNumbersBlock) hl.lineNumbersBlock(code.node());
+        if (!container.empty()) {
+            const text = data.text || container.text();
+            import('./shiki').then(m => m.highlightCode(text, lang).then(html => container.html(html)));
         }
     }
 }

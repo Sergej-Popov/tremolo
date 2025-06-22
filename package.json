@@ -20,8 +20,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
     "rollup": "^4.24.0",
-    "highlight.js": "^11.9.0",
-    "highlightjs-line-numbers.js": "^2.8.0"
+    "shiki": "^0.14.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",
