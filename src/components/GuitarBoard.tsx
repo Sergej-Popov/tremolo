@@ -67,6 +67,7 @@ const GuitarBoard: React.FC = () => {
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
+  const drawingMode = app?.drawingMode ?? false;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -78,6 +79,9 @@ const GuitarBoard: React.FC = () => {
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
   const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
   const [zoomValue, setZoomValue] = useState(1);
+  const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
+  const drawing = useRef(false);
+  const lastPoint = useRef<{ x: number; y: number; pressure: number } | null>(null);
 
   const boards = app?.boards ?? [0];
   const boardsRef = useRef<number[]>(boards);
@@ -397,6 +401,34 @@ const GuitarBoard: React.FC = () => {
         }
       };
       apply();
+    } else if (info.type === 'drawing') {
+      const svg = d3.select(svgRef.current);
+      const layer = svg.select<SVGGElement>('.drawings');
+      const g = layer.append('g')
+        .attr('class', 'drawing')
+        .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[] }>({
+          id: generateId(),
+          type: 'drawing',
+          width: info.data.width,
+          height: info.data.height,
+          transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+          lines: info.data.lines.map((ln: any) => ({ ...ln }))
+        });
+      info.data.lines.forEach((ln: any) => {
+        g.append('line')
+          .attr('x1', ln.x1)
+          .attr('y1', ln.y1)
+          .attr('x2', ln.x2)
+          .attr('y2', ln.y2)
+          .attr('stroke', 'black')
+          .attr('stroke-linecap', 'round')
+          .attr('stroke-linejoin', 'round')
+          .attr('stroke-width', ln.stroke);
+      });
+      applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
+      g.call(makeDraggable);
+      g.call(makeResizable, { rotatable: true });
+      if (debug) addDebugCross(g);
     }
   };
 
@@ -610,8 +642,98 @@ const GuitarBoard: React.FC = () => {
     setCursorPos(cursorRef.current);
   };
 
+  const toWorkspace = (clientX: number, clientY: number) => {
+    if (!svgRef.current) return { x: 0, y: 0 };
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+    const [x, y] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
+    return { x, y };
+  };
+
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
     updateCursor(event.clientX, event.clientY);
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!drawingMode) return;
+    event.stopPropagation();
+    const { x, y } = toWorkspace(event.clientX, event.clientY);
+    const svg = d3.select(svgRef.current);
+    const layer = svg.select<SVGGElement>('.drawings');
+    const g = layer.append('g')
+      .attr('class', 'drawing')
+      .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[] }>({
+        id: generateId(),
+        type: 'drawing',
+        width: 0,
+        height: 0,
+        transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+        lines: [],
+      });
+    drawingSel.current = g;
+    drawing.current = true;
+    lastPoint.current = { x, y, pressure: event.pressure || 0.5 };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!drawing.current || !drawingSel.current) return;
+    const prev = lastPoint.current;
+    if (!prev) return;
+    const { x, y } = toWorkspace(event.clientX, event.clientY);
+    const pressure = event.pressure || 0.5;
+    const stroke = Math.max(1, pressure * 6);
+    drawingSel.current.append('line')
+      .attr('x1', prev.x)
+      .attr('y1', prev.y)
+      .attr('x2', x)
+      .attr('y2', y)
+      .attr('stroke', 'black')
+      .attr('stroke-linecap', 'round')
+      .attr('stroke-linejoin', 'round')
+      .attr('stroke-width', stroke);
+    const data: any = drawingSel.current.datum();
+    data.lines.push({ x1: prev.x, y1: prev.y, x2: x, y2: y, stroke });
+    lastPoint.current = { x, y, pressure };
+  };
+
+  const finishDrawing = () => {
+    if (!drawing.current || !drawingSel.current) return;
+    const g = drawingSel.current;
+    const bbox = (g.node() as SVGGraphicsElement).getBBox();
+    const data: any = g.datum();
+    data.width = bbox.width;
+    data.height = bbox.height;
+    data.lines = data.lines.map((ln: any) => ({
+      x1: ln.x1 - bbox.x,
+      y1: ln.y1 - bbox.y,
+      x2: ln.x2 - bbox.x,
+      y2: ln.y2 - bbox.y,
+      stroke: ln.stroke,
+    }));
+    applyTransform(g, { translateX: bbox.x, translateY: bbox.y, scaleX: 1, scaleY: 1, rotate: 0 });
+    g.selectAll<SVGLineElement, unknown>('line').each(function () {
+      const line = d3.select(this);
+      line
+        .attr('x1', parseFloat(line.attr('x1')) - bbox.x)
+        .attr('y1', parseFloat(line.attr('y1')) - bbox.y)
+        .attr('x2', parseFloat(line.attr('x2')) - bbox.x)
+        .attr('y2', parseFloat(line.attr('y2')) - bbox.y);
+    });
+    g.call(makeDraggable);
+    g.call(makeResizable, { rotatable: true });
+    if (debug) addDebugCross(g);
+    drawing.current = false;
+    drawingSel.current = null;
+    lastPoint.current = null;
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!drawing.current) return;
+    finishDrawing();
+    event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   useEffect(() => {
@@ -622,6 +744,7 @@ const GuitarBoard: React.FC = () => {
       workspace.append('g').attr('class', 'pasted-images');
       workspace.append('g').attr('class', 'embedded-videos');
       workspace.append('g').attr('class', 'sticky-notes');
+      workspace.append('g').attr('class', 'drawings');
       if (debug) {
         workspace.append('text')
           .attr('id', 'global-debug-cross')
@@ -735,6 +858,9 @@ const GuitarBoard: React.FC = () => {
           width="100%"
           height="100%"
           onMouseMove={handleMouseMove}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
         ></svg>
         <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, display: 'flex', alignItems: 'center' }}>
           <Typography variant="body2" sx={{ px: 1 }}>{zoomValue.toFixed(2)}x</Typography>

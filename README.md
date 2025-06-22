@@ -17,6 +17,7 @@ https://sergej-popov.github.io/tremolo/
 - Scrollbars have a transparent track and respond to the mouse wheel when hovering over a sticky note.
 - Pasting text always inserts plain text. When editing a sticky note the paste goes into the note instead of creating a new one.
 - Select a pasted object and press **Delete** to remove it.
+- Use the brush tool to draw smooth, pressure-sensitive strokes that can be moved, resized and rotated.
 - Quickly add predefined chords or scales or display all notes.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.
 - Change sticky note text alignment using the header buttons when a note is selected.
@@ -33,12 +34,11 @@ https://sergej-popov.github.io/tremolo/
 ## TODO general
 
 1. [Large] Provide undo and redo support for board changes.
-2. Drawing pen tool
-3. Connectiing lines
-4. Add a dark and light theme toggle for the fretboard interface.
-5. Draw style themes
-6. Tool pannel
-7. Contextual menu panel
+2. Connectiing lines
+3. Add a dark and light theme toggle for the fretboard interface.
+4. Draw style themes
+5. Tool pannel
+6. Contextual menu panel
 
 ## TODO collaboration
 

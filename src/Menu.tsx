@@ -11,6 +11,7 @@ import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize } 
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
+import BrushIcon from '@mui/icons-material/Brush';
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
@@ -20,6 +21,8 @@ const Menu: React.FC = () => {
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
   const addBoard = app?.addBoard ?? (() => {});
+  const drawingMode = app?.drawingMode ?? false;
+  const setDrawingMode = app?.setDrawingMode ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
 
   React.useEffect(() => {
@@ -117,6 +120,9 @@ const Menu: React.FC = () => {
             </Box>
           </>
         )}
+        <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
+          <BrushIcon />
+        </IconButton>
         <IconButton target='_blank' href='https://github.com/Sergej-Popov/tremolo' >
           <GitHubIcon fontSize='large' />
         </IconButton>

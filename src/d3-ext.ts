@@ -333,7 +333,7 @@ export function updateSelectedFontSize(size: number | 'auto') {
 }
 
 export interface ElementCopy {
-    type: 'image' | 'video' | 'sticky' | 'board';
+    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing';
     data: any;
 }
 
@@ -344,6 +344,7 @@ export function getSelectedElementData(): ElementCopy | null {
     else if (selectedElement.classed('embedded-video')) type = 'video';
     else if (selectedElement.classed('sticky-note')) type = 'sticky';
     else if (selectedElement.classed('guitar-board')) type = 'board';
+    else if (selectedElement.classed('drawing')) type = 'drawing';
     if (!type) return null;
     const data = { ...(selectedElement.datum() as any) };
     if (type === 'board') {
