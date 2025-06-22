@@ -193,7 +193,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
         .attr('class', 'resize-handle')
         .attr('x', bbox.width + handleSize)
         .attr('y', bbox.height + handleSize)
-        .text('\u2922')
+        .text('\u2921')
         .attr('font-size', handleSize)
         .style('cursor', 'nwse-resize')
         .style('user-select', 'none')
@@ -246,7 +246,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     element.select('rect').attr('width', width).attr('height', height);
                     element.select('foreignObject').attr('width', width).attr('height', height);
                     element.select('.selection-outline').attr('width', width).attr('height', height);
-                    element.select('.rotate-handle').attr('x', width);
+                    element.select('.rotate-handle').attr('x', width + handleSize);
                     const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
                     applyTransform(element, newTransform);
                     d3.select(this)
@@ -277,7 +277,7 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     element.append('text')
         .attr('class', 'rotate-handle')
-        .attr('x', bbox.width)
+        .attr('x', bbox.width + handleSize)
         .attr('y', -handleSize)
         .text('\u21bb')
         .attr('font-size', handleSize)
@@ -301,16 +301,22 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const bbox = (element.node() as SVGGraphicsElement).getBBox();
                     const centerX = transform.translateX + transform.scaleX * bbox.width / 2;
                     const centerY = transform.translateY + transform.scaleY * bbox.height / 2;
-                    const startAngle = Math.atan2(event.y - centerY, event.x - centerX) - transform.rotate * Math.PI / 180;
+                    const startAngle = Math.atan2(event.y - centerY, event.x - centerX);
+                    const cumulative = transform.rotate * Math.PI / 180;
 
-                    d3.select(this).datum({ centerX, centerY, startAngle, transform });
+                    d3.select(this).datum({ centerX, centerY, lastAngle: startAngle, cumulative, transform });
                 })
                 .on('drag', function (event: MouseEvent) {
                     const data = d3.select<any, any>(this).datum();
-                    const { centerX, centerY, startAngle, transform } = data;
-                    const angle = Math.atan2(event.y - centerY, event.x - centerX) - startAngle;
+                    const { centerX, centerY, transform } = data;
+                    const current = Math.atan2(event.y - centerY, event.x - centerX);
+                    let delta = current - data.lastAngle;
+                    if (delta > Math.PI) delta -= 2 * Math.PI;
+                    if (delta < -Math.PI) delta += 2 * Math.PI;
+                    data.cumulative += delta;
+                    data.lastAngle = current;
 
-                    const newTransform: TransformValues = { ...transform, rotate: angle * 180 / Math.PI };
+                    const newTransform: TransformValues = { ...transform, rotate: data.cumulative * 180 / Math.PI };
                     applyTransform(element, newTransform);
                 })
         );
