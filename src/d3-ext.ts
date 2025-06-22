@@ -390,6 +390,8 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
     const height = data.height ?? bbox.height;
+    const transform: TransformValues = data.transform ?? defaultTransform();
+    data.transform = transform;
     element.append('text')
         .attr('class', 'rotate-handle')
         .attr('x', width + handleSize / transform.scaleX)
