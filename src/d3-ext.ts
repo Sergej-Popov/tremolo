@@ -80,10 +80,18 @@ export const defaultTransform = (): TransformValues => ({
 
 export function adjustStickyFont(el: HTMLDivElement) {
     let size = 12;
+    el.classList.remove('scrollable');
+    el.style.overflow = 'hidden';
     el.style.fontSize = `${size}px`;
+
     while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
         size -= 1;
         el.style.fontSize = `${size}px`;
+    }
+
+    if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
+        el.classList.add('scrollable');
+        el.style.overflow = 'auto';
     }
 }
 

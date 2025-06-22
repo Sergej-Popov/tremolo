@@ -33,6 +33,19 @@
     overflow-wrap: anywhere;
 }
 
+.sticky-text.scrollable {
+    scrollbar-width: thin;
+}
+
+.sticky-text.scrollable::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sticky-text.scrollable::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
 .sticky-text.edit-mode {
     user-select: text;
     pointer-events: all;

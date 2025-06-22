@@ -262,7 +262,12 @@ const GuitarBoard: React.FC = () => {
         .attr('contentEditable', 'true')
         .classed('view-mode', false)
         .classed('edit-mode', true)
-        .on('mousedown.edit', (event: MouseEvent) => event.stopPropagation());
+        .on('mousedown.edit', (event: MouseEvent) => event.stopPropagation())
+        .on('paste.edit', (event: ClipboardEvent) => {
+          event.preventDefault();
+          const plain = event.clipboardData?.getData('text/plain') || '';
+          document.execCommand('insertText', false, plain);
+        });
 
       setTimeout(() => {
         (div.node() as HTMLDivElement)?.focus();
@@ -276,7 +281,8 @@ const GuitarBoard: React.FC = () => {
         .attr('contentEditable', 'false')
         .classed('edit-mode', false)
         .classed('view-mode', true)
-        .on('mousedown.edit', null);
+        .on('mousedown.edit', null)
+        .on('paste.edit', null);
 
       const node = div.node() as HTMLDivElement | null;
       if (node) adjustStickyFont(node);
