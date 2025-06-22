@@ -11,6 +11,7 @@ import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize } 
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
+import BrushIcon from '@mui/icons-material/Brush';
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
@@ -20,6 +21,10 @@ const Menu: React.FC = () => {
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
   const addBoard = app?.addBoard ?? (() => {});
+  const drawingMode = app?.drawingMode ?? false;
+  const setDrawingMode = app?.setDrawingMode ?? (() => {});
+  const brushWidth = app?.brushWidth ?? 'auto';
+  const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
 
   React.useEffect(() => {
@@ -116,6 +121,26 @@ const Menu: React.FC = () => {
               </Select>
             </Box>
           </>
+        )}
+        <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
+          <BrushIcon />
+        </IconButton>
+        {drawingMode && (
+          <Box id="brush-width-select" sx={{ mr: 2 }}>
+            <Select
+              size="small"
+              value={brushWidth.toString()}
+              onChange={(e) => {
+                const val = e.target.value as string;
+                setBrushWidth(val === 'auto' ? 'auto' : parseInt(val));
+              }}
+            >
+              <MenuItem value="auto">Auto</MenuItem>
+              {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
+                <MenuItem key={n} value={n.toString()}>{`${n}px`}</MenuItem>
+              ))}
+            </Select>
+          </Box>
         )}
         <IconButton target='_blank' href='https://github.com/Sergej-Popov/tremolo' >
           <GitHubIcon fontSize='large' />
