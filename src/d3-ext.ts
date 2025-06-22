@@ -117,11 +117,13 @@ export function adjustStickyFont(el: HTMLDivElement) {
 }
 
 export function addDebugCross(element: Selection<any, any, any, any>, size = 12) {
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const data: any = element.datum() || {};
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
     const cross = element.append('text')
         .attr('class', 'component-debug-cross')
-        .attr('x', bbox.width / 2)
-        .attr('y', bbox.height / 2)
+        .attr('x', width / 2)
+        .attr('y', height / 2)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'middle')
         .attr('font-size', size)
@@ -135,25 +137,29 @@ export function addDebugCross(element: Selection<any, any, any, any>, size = 12)
 export function updateDebugCross(element: Selection<any, any, any, any>, size = 12) {
     const cross = element.select<SVGTextElement>('.component-debug-cross');
     if (cross.empty()) return;
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const data: any = element.datum() || {};
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
     cross
-        .attr('x', bbox.width / 2)
-        .attr('y', bbox.height / 2)
+        .attr('x', width / 2)
+        .attr('y', height / 2)
         .attr('font-size', size)
         .style('display', debugEnabled ? 'block' : 'none');
 }
 
-function buildTransform(transform: TransformValues, bbox: DOMRect): string {
+function buildTransform(transform: TransformValues, size: { width: number; height: number }): string {
     const { translateX, translateY, scaleX, scaleY, rotate } = transform;
-    const cx = bbox.width / 2;
-    const cy = bbox.height / 2;
-    return `translate(${translateX + scaleX * cx}, ${translateY + scaleY * cy}) rotate(${rotate}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
+    const cx = size.width / 2;
+    const cy = size.height / 2;
+    return `translate(${translateX}, ${translateY}) translate(${cx}, ${cy}) rotate(${rotate}) scale(${scaleX}, ${scaleY}) translate(${-cx}, ${-cy})`;
 }
 
 export function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
-    (element.datum() as any).transform = transform;
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
-    element.attr('transform', buildTransform(transform, bbox));
+    const data: any = element.datum() || {};
+    data.transform = transform;
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+    element.attr('transform', buildTransform(transform, { width, height }));
     if (selectedElement && element.node() === selectedElement.node()) {
         dispatchSelectionChange();
     }
@@ -234,15 +240,17 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
     if (!element.select('.resize-handle').empty()) return;
 
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const data: any = element.datum();
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
 
     const handle = element.append('text')
         .attr('class', 'resize-handle')
-        .attr('x', bbox.width + handleSize)
-        .attr('y', bbox.height + handleSize)
+        .attr('x', width + handleSize)
+        .attr('y', height + handleSize)
         .text('\u2921')
         .attr('font-size', handleSize)
         .style('cursor', 'nwse-resize')
@@ -268,14 +276,16 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
                 const data = element.datum() as any;
+                const width = data.width ?? bbox.width;
+                const height = data.height ?? bbox.height;
                 const transform: TransformValues = data.transform ?? defaultTransform();
                 data.transform = transform;
                 const startX = event.x;
                 const startY = event.y;
-                debugLog('resize start', bbox.width, bbox.height);
+                debugLog('resize start', width, height);
 
                 d3.select(this)
-                    .datum({ startX, startY, transform, width: bbox.width, height: bbox.height, origWidth: bbox.width, origHeight: bbox.height });
+                    .datum({ startX, startY, transform, width, height, origWidth: width, origHeight: height });
             })
             .on('drag', function (event: MouseEvent) {
                 const data = d3.select<any, any>(this).datum();
@@ -337,10 +347,13 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
 
     if (!element.select('.rotate-handle').empty()) return;
 
+    const data: any = element.datum();
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
     element.append('text')
         .attr('class', 'rotate-handle')
-        .attr('x', bbox.width + handleSize)
+        .attr('x', width + handleSize)
         .attr('y', -handleSize)
         .text('\u21bb')
         .attr('font-size', handleSize)
@@ -362,8 +375,10 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const transform: TransformValues = data.transform ?? defaultTransform();
                     data.transform = transform;
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
-                const centerX = transform.translateX + transform.scaleX * bbox.width / 2;
-                const centerY = transform.translateY + transform.scaleY * bbox.height / 2;
+                const width = data.width ?? bbox.width;
+                const height = data.height ?? bbox.height;
+                const centerX = transform.translateX + width / 2;
+                const centerY = transform.translateY + height / 2;
                 const startAngle = Math.atan2(event.y - centerY, event.x - centerX);
                 const cumulative = transform.rotate * Math.PI / 180;
                 debugLog('rotate start', startAngle);
@@ -391,16 +406,18 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
 function addOutline(element: Selection<any, any, any, any>) {
     if (!element.select('.selection-outline').empty()) return;
 
-    const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const data = element.datum() as any;
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
     const { scaleX, scaleY } = (data.transform ?? defaultTransform());
 
     element.append('rect')
         .attr('class', 'selection-outline')
-        .attr('x', bbox.x)
-        .attr('y', bbox.y)
-        .attr('width', bbox.width)
-        .attr('height', bbox.height)
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', width)
+        .attr('height', height)
         .attr('fill', 'none')
     .attr('stroke', '#7fbbf7')
         .attr('stroke-width', 1 / Math.max(scaleX, scaleY))

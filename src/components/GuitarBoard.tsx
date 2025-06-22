@@ -184,7 +184,13 @@ const GuitarBoard: React.FC = () => {
 
     const group = videosLayer.append('g')
       .attr('class', 'embedded-video')
-      .datum<PastedVideoDatum & { transform: any }>({ url, videoId, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+      .datum<PastedVideoDatum & { width: number, height: number, transform: any }>({
+        url,
+        videoId,
+        width: videoWidth + videoPadding * 2,
+        height: videoHeight + videoPadding * 2,
+        transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+      });
 
     group.append('rect')
       .attr('x', 0)
@@ -418,8 +424,10 @@ const GuitarBoard: React.FC = () => {
         setStickySelected(sel.classed('sticky-note'));
         const bbox = (node as SVGGraphicsElement).getBBox();
         const data: any = sel.datum() || {};
+        const width = (data.width ?? bbox.width) * (data.transform?.scaleX ?? 1);
+        const height = (data.height ?? bbox.height) * (data.transform?.scaleY ?? 1);
         const t = data.transform || { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1 };
-        setSelectedBounds({ x: t.translateX, y: t.translateY, width: bbox.width * t.scaleX, height: bbox.height * t.scaleY });
+        setSelectedBounds({ x: t.translateX, y: t.translateY, width, height });
       }
     };
     window.addEventListener('stickyselectionchange', handler);
