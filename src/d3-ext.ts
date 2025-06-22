@@ -239,6 +239,8 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
     selection.call(
         d3.drag()
             .on('start', function (event: MouseEvent) {
+                const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
+                if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                 const element = d3.select(this);
                 const overlay = element.select('.crop-controls');
                 if (!overlay.empty() && overlay.style('display') !== 'none') {
@@ -537,7 +539,6 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const ctrl = (event as any).sourceEvent?.ctrlKey;
                     if (ctrl) {
                         angle = Math.round(angle / 15) * 15;
-                        data.cumulative = angle * Math.PI / 180;
                     }
 
                     const newTransform: TransformValues = { ...transform, rotate: angle };
