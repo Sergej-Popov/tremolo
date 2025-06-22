@@ -23,6 +23,38 @@ export function setZoomTransform(transform: d3.ZoomTransform) {
 
 export function setSvgRoot(svg: SVGSVGElement | null) {
     svgRoot = svg;
+    if (!svgRoot) return;
+    const sel = d3.select(svgRoot);
+    let defs = sel.select('defs');
+    if (defs.empty()) defs = sel.append('defs');
+    if (defs.select('#drag-grid-pattern').empty()) {
+        const pattern = defs.append('pattern')
+            .attr('id', 'drag-grid-pattern')
+            .attr('width', 10)
+            .attr('height', 10)
+            .attr('patternUnits', 'userSpaceOnUse');
+        pattern.append('path')
+            .attr('d', 'M10 0 L0 0 0 10')
+            .attr('fill', 'none')
+            .attr('stroke', '#ccc')
+            .attr('stroke-width', 0.5);
+    }
+    let grid = sel.select<SVGRectElement>('.grid-overlay');
+    if (grid.empty()) {
+        grid = sel.insert('rect', ':first-child')
+            .attr('class', 'grid-overlay')
+            .attr('width', '100%')
+            .attr('height', '100%')
+            .attr('fill', 'url(#drag-grid-pattern)')
+            .style('pointer-events', 'none')
+            .style('display', 'none');
+    }
+}
+
+function setGridVisible(visible: boolean) {
+    if (!svgRoot) return;
+    d3.select(svgRoot).select('.grid-overlay')
+        .style('display', visible ? 'block' : 'none');
 }
 
 function toWorkspaceCoords(event: MouseEvent | d3.D3DragEvent<any, any, any>): [number, number] {
@@ -196,7 +228,13 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
 }
 
 export function makeDraggable(selection: Selection<any, any, any, any>) {
-    interface DragDatum { dragOffsetX: number, dragOffsetY: number, transform: TransformValues };
+    interface DragDatum {
+        dragOffsetX: number;
+        dragOffsetY: number;
+        transform: TransformValues;
+        startX: number;
+        startY: number;
+    };
 
     selection.call(
         d3.drag()
@@ -214,22 +252,41 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const dragOffsetY = startY - transform.translateY;
 
                 debugLog('drag start', transform.translateX, transform.translateY);
-                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform });
+                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY });
+                setGridVisible(event.ctrlKey);
             })
             .on('drag', function (event: MouseEvent) {
                 const element = d3.select<any, DragDatum>(this);
                 const data = element.datum();
-                const { dragOffsetX, dragOffsetY, transform } = data;
+                const { dragOffsetX, dragOffsetY, transform, startX, startY } = data;
 
                 const [mx, my] = toWorkspaceCoords(event);
+                let newX = mx - dragOffsetX;
+                let newY = my - dragOffsetY;
+                const source = (event as any).sourceEvent as MouseEvent | undefined;
+                const ctrl = source?.ctrlKey;
+                const shift = source?.shiftKey;
+                if (shift) {
+                    const dx = Math.abs(newX - startX);
+                    const dy = Math.abs(newY - startY);
+                    if (dx > dy) newY = startY; else newX = startX;
+                }
+                if (ctrl) {
+                    newX = Math.round(newX / 10) * 10;
+                    newY = Math.round(newY / 10) * 10;
+                }
                 const newTransform: TransformValues = {
                     ...transform,
-                    translateX: mx - dragOffsetX,
-                    translateY: my - dragOffsetY,
+                    translateX: newX,
+                    translateY: newY,
                 };
 
                 applyTransform(element, newTransform);
+                setGridVisible(!!ctrl);
                 debugLog('drag', newTransform.translateX, newTransform.translateY);
+            })
+            .on('end', function () {
+                setGridVisible(false);
             })
     );
 }
@@ -468,15 +525,22 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                 .on('drag', function (event: MouseEvent) {
                     const data = d3.select<any, any>(this).datum();
                     const { centerX, centerY, transform } = data;
-                const [px, py] = toWorkspaceCoords(event);
-                const current = Math.atan2(py - centerY, px - centerX);
+                    const [px, py] = toWorkspaceCoords(event);
+                    const current = Math.atan2(py - centerY, px - centerX);
                     let delta = current - data.lastAngle;
                     if (delta > Math.PI) delta -= 2 * Math.PI;
                     if (delta < -Math.PI) delta += 2 * Math.PI;
                     data.cumulative += delta;
                     data.lastAngle = current;
 
-                    const newTransform: TransformValues = { ...transform, rotate: data.cumulative * 180 / Math.PI };
+                    let angle = data.cumulative * 180 / Math.PI;
+                    const ctrl = (event as any).sourceEvent?.ctrlKey;
+                    if (ctrl) {
+                        angle = Math.round(angle / 15) * 15;
+                        data.cumulative = angle * Math.PI / 180;
+                    }
+
+                    const newTransform: TransformValues = { ...transform, rotate: angle };
                     applyTransform(element, newTransform);
                     updateDebugCross(element);
                     debugLog('rotate', newTransform.rotate);
