@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, isCroppableSelected, updateSelectedLanguage } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -46,8 +46,12 @@ interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: st
 
 interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
+interface CodeBlockDatum { id: string; type: 'code'; text: string; language: string }
+
 const stickyWidth = 225;
 const stickyHeight = 150;
+const codeWidth = 300;
+const codeHeight = 200;
 
 const videoWidth = 480;
 const videoHeight = 270;
@@ -67,6 +71,7 @@ const GuitarBoard: React.FC = () => {
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
+  const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -355,6 +360,79 @@ const GuitarBoard: React.FC = () => {
     return group;
   }, [stickyColor]);
 
+  const addCodeBlock = useCallback((language: string, pos: { x: number, y: number }) => {
+    const svg = d3.select(svgRef.current);
+    const layer = svg.select<SVGGElement>('.code-blocks');
+
+    const group = layer.append('g')
+      .attr('class', 'code-block')
+      .datum<CodeBlockDatum & { width: number; height: number; transform: any }>({
+        id: generateId(),
+        type: 'code',
+        text: Array(10).fill('').join('\n'),
+        language,
+        width: codeWidth,
+        height: codeHeight,
+        transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 }
+      })
+      .style('filter', 'drop-shadow(2px 2px 2px rgba(0,0,0,0.3))');
+
+    group.append('rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', codeWidth)
+      .attr('height', codeHeight)
+      .attr('fill', '#f0f0f0');
+
+    const fo = group.append('foreignObject')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', codeWidth)
+      .attr('height', codeHeight);
+
+    const pre = fo.append('xhtml:pre')
+      .style('margin', '0')
+      .style('height', '100%')
+      .style('box-sizing', 'border-box')
+      .style('overflow', 'auto')
+      .style('font-family', 'monospace')
+      .style('font-size', '12px')
+      .style('padding', '12px');
+
+    const code = pre.append('xhtml:code')
+      .classed(language, true)
+      .attr('contentEditable', 'true')
+      .text(Array(10).fill('').join('\n'));
+
+    setTimeout(() => {
+      const node = code.node() as HTMLElement | null;
+      if (node && (window as any).hljs) {
+        (window as any).hljs.highlightElement(node);
+      }
+    }, 0);
+
+    code.on('blur', () => {
+      const data = group.datum() as CodeBlockDatum & { transform: any };
+      data.text = code.textContent || '';
+      if ((window as any).hljs) {
+        (window as any).hljs.highlightElement(code.node() as HTMLElement);
+      }
+    });
+
+    code.on('mousedown', (e: MouseEvent) => e.stopPropagation());
+
+    applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
+
+    group.call(makeDraggable);
+    group.call(makeResizable, { rotatable: true });
+
+    if (debug) addDebugCross(group);
+
+    group.dispatch('click');
+
+    return group;
+  }, []);
+
   const duplicateElement = (info: ElementCopy) => {
     const pos = cursorRef.current;
     if (info.type === 'image') {
@@ -404,6 +482,21 @@ const GuitarBoard: React.FC = () => {
         }
       };
       apply();
+    } else if (info.type === 'code') {
+      const g = addCodeBlock(info.data.language, pos);
+      const d = g.datum() as any;
+      d.width = info.data.width;
+      d.height = info.data.height;
+      d.language = info.data.language;
+      g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
+      g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
+      const code = g.select<HTMLElement>('foreignObject > pre > code')
+        .classed(info.data.language, true)
+        .text(info.data.text);
+      if ((window as any).hljs) {
+        (window as any).hljs.highlightElement(code.node());
+      }
+      applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'drawing') {
       const svg = d3.select(svgRef.current);
       const layer = svg.select<SVGGElement>('.drawings');
@@ -540,14 +633,17 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     setStickySelected(false);
+    setCodeSelected(false);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
         setStickySelected(false);
+        setCodeSelected(false);
         setSelectedBounds(null);
       } else {
         const sel = d3.select(node);
         setStickySelected(sel.classed('sticky-note'));
+        setCodeSelected(sel.classed('code-block'));
         const bbox = (node as SVGGraphicsElement).getBBox();
         const data: any = sel.datum() || {};
         const width = (data.width ?? bbox.width) * (data.transform?.scaleX ?? 1);
@@ -558,13 +654,14 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler);
     return () => window.removeEventListener('stickyselectionchange', handler);
-  }, [setStickySelected]);
+  }, [setStickySelected, setCodeSelected]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
-      if (active && active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') {
-        return; // let the browser handle paste inside editable sticky
+      if (active && ((active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') ||
+        (active.tagName === 'CODE' && active.getAttribute('contentEditable') === 'true'))) {
+        return; // let the browser handle paste inside editable elements
       }
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
@@ -635,6 +732,11 @@ const GuitarBoard: React.FC = () => {
         const info = getSelectedElementData();
         if (info) {
           duplicateElement(info);
+          e.preventDefault();
+        }
+      } else if (e.key.toLowerCase() === 'c' && !e.ctrlKey) {
+        if (!isCroppableSelected()) {
+          addCodeBlock('javascript', cursorRef.current);
           e.preventDefault();
         }
       }
@@ -780,6 +882,7 @@ const GuitarBoard: React.FC = () => {
       workspace.append('g').attr('class', 'pasted-images');
       workspace.append('g').attr('class', 'embedded-videos');
       workspace.append('g').attr('class', 'sticky-notes');
+      workspace.append('g').attr('class', 'code-blocks');
       workspace.append('g').attr('class', 'drawings');
       if (debug) {
         workspace.append('text')

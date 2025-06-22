@@ -60,6 +60,16 @@
     caret-color: black; /* Ensure the cursor is visible */
 }
 
+.code-block code {
+    outline: none;
+    display: block;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    font-family: monospace;
+    white-space: pre;
+}
+
 .crop-controls {
     pointer-events: none;
 }

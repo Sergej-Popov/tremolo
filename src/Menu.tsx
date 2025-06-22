@@ -5,9 +5,10 @@ import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleB
 import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import CodeIcon from '@mui/icons-material/Code';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedLanguage } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -20,12 +21,14 @@ const Menu: React.FC = () => {
   const stickyAlign = app?.stickyAlign ?? 'center';
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
+  const codeSelected = app?.codeSelected ?? false;
   const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
   const brushWidth = app?.brushWidth ?? 'auto';
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
+  const [codeLang, setCodeLang] = React.useState<string>('javascript');
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -33,8 +36,12 @@ const Menu: React.FC = () => {
       if (el && d3.select(el).classed('sticky-note')) {
         const data = d3.select(el).datum() as any;
         setFontSize(data.fontSize != null ? data.fontSize.toString() : 'auto');
+      } else if (el && d3.select(el).classed('code-block')) {
+        const data = d3.select(el).datum() as any;
+        setCodeLang(data.language || 'javascript');
       } else {
         setFontSize('auto');
+        setCodeLang('javascript');
       }
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
@@ -121,6 +128,28 @@ const Menu: React.FC = () => {
               </Select>
             </Box>
           </>
+        )}
+        <IconButton color="inherit" sx={{ mr: 1 }} onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' }))}>
+          <CodeIcon />
+        </IconButton>
+        {codeSelected && (
+          <Box id="code-lang-select" sx={{ mr: 2 }}>
+            <Select
+              size="small"
+              value={codeLang}
+              onChange={(e) => {
+                const lang = e.target.value as string;
+                setCodeLang(lang);
+                updateSelectedLanguage(lang);
+              }}
+            >
+              <MenuItem value="javascript">JavaScript</MenuItem>
+              <MenuItem value="python">Python</MenuItem>
+              <MenuItem value="java">Java</MenuItem>
+              <MenuItem value="cpp">C++</MenuItem>
+              <MenuItem value="plaintext">Plain Text</MenuItem>
+            </Select>
+          </Box>
         )}
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />

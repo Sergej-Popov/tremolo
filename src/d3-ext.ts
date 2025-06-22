@@ -332,8 +332,20 @@ export function updateSelectedFontSize(size: number | 'auto') {
     }
 }
 
+export function updateSelectedLanguage(lang: string) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const code = selectedElement.select<HTMLElement>('foreignObject > pre > code');
+        code.attr('class', lang);
+        const data = selectedElement.datum() as any;
+        data.language = lang;
+        if ((window as any).hljs) {
+            (window as any).hljs.highlightElement(code.node());
+        }
+    }
+}
+
 export interface ElementCopy {
-    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing';
+    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing' | 'code';
     data: any;
 }
 
@@ -345,6 +357,7 @@ export function getSelectedElementData(): ElementCopy | null {
     else if (selectedElement.classed('sticky-note')) type = 'sticky';
     else if (selectedElement.classed('guitar-board')) type = 'board';
     else if (selectedElement.classed('drawing')) type = 'drawing';
+    else if (selectedElement.classed('code-block')) type = 'code';
     if (!type) return null;
     const data = { ...(selectedElement.datum() as any) };
     if (type === 'board') {
@@ -355,6 +368,10 @@ export function getSelectedElementData(): ElementCopy | null {
 
 export function isStickySelected(): boolean {
     return !!selectedElement && selectedElement.classed('sticky-note');
+}
+
+export function isCroppableSelected(): boolean {
+    return !!selectedElement && selectedElement.classed('croppable');
 }
 
 interface ResizeOptions {
