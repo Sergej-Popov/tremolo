@@ -46,8 +46,8 @@ interface PastedVideoDatum { url: string, videoId: string }
 
 interface StickyNoteDatum { text: string, align: 'left' | 'center' | 'right' }
 
-const stickyWidth = 150;
-const stickyHeight = 100;
+const stickyWidth = 225;
+const stickyHeight = 150;
 
 const videoWidth = 480;
 const videoHeight = 270;
@@ -513,16 +513,16 @@ const GuitarBoard: React.FC = () => {
         return; // let the browser handle paste inside editable sticky
       }
       const text = event.clipboardData?.getData('text/plain');
-      if (text && text.startsWith('tremolo:')) {
-        try {
-          const info = JSON.parse(text.slice(8));
-          duplicateElement(info);
-          event.preventDefault();
-          return;
-        } catch {}
-      }
       if (text) {
         const trimmed = text.trim();
+        if (trimmed.startsWith('tremolo:')) {
+          try {
+            const info = JSON.parse(trimmed.slice(8));
+            duplicateElement(info);
+            event.preventDefault();
+            return;
+          } catch {}
+        }
         const id = extractVideoId(trimmed);
         if (id) {
           addVideo(trimmed, cursorRef.current);

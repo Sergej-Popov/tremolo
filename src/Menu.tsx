@@ -110,7 +110,7 @@ const Menu: React.FC = () => {
                 }}
               >
                 <MenuItem value="auto">Auto</MenuItem>
-                {Array.from({ length: 16 }, (_, i) => 6 + i * 2).map((s) => (
+                {Array.from({ length: 22 }, (_, i) => 6 + i * 2).map((s) => (
                   <MenuItem key={s} value={s.toString()}>{`${s}px`}</MenuItem>
                 ))}
               </Select>

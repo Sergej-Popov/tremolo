@@ -118,7 +118,7 @@ export const defaultTransform = (): TransformValues => ({
 });
 
 export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) {
-    let size = fixedSize ?? 12;
+    let size = fixedSize ?? 16;
     el.classList.remove('scrollable');
     el.style.overflow = 'hidden';
     el.style.fontSize = `${size}px`;
