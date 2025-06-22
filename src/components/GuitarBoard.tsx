@@ -515,9 +515,10 @@ const GuitarBoard: React.FC = () => {
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
         const trimmed = text.trim();
-        if (trimmed.startsWith('tremolo:')) {
+        const idx = trimmed.indexOf('tremolo:');
+        if (idx !== -1) {
           try {
-            const info = JSON.parse(trimmed.slice(8));
+            const info = JSON.parse(trimmed.slice(idx + 8));
             duplicateElement(info);
             event.preventDefault();
             return;
