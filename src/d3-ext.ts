@@ -116,7 +116,7 @@ export function adjustStickyFont(el: HTMLDivElement) {
     }
 }
 
-export function addDebugCross(element: Selection<any, any, any, any>, size = 8) {
+export function addDebugCross(element: Selection<any, any, any, any>, size = 12) {
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const cross = element.append('text')
         .attr('class', 'component-debug-cross')
@@ -127,12 +127,12 @@ export function addDebugCross(element: Selection<any, any, any, any>, size = 8) 
         .attr('font-size', size)
         .attr('fill', 'red')
         .style('pointer-events', 'none')
-        .text('\u2715');
+        .text('+');
     cross.style('display', debugEnabled ? 'block' : 'none');
     return cross;
 }
 
-export function updateDebugCross(element: Selection<any, any, any, any>, size = 8) {
+export function updateDebugCross(element: Selection<any, any, any, any>, size = 12) {
     const cross = element.select<SVGTextElement>('.component-debug-cross');
     if (cross.empty()) return;
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
@@ -173,6 +173,7 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const dragOffsetX = event.x - transform.translateX;
                 const dragOffsetY = event.y - transform.translateY;
 
+                debugLog('drag start', transform.translateX, transform.translateY);
                 element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform });
             })
             .on('drag', function (event: MouseEvent) {
@@ -187,6 +188,7 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 };
 
                 applyTransform(element, newTransform);
+                debugLog('drag', newTransform.translateX, newTransform.translateY);
             })
     );
 }

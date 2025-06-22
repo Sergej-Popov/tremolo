@@ -19,7 +19,6 @@ const Menu: React.FC = () => {
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
   const addBoard = app?.addBoard ?? (() => {});
-  const debug = app?.debug ?? false;
 
   return (
     <AppBar position="static" style={{ marginBottom: "15px" }}>
@@ -39,7 +38,7 @@ const Menu: React.FC = () => {
           </IconButton>
         </Link>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Tremolo {debug && '(debugging)'}
+          Tremolo
         </Typography>
         {stickySelected && (
           <>

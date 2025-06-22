@@ -75,6 +75,7 @@ const GuitarBoard: React.FC = () => {
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
+  const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
   const [zoomValue, setZoomValue] = useState(1);
 
   const boards = app?.boards ?? [0];
@@ -411,8 +412,14 @@ const GuitarBoard: React.FC = () => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
         setStickySelected(false);
+        setSelectedBounds(null);
       } else {
-        setStickySelected(d3.select(node).classed('sticky-note'));
+        const sel = d3.select(node);
+        setStickySelected(sel.classed('sticky-note'));
+        const bbox = (node as SVGGraphicsElement).getBBox();
+        const data: any = sel.datum() || {};
+        const t = data.transform || { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1 };
+        setSelectedBounds({ x: t.translateX, y: t.translateY, width: bbox.width * t.scaleX, height: bbox.height * t.scaleY });
       }
     };
     window.addEventListener('stickyselectionchange', handler);
@@ -496,10 +503,10 @@ const GuitarBoard: React.FC = () => {
           .attr('y', 0)
           .attr('text-anchor', 'middle')
           .attr('dominant-baseline', 'middle')
-          .attr('font-size', 20)
+          .attr('font-size', 40)
           .attr('class', 'debug-cross-global')
           .style('pointer-events', 'none')
-          .text('\u271b');
+          .text('+');
       }
     }
     workspaceRef.current = workspace.node();
@@ -579,6 +586,14 @@ const GuitarBoard: React.FC = () => {
             <RestartAltIcon fontSize="small" />
           </IconButton>
         </Box>
+        {debug && (
+          <Box sx={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, px: 1 }}>
+            <Typography variant="body2">
+              Debugging: {`(${cursorPos.x.toFixed(1)}, ${cursorPos.y.toFixed(1)})`}
+              {selectedBounds && ` | sel: ${selectedBounds.x.toFixed(1)}, ${selectedBounds.y.toFixed(1)}, ${selectedBounds.width.toFixed(1)}, ${selectedBounds.height.toFixed(1)}`}
+            </Typography>
+          </Box>
+        )}
         <Drawer
           anchor="bottom"
           open={showPanel}
