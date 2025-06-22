@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog, DialogTitle, DialogContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Fab } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 const shortcuts = [
@@ -37,9 +37,9 @@ const HelpDialog: React.FC = () => {
 
   return (
     <>
-      <Fab aria-label="help" onClick={handleOpen} sx={{ position: 'fixed', bottom: 16, right: 16 }}>
-        <HelpOutlineIcon />
-      </Fab>
+      <IconButton aria-label="help" onClick={handleOpen} sx={{ position: 'fixed', bottom: 16, right: 16 }}>
+        <HelpOutlineIcon fontSize="small" />
+      </IconButton>
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>Keyboard Shortcuts</DialogTitle>
         <DialogContent>

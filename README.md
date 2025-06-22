@@ -24,7 +24,7 @@ https://sergej-popov.github.io/tremolo/
 - Set a fixed font size for a sticky note from the header dropdown or choose "Auto" for automatic sizing (6–48px in even steps).
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
-- Press **/** or **?** or use the floating question button to see a help dialog with all shortcuts.
+- Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
 
 ## Hotkeys
 - **Delete** – remove the selected item.
