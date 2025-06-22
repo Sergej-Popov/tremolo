@@ -83,6 +83,8 @@ export function adjustStickyFont(el: HTMLDivElement) {
     el.classList.remove('scrollable');
     el.style.overflow = 'hidden';
     el.style.fontSize = `${size}px`;
+    el.onwheel = null;
+    el.onmousedown = null;
 
     while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
         size -= 1;
@@ -92,6 +94,8 @@ export function adjustStickyFont(el: HTMLDivElement) {
     if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
         el.classList.add('scrollable');
         el.style.overflow = 'auto';
+        el.onwheel = (e) => e.stopPropagation();
+        el.onmousedown = (e) => e.stopPropagation();
     }
 }
 

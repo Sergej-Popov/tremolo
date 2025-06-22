@@ -13,6 +13,7 @@ https://sergej-popov.github.io/tremolo/
 - Paste YouTube links to embed videos while preserving aspect ratio.
 - Paste text to create sticky notes that can be dragged, resized and rotated. Double-click a sticky note to edit its text.
 - Sticky note text wraps and shrinks automatically; if it still overflows at the minimum size, a thin scrollbar appears.
+- Scrollbars have a transparent track and respond to the mouse wheel when hovering over a sticky note.
 - Pasting text always inserts plain text. When editing a sticky note the paste goes into the note instead of creating a new one.
 - Select a pasted object and press **Delete** to remove it.
 - Quickly add predefined chords or scales or display all notes.
