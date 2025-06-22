@@ -272,10 +272,10 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
     const handle = element.append('text')
         .attr('class', 'resize-handle')
-        .attr('x', width + handleSize)
-        .attr('y', height + handleSize)
+        .attr('x', width + handleSize / transform.scaleX)
+        .attr('y', height + handleSize / transform.scaleY)
         .text('\u2921')
-        .attr('font-size', handleSize)
+        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'nwse-resize')
         .style('user-select', 'none')
         .style('vector-effect', 'non-scaling-stroke');
@@ -317,8 +317,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 const dx = mx - data.startX;
                 const dy = my - data.startY;
 
-                let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx * 2) / data.width);
-                let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy * 2) / data.height);
+                let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
+                let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
 
                 const shift = (event as any).sourceEvent?.shiftKey;
                 if (lockAspectRatio ? !shift : shift) {
@@ -336,12 +336,15 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     element.select('rect').attr('width', width).attr('height', height);
                     element.select('foreignObject').attr('width', width).attr('height', height);
                     element.select('.selection-outline').attr('width', width).attr('height', height);
-                    element.select('.rotate-handle').attr('x', width + handleSize);
+                    element.select('.rotate-handle')
+                        .attr('x', width + handleSize)
+                        .attr('font-size', handleSize);
                     const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
                     applyTransform(element, newTransform);
                     d3.select(this)
                         .attr('x', width + handleSize)
-                        .attr('y', height + handleSize);
+                        .attr('y', height + handleSize)
+                        .attr('font-size', handleSize);
                     updateDebugCross(element);
                     debugLog('resize drag', width, height);
                 } else {
@@ -353,13 +356,15 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
                     d3.select(this)
                         .attr('x', data.width + handleSize / newScaleX)
-                        .attr('y', data.height + handleSize / newScaleY);
+                        .attr('y', data.height + handleSize / newScaleY)
+                        .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
 
                     const rotateHandle = element.select('.rotate-handle');
                     if (!rotateHandle.empty()) {
                         rotateHandle
                             .attr('x', data.width + handleSize / newScaleX)
-                            .attr('y', -handleSize / newScaleY);
+                            .attr('y', -handleSize / newScaleY)
+                            .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
                     }
 
                     updateDebugCross(element);
@@ -387,10 +392,10 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const height = data.height ?? bbox.height;
     element.append('text')
         .attr('class', 'rotate-handle')
-        .attr('x', width + handleSize)
-        .attr('y', -handleSize)
+        .attr('x', width + handleSize / transform.scaleX)
+        .attr('y', -handleSize / transform.scaleY)
         .text('\u21bb')
-        .attr('font-size', handleSize)
+        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'grab')
         .style('user-select', 'none')
         .style('vector-effect', 'non-scaling-stroke')
