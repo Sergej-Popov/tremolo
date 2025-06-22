@@ -102,7 +102,7 @@
 
 .grid-overlay {
     pointer-events: none;
-    opacity: 0.4;
+    opacity: 1;
 }
 #root, html, body {
     height: 100%;

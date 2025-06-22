@@ -636,6 +636,7 @@ const GuitarBoard: React.FC = () => {
       }
     }
     workspaceRef.current = workspace.node();
+    setSvgRoot(svgRef.current, workspaceRef.current);
 
     boards.forEach((id) => {
       let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
@@ -691,7 +692,13 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const svg = d3.select(svgRef.current);
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .filter(event => event.type !== 'dblclick')
+      .filter(event => {
+        if (event.type === 'dblclick') return false;
+        const e = event as any;
+        if (e.ctrlKey) return false;
+        const target = e.target as Element;
+        return target === svgRef.current || target === workspaceRef.current;
+      })
       .scaleExtent([0.1, 10])
       .on('start', hideTooltip)
       .on('zoom', (event) => {
@@ -704,7 +711,7 @@ const GuitarBoard: React.FC = () => {
     svg.call(zoom as any);
     zoomBehaviorRef.current = zoom;
     setZoomTransform(d3.zoomIdentity);
-    setSvgRoot(svgRef.current);
+    setSvgRoot(svgRef.current, workspaceRef.current);
   }, []);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { BaseType, Selection } from 'd3';
 
 let zoomTransform: d3.ZoomTransform = d3.zoomIdentity;
 let svgRoot: SVGSVGElement | null = null;
+let workspaceRoot: SVGGElement | null = null;
 
 let debugEnabled = false;
 
@@ -15,18 +16,21 @@ export function generateId(): string {
 
 export function setDebugMode(enabled: boolean) {
     debugEnabled = enabled;
+    setGridVisible(enabled);
 }
 
 export function setZoomTransform(transform: d3.ZoomTransform) {
     zoomTransform = transform;
 }
 
-export function setSvgRoot(svg: SVGSVGElement | null) {
+export function setSvgRoot(svg: SVGSVGElement | null, workspace?: SVGGElement | null) {
     svgRoot = svg;
+    if (workspace) workspaceRoot = workspace;
     if (!svgRoot) return;
-    const sel = d3.select(svgRoot);
-    let defs = sel.select('defs');
-    if (defs.empty()) defs = sel.append('defs');
+    const svgSel = d3.select(svgRoot);
+    const container = workspaceRoot ? d3.select(workspaceRoot) : svgSel;
+    let defs = svgSel.select('defs');
+    if (defs.empty()) defs = svgSel.append('defs');
     if (defs.select('#drag-grid-pattern').empty()) {
         const pattern = defs.append('pattern')
             .attr('id', 'drag-grid-pattern')
@@ -39,9 +43,9 @@ export function setSvgRoot(svg: SVGSVGElement | null) {
             .attr('stroke', '#ccc')
             .attr('stroke-width', 0.5);
     }
-    let grid = sel.select<SVGRectElement>('.grid-overlay');
+    let grid = container.select<SVGRectElement>('.grid-overlay');
     if (grid.empty()) {
-        grid = sel.insert('rect', ':first-child')
+        grid = container.insert('rect', ':first-child')
             .attr('class', 'grid-overlay')
             .attr('width', '100%')
             .attr('height', '100%')
@@ -51,10 +55,14 @@ export function setSvgRoot(svg: SVGSVGElement | null) {
     }
 }
 
-function setGridVisible(visible: boolean) {
+function setGridVisible(show: boolean) {
     if (!svgRoot) return;
-    d3.select(svgRoot).select('.grid-overlay')
-        .style('display', visible ? 'block' : 'none');
+    const grid = d3.select(svgRoot).select('.grid-overlay');
+    if (show || debugEnabled) {
+        grid.style('display', 'block').style('opacity', '1');
+    } else {
+        grid.style('display', 'none');
+    }
 }
 
 function toWorkspaceCoords(event: MouseEvent | d3.D3DragEvent<any, any, any>): [number, number] {
