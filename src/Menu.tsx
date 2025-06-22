@@ -60,6 +60,7 @@ const Menu: React.FC = () => {
               </Select>
             </Box>
             <ToggleButtonGroup
+              id="sticky-align-controls"
               size="small"
               exclusive
               value={stickyAlign}

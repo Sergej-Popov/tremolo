@@ -16,6 +16,8 @@
 .resize-handle {
     pointer-events: all;
     cursor: nwse-resize;
+    user-select: none;
+    font-size: 16px;
 }
 
 .sticky-note div {
@@ -69,8 +71,8 @@
 
 .crop-handle {
     pointer-events: all;
-    fill: white;
-    stroke: black;
+    user-select: none;
+    font-size: 16px;
 }
 
 .crop-handle-n,

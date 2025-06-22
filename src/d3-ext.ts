@@ -180,7 +180,7 @@ interface ResizeOptions {
 
 function addResizeHandle(element: Selection<any, any, any, any>, options: ResizeOptions = {}) {
     const { lockAspectRatio = true } = options;
-    const handleRadius = 6;
+    const handleSize = 16;
 
     if (!element.select('.resize-handle').empty()) return;
 
@@ -188,20 +188,19 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
     const data: any = element.datum();
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
-    const { scaleX, scaleY } = transform;
 
-    const handle = element.append('circle')
+    const handle = element.append('text')
         .attr('class', 'resize-handle')
-        .attr('cx', bbox.width)
-        .attr('cy', bbox.height)
-        .attr('r', handleRadius / Math.max(scaleX, scaleY))
+        .attr('x', bbox.width + handleSize)
+        .attr('y', bbox.height + handleSize)
+        .text('\u2922')
+        .attr('font-size', handleSize)
         .style('cursor', 'nwse-resize')
-        .attr('fill', 'white')
-        .attr('stroke', 'black')
+        .style('user-select', 'none')
         .style('vector-effect', 'non-scaling-stroke');
 
     handle.call(
-        d3.drag<SVGCircleElement, unknown>()
+        d3.drag<SVGTextElement, unknown>()
             .on('start', function (event: MouseEvent) {
                 const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                 if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -215,13 +214,10 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 const data = element.datum() as any;
                 const transform: TransformValues = data.transform ?? defaultTransform();
                 data.transform = transform;
-                const { scaleX, scaleY } = transform;
-
                 const startX = event.x;
                 const startY = event.y;
 
                 d3.select(this)
-                    .attr('r', handleRadius / Math.max(scaleX, scaleY))
                     .datum({ startX, startY, transform, width: bbox.width, height: bbox.height, origWidth: bbox.width, origHeight: bbox.height });
             })
             .on('drag', function (event: MouseEvent) {
@@ -254,17 +250,15 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
                     applyTransform(element, newTransform);
                     d3.select(this)
-                        .attr('cx', width)
-                        .attr('cy', height)
-                        .attr('r', handleRadius);
+                        .attr('x', width + handleSize)
+                        .attr('y', height + handleSize);
                 } else {
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
                     applyTransform(element, newTransform);
 
                     d3.select(this)
-                        .attr('cx', data.width)
-                        .attr('cy', data.height)
-                        .attr('r', handleRadius / Math.max(newScaleX, newScaleY));
+                        .attr('x', data.width + handleSize)
+                        .attr('y', data.height + handleSize);
                 }
             })
             .on('end', function () {
@@ -276,7 +270,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 }
 
 function addRotateHandle(element: Selection<any, any, any, any>) {
-    const handleSize = 10;
+    const handleSize = 16;
 
     if (!element.select('.rotate-handle').empty()) return;
 
@@ -373,6 +367,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
         d3.select(window).on('click.makeResizable', (event: MouseEvent) => {
             const controls = document.getElementById('board-controls');
             const colorSelect = document.getElementById('sticky-color-select');
+            const alignControls = document.getElementById('sticky-align-controls');
             const target = event.target as Node;
             const isSvg = target instanceof SVGElement;
             if (
@@ -380,7 +375,8 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
                 isSvg &&
                 !selectedElement.node()?.contains(target) &&
                 !(controls && controls.contains(target)) &&
-                !(colorSelect && colorSelect.contains(target))
+                !(colorSelect && colorSelect.contains(target)) &&
+                !(alignControls && alignControls.contains(target))
             ) {
                 clearSelection();
             }
@@ -436,17 +432,17 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
     }
 
     overlay.select('.crop-handle-n')
-        .attr('cx', x + width / 2)
-        .attr('cy', y);
+        .attr('x', x + width / 2)
+        .attr('y', y);
     overlay.select('.crop-handle-e')
-        .attr('cx', x + width)
-        .attr('cy', y + height / 2);
+        .attr('x', x + width)
+        .attr('y', y + height / 2);
     overlay.select('.crop-handle-s')
-        .attr('cx', x + width / 2)
-        .attr('cy', y + height);
+        .attr('x', x + width / 2)
+        .attr('y', y + height);
     overlay.select('.crop-handle-w')
-        .attr('cx', x)
-        .attr('cy', y + height / 2);
+        .attr('x', x)
+        .attr('y', y + height / 2);
 
     overlay.select('.crop-shade-top')
         .attr('x', 0)
@@ -574,11 +570,14 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
 
             const handleClasses = ['n', 'e', 's', 'w'];
             for (const dir of handleClasses) {
-                overlay.append('circle')
+                const char = dir === 'n' || dir === 's' ? '\u2195' : '\u2194';
+                overlay.append('text')
                     .attr('class', `crop-handle crop-handle-${dir}`)
-                    .attr('r', 6)
-                    .attr('fill', 'white')
-                    .attr('stroke', 'black')
+                    .text(char)
+                    .attr('font-size', 16)
+                    .attr('text-anchor', 'middle')
+                    .attr('dominant-baseline', 'middle')
+                    .style('user-select', 'none')
                     .style('vector-effect', 'non-scaling-stroke');
             }
 
@@ -589,9 +588,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
 
             const rect = overlay.select<SVGRectElement>('.crop-rect');
 
-            const handleN = overlay.select<SVGCircleElement>('.crop-handle-n');
+            const handleN = overlay.select<SVGTextElement>('.crop-handle-n');
             handleN.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -609,9 +608,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                     })
             );
 
-            const handleS = overlay.select<SVGCircleElement>('.crop-handle-s');
+            const handleS = overlay.select<SVGTextElement>('.crop-handle-s');
             handleS.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -627,9 +626,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                     })
             );
 
-            const handleE = overlay.select<SVGCircleElement>('.crop-handle-e');
+            const handleE = overlay.select<SVGTextElement>('.crop-handle-e');
             handleE.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
@@ -645,9 +644,9 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                     })
             );
 
-            const handleW = overlay.select<SVGCircleElement>('.crop-handle-w');
+            const handleW = overlay.select<SVGTextElement>('.crop-handle-w');
             handleW.call(
-                d3.drag<SVGCircleElement, unknown>()
+                d3.drag<SVGTextElement, unknown>()
                     .on('start', function (event: any) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
