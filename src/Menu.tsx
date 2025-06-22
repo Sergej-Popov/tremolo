@@ -6,7 +6,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -19,6 +19,7 @@ const Menu: React.FC = () => {
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
   const addBoard = app?.addBoard ?? (() => {});
+  const [fontSize, setFontSize] = React.useState<string>('auto');
 
   return (
     <AppBar position="static" style={{ marginBottom: "15px" }}>
@@ -82,6 +83,23 @@ const Menu: React.FC = () => {
                 <FormatAlignRightIcon fontSize="small" />
               </ToggleButton>
             </ToggleButtonGroup>
+            <Box id="sticky-font-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={fontSize}
+                displayEmpty
+                onChange={(e) => {
+                  const val = e.target.value as string;
+                  setFontSize(val);
+                  updateSelectedFontSize(val === 'auto' ? 'auto' : parseInt(val));
+                }}
+              >
+                <MenuItem value="auto">Auto</MenuItem>
+                {Array.from({ length: 31 }, (_, i) => i + 6).map((s) => (
+                  <MenuItem key={s} value={s.toString()}>{`${s}px`}</MenuItem>
+                ))}
+              </Select>
+            </Box>
           </>
         )}
         <IconButton target='_blank' href='https://github.com/Sergej-Popov/tremolo' >

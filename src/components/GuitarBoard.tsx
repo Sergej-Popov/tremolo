@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -234,11 +234,12 @@ const GuitarBoard: React.FC = () => {
 
     const group = notesLayer.append('g')
       .attr('class', 'sticky-note')
-      .datum<StickyNoteDatum & { width: number, height: number, transform: any }>({
+      .datum<StickyNoteDatum & { width: number, height: number, transform: any, fontSize: number | null }>({
         text,
         align: stickyAlign,
         width: stickyWidth,
         height: stickyHeight,
+        fontSize: null,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
       })
       .style('filter', 'drop-shadow(2px 2px 2px rgba(0,0,0,0.3))');
@@ -273,7 +274,7 @@ const GuitarBoard: React.FC = () => {
 
     setTimeout(() => {
       const node = div.node() as HTMLDivElement | null;
-      if (node) adjustStickyFont(node);
+      if (node) adjustStickyFont(node, null);
     }, 0);
 
     group.on('dblclick', () => {
@@ -304,7 +305,10 @@ const GuitarBoard: React.FC = () => {
         .on('paste.edit', null);
 
       const node = div.node() as HTMLDivElement | null;
-      if (node) adjustStickyFont(node);
+      if (node) {
+        const data = group.datum() as any;
+        adjustStickyFont(node, data.fontSize);
+      }
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
@@ -314,7 +318,10 @@ const GuitarBoard: React.FC = () => {
       rotatable: true,
       onResizeEnd: (el) => {
         const divNode = el.select<HTMLDivElement>('foreignObject > .sticky-text').node();
-        if (divNode) adjustStickyFont(divNode);
+        if (divNode) {
+          const data = el.datum() as any;
+          adjustStickyFont(divNode, data.fontSize);
+        }
       }
     });
 
@@ -326,6 +333,42 @@ const GuitarBoard: React.FC = () => {
 
     return group;
   }, [stickyColor]);
+
+  const duplicateElement = (info: ElementCopy) => {
+    const pos = cursorRef.current;
+    if (info.type === 'image') {
+      const g = addImage(info.data.src, pos, info.data.width, info.data.height);
+      const d = g.datum() as any;
+      applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
+      if (info.data.crop) {
+        d.crop = { ...info.data.crop };
+        g.select('.clip-rect')
+          .attr('x', info.data.crop.x)
+          .attr('y', info.data.crop.y)
+          .attr('width', info.data.crop.width)
+          .attr('height', info.data.crop.height);
+      }
+    } else if (info.type === 'video') {
+      const g = addVideo(info.data.url, pos);
+      if (g) {
+        applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
+      }
+    } else if (info.type === 'sticky') {
+      const g = addSticky(info.data.text, pos);
+      const d = g.datum() as any;
+      d.width = info.data.width;
+      d.height = info.data.height;
+      d.align = info.data.align;
+      d.fontSize = info.data.fontSize ?? null;
+      g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
+      g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
+      const div = g.select<HTMLDivElement>('foreignObject > .sticky-text')
+        .style('text-align', info.data.align)
+        .node();
+      if (div) adjustStickyFont(div, d.fontSize);
+      applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
+    }
+  };
 
 
   function fillAllNotes() {
@@ -480,6 +523,33 @@ const GuitarBoard: React.FC = () => {
       window.removeEventListener('paste', handlePaste);
     };
   }, [addSticky]);
+
+  const copyBuffer = useRef<import('../d3-ext').ElementCopy | null>(null);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === 'c') {
+        const info = getSelectedElementData();
+        if (info) {
+          copyBuffer.current = info;
+          e.preventDefault();
+        }
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'v') {
+        if (copyBuffer.current) {
+          duplicateElement(copyBuffer.current);
+          e.preventDefault();
+        }
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+        const info = getSelectedElementData();
+        if (info) {
+          duplicateElement(info);
+          e.preventDefault();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
   const updateCursor = (clientX: number, clientY: number) => {
     if (!svgRef.current) return;

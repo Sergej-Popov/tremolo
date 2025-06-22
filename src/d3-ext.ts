@@ -117,17 +117,19 @@ export const defaultTransform = (): TransformValues => ({
     rotate: 0,
 });
 
-export function adjustStickyFont(el: HTMLDivElement) {
-    let size = 12;
+export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) {
+    let size = fixedSize ?? 12;
     el.classList.remove('scrollable');
     el.style.overflow = 'hidden';
     el.style.fontSize = `${size}px`;
     el.onwheel = null;
     el.onmousedown = null;
 
-    while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
-        size -= 1;
-        el.style.fontSize = `${size}px`;
+    if (fixedSize == null) {
+        while ((el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) && size > 6) {
+            size -= 1;
+            el.style.fontSize = `${size}px`;
+        }
     }
 
     if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
@@ -245,6 +247,31 @@ export function updateSelectedAlignment(align: 'left' | 'center' | 'right') {
         const data = selectedElement.datum() as any;
         data.align = align;
     }
+}
+
+export function updateSelectedFontSize(size: number | 'auto') {
+    if (selectedElement && selectedElement.classed('sticky-note')) {
+        const div = selectedElement.select<HTMLDivElement>('foreignObject > .sticky-text').node();
+        const data = selectedElement.datum() as any;
+        data.fontSize = size === 'auto' ? null : size;
+        if (div) adjustStickyFont(div, size === 'auto' ? null : size);
+    }
+}
+
+export interface ElementCopy {
+    type: 'image' | 'video' | 'sticky';
+    data: any;
+}
+
+export function getSelectedElementData(): ElementCopy | null {
+    if (!selectedElement) return null;
+    let type: ElementCopy['type'] | null = null;
+    if (selectedElement.classed('pasted-image')) type = 'image';
+    else if (selectedElement.classed('embedded-video')) type = 'video';
+    else if (selectedElement.classed('sticky-note')) type = 'sticky';
+    if (!type) return null;
+    const data = { ...(selectedElement.datum() as any) };
+    return { type, data };
 }
 
 export function isStickySelected(): boolean {
@@ -618,6 +645,8 @@ function startCrop(element: Selection<any, any, any, any>) {
         data.crop = crop;
         element.datum(data);
     }
+    const image = element.select('image');
+    image.attr('clip-path', null).style('opacity', 0.5);
     crop.x = crop.x ?? 0;
     crop.y = crop.y ?? 0;
     crop.width = crop.width ?? 0;
@@ -640,6 +669,7 @@ function finishCrop(element: Selection<any, any, any, any>) {
     const rect = overlay.select('.crop-rect');
     const clipRect = element.select('.clip-rect');
     const data = element.datum() as any;
+    const image = element.select('image');
 
     const x = parseFloat(rect.attr('x') ?? '0');
     const y = parseFloat(rect.attr('y') ?? '0');
@@ -655,6 +685,7 @@ function finishCrop(element: Selection<any, any, any, any>) {
         .attr('height', height);
 
     overlay.style('display', 'none');
+    image.attr('clip-path', `url(#${data.clipId})`).style('opacity', null);
 }
 
 function toggleCrop(element: Selection<any, any, any, any>) {
@@ -735,13 +766,17 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const y = parseFloat(rect.attr('y') ?? '0');
                         const height = parseFloat(rect.attr('height') ?? '0');
-                        (this as any).__drag = { y, height };
+                        const imgH = parseFloat(image.attr('height') ?? '0');
+                        (this as any).__drag = { y, height, imgH };
                     })
                     .on('drag', function (event: any) {
                         const drag = (this as any).__drag;
                         if (!drag) return;
-                        let newY = Math.min(drag.y + drag.height - 1, event.y);
+                        let newY = Math.min(drag.y + drag.height - 1, Math.max(0, event.y));
                         let newHeight = drag.height + (drag.y - newY);
+                        if (newY + newHeight > drag.imgH) {
+                            newY = drag.imgH - newHeight;
+                        }
                         rect.attr('y', newY).attr('height', newHeight);
                         updateCropOverlay(element);
                     })
@@ -754,12 +789,17 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const height = parseFloat(rect.attr('height') ?? '0');
-                        (this as any).__drag = { startY: event.y, height };
+                        const imgH = parseFloat(image.attr('height') ?? '0');
+                        const y = parseFloat(rect.attr('y') ?? '0');
+                        (this as any).__drag = { startY: event.y, height, imgH, y };
                     })
                     .on('drag', function (event: any) {
                         const drag = (this as any).__drag;
                         if (!drag) return;
                         let newHeight = Math.max(1, drag.height + event.y - drag.startY);
+                        if (drag.y + newHeight > drag.imgH) {
+                            newHeight = drag.imgH - drag.y;
+                        }
                         rect.attr('height', newHeight);
                         updateCropOverlay(element);
                     })
@@ -772,12 +812,17 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                         const stopProp = (event as any).sourceEvent?.stopPropagation || (event as any).stopPropagation;
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const width = parseFloat(rect.attr('width') ?? '0');
-                        (this as any).__drag = { startX: event.x, width };
+                        const imgW = parseFloat(image.attr('width') ?? '0');
+                        const x = parseFloat(rect.attr('x') ?? '0');
+                        (this as any).__drag = { startX: event.x, width, imgW, x };
                     })
                     .on('drag', function (event: any) {
                         const drag = (this as any).__drag;
                         if (!drag) return;
                         let newWidth = Math.max(1, drag.width + event.x - drag.startX);
+                        if (drag.x + newWidth > drag.imgW) {
+                            newWidth = drag.imgW - drag.x;
+                        }
                         rect.attr('width', newWidth);
                         updateCropOverlay(element);
                     })
@@ -791,13 +836,17 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                         if (typeof stopProp === 'function') stopProp.call(event.sourceEvent ?? event);
                         const x = parseFloat(rect.attr('x') ?? '0');
                         const width = parseFloat(rect.attr('width') ?? '0');
-                        (this as any).__drag = { startX: event.x, x, width };
+                        const imgW = parseFloat(image.attr('width') ?? '0');
+                        (this as any).__drag = { startX: event.x, x, width, imgW };
                     })
                     .on('drag', function (event: any) {
                         const drag = (this as any).__drag;
                         if (!drag) return;
-                        let newX = Math.min(drag.x + drag.width - 1, event.x);
+                        let newX = Math.min(drag.x + drag.width - 1, Math.max(0, event.x));
                         let newWidth = drag.width + (drag.x - newX);
+                        if (newX + newWidth > drag.imgW) {
+                            newX = drag.imgW - newWidth;
+                        }
                         rect.attr('x', newX).attr('width', newWidth);
                         updateCropOverlay(element);
                     })
