@@ -386,6 +386,7 @@ export async function updateSelectedCodeLang(lang: string) {
             const { html, background } = await highlightCode(data.code, lang, data.theme ?? 'nord');
             pre.innerHTML = html;
             pre.style.backgroundColor = background;
+            pre.style.fontSize = `${data.fontSize ?? 14}px`;
         }
     }
 }
@@ -399,7 +400,17 @@ export async function updateSelectedCodeTheme(theme: string) {
             const { html, background } = await highlightCode(data.code, data.lang, theme);
             pre.innerHTML = html;
             pre.style.backgroundColor = background;
+            pre.style.fontSize = `${data.fontSize ?? 14}px`;
         }
+    }
+}
+
+export function updateSelectedCodeFontSize(size: number) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const data = selectedElement.datum() as any;
+        data.fontSize = size;
+        selectedElement.select<HTMLPreElement>('foreignObject > pre')
+            .style('font-size', `${size}px`);
     }
 }
 
@@ -509,7 +520,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     newScaleY = ratio;
                 }
 
-                if (element.classed('sticky-note')) {
+                if (element.classed('sticky-note') || element.classed('code-block')) {
                     const stickyData = element.datum() as any;
                     const width = data.origWidth * newScaleX;
                     const height = data.origHeight * newScaleY;
@@ -554,7 +565,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 }
             })
             .on('end', function () {
-                if (element.classed('sticky-note') && typeof options.onResizeEnd === 'function') {
+                if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
                 updateDebugCross(element);

@@ -7,7 +7,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, highlightLangs, highlightThemes } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -27,12 +27,15 @@ const Menu: React.FC = () => {
   const setCodeLanguage = app?.setCodeLanguage ?? (() => {});
   const codeTheme = app?.codeTheme ?? 'nord';
   const setCodeTheme = app?.setCodeTheme ?? (() => {});
+  const codeFontSize = app?.codeFontSize ?? 14;
+  const setCodeFontSize = app?.setCodeFontSize ?? (() => {});
   const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
   const brushWidth = app?.brushWidth ?? 'auto';
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
+  const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -43,10 +46,15 @@ const Menu: React.FC = () => {
       } else {
         setFontSize('auto');
       }
+      if (!el || !d3.select(el).classed('code-block')) {
+        setCodeSize(codeFontSize);
+      }
       if (el && d3.select(el).classed('code-block')) {
         const data = d3.select(el).datum() as any;
         setCodeLanguage(data.lang ?? 'typescript');
         setCodeTheme(data.theme ?? 'nord');
+        setCodeFontSize(data.fontSize ?? codeFontSize);
+        setCodeSize(data.fontSize ?? codeFontSize);
       }
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
@@ -169,6 +177,22 @@ const Menu: React.FC = () => {
               >
                 {codeThemes.map((t) => (
                   <MenuItem key={t} value={t}>{t}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <Box id="code-font-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeSize}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value as string);
+                  setCodeSize(val);
+                  setCodeFontSize(val);
+                  updateSelectedCodeFontSize(val);
+                }}
+              >
+                {Array.from({ length: 22 }, (_, i) => 6 + i * 2).map((s) => (
+                  <MenuItem key={s} value={s}>{`${s}px`}</MenuItem>
                 ))}
               </Select>
             </Box>

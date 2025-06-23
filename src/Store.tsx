@@ -18,6 +18,8 @@ interface AppState {
   setCodeLanguage: React.Dispatch<React.SetStateAction<string>>;
   codeTheme: string;
   setCodeTheme: React.Dispatch<React.SetStateAction<string>>;
+  codeFontSize: number;
+  setCodeFontSize: React.Dispatch<React.SetStateAction<number>>;
   boards: number[];
   addBoard: () => void;
   debug: boolean;
@@ -40,6 +42,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [codeSelected, setCodeSelected] = useState<boolean>(false);
   const [codeLanguage, setCodeLanguage] = useState<string>('typescript');
   const [codeTheme, setCodeTheme] = useState<string>('nord');
+  const [codeFontSize, setCodeFontSize] = useState<number>(14);
   const [boards, setBoards] = useState<number[]>([0]);
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
@@ -82,6 +85,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setCodeLanguage,
       codeTheme,
       setCodeTheme,
+      codeFontSize,
+      setCodeFontSize,
       boards,
       addBoard,
       debug,

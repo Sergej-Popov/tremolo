@@ -46,7 +46,7 @@ interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: st
 
 interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
-interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string; theme: string }
+interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string; theme: string; fontSize: number }
 
 const stickyWidth = 225;
 const stickyHeight = 150;
@@ -74,6 +74,7 @@ const GuitarBoard: React.FC = () => {
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const codeTheme = app?.codeTheme ?? 'nord';
+  const codeFontSize = app?.codeFontSize ?? 14;
   const drawingMode = app?.drawingMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -363,7 +364,7 @@ const GuitarBoard: React.FC = () => {
     return group;
   }, [stickyColor]);
 
-  const addCodeBlock = useCallback((code: string, lang: string, theme: string, pos: { x: number, y: number }) => {
+  const addCodeBlock = useCallback((code: string, lang: string, theme: string, pos: { x: number, y: number }, size: number = codeFontSize) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.code-blocks');
 
@@ -375,6 +376,7 @@ const GuitarBoard: React.FC = () => {
         code,
         lang,
         theme,
+        fontSize: size,
         width: codeWidth,
         height: codeHeight,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
@@ -398,10 +400,13 @@ const GuitarBoard: React.FC = () => {
       .style('padding', '8px')
       .style('height', '100%')
       .style('overflow', 'auto')
-      .style('font-family', 'monospace');
+      .style('font-family', 'monospace')
+      .style('font-size', `${size}px`);
 
     highlightCode(code, lang, theme).then(res => {
-      pre.style('background-color', res.background).html(res.html);
+      pre.style('background-color', res.background)
+        .style('font-size', `${size}px`)
+        .html(res.html);
     });
 
     group.on('dblclick', () => {
@@ -416,7 +421,7 @@ const GuitarBoard: React.FC = () => {
 
     pre.on('blur', () => {
       const data = group.datum() as CodeBlockDatum & { transform: any };
-      data.code = pre.text();
+      data.code = (pre.node() as HTMLElement).innerText;
       pre
         .attr('contentEditable', 'false')
         .classed('edit-mode', false)
@@ -424,7 +429,9 @@ const GuitarBoard: React.FC = () => {
         .on('keydown.edit', null)
         .on('keyup.edit', null);
       highlightCode(data.code, data.lang, data.theme).then(res => {
-        pre.style('background-color', res.background).html(res.html);
+        pre.style('background-color', res.background)
+          .style('font-size', `${data.fontSize}px`)
+          .html(res.html);
       });
     });
 
@@ -473,7 +480,7 @@ const GuitarBoard: React.FC = () => {
       if (div) adjustStickyFont(div, d.fontSize);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'code') {
-      const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos);
+      const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
@@ -610,10 +617,10 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handler = () => addCodeBlock('', codeLanguage, codeTheme, cursorRef.current);
+    const handler = () => addCodeBlock('', codeLanguage, codeTheme, cursorRef.current, codeFontSize);
     window.addEventListener('createcodeblock', handler as EventListener);
     return () => window.removeEventListener('createcodeblock', handler as EventListener);
-  }, [addCodeBlock, codeLanguage, codeTheme]);
+  }, [addCodeBlock, codeLanguage, codeTheme, codeFontSize]);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
