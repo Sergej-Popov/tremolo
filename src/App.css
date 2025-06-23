@@ -42,7 +42,7 @@
 }
 
 .sticky-text.scrollable::-webkit-scrollbar {
-    width: 4px;
+    width: 3px;
 }
 
 .sticky-text.scrollable::-webkit-scrollbar-thumb {
@@ -59,6 +59,33 @@
     pointer-events: all;
     caret-color: black; /* Ensure the cursor is visible */
 }
+
+.code-block pre {
+    font-size: 14px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.code-block pre.edit-mode {
+    user-select: text;
+    pointer-events: all;
+    caret-color: black;
+}
+
+.code-block pre::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+}
+
+.code-block pre::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
+.code-block pre::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+
 
 .crop-controls {
     pointer-events: none;

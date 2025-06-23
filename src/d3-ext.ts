@@ -1,5 +1,6 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
+import { createHighlighter, type Highlighter } from 'shiki';
 
 let zoomTransform: d3.ZoomTransform = d3.zoomIdentity;
 let svgRoot: SVGSVGElement | null = null;
@@ -186,6 +187,43 @@ export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) 
     }
 }
 
+let highlighterPromise: Promise<Highlighter> | null = null;
+export const highlightLangs = [
+    'javascript',
+    'typescript',
+    'python',
+    'java',
+    'c',
+    'cpp',
+    'csharp',
+    'go',
+    'ruby',
+    'php',
+    'rust',
+    'markdown'
+] as const;
+export const highlightThemes = [
+    'github-dark',
+    'github-light'
+] as const;
+
+export interface HighlightResult { html: string; background: string }
+
+export async function highlightCode(code: string, lang: string, theme: string): Promise<HighlightResult> {
+    try {
+        if (!highlighterPromise) {
+            highlighterPromise = createHighlighter({ themes: highlightThemes as unknown as string[], langs: highlightLangs });
+        }
+        const highlighter = await highlighterPromise;
+        const raw = highlighter.codeToHtml(code, { lang, theme });
+        const bgMatch = raw.match(/background-color:([^;]+);/);
+        const html = raw.replace(/^<pre[^>]*>/, '').replace(/<\/pre>$/, '');
+        return { html, background: bgMatch ? bgMatch[1] : '#f5f5f5' };
+    } catch {
+        return { html: code.replace(/</g, '&lt;'), background: '#f5f5f5' };
+    }
+}
+
 export function addDebugCross(element: Selection<any, any, any, any>, size = 12) {
     const data: any = element.datum() || {};
     const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
@@ -332,8 +370,46 @@ export function updateSelectedFontSize(size: number | 'auto') {
     }
 }
 
+export async function updateSelectedCodeLang(lang: string) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const data = selectedElement.datum() as any;
+        data.lang = lang;
+        const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
+        if (pre) {
+            const { html, background } = await highlightCode(data.code, lang, data.theme ?? 'github-dark');
+            pre.innerHTML = html;
+            pre.style.backgroundColor = background;
+            pre.style.fontSize = `${data.fontSize ?? 14}px`;
+        }
+    }
+}
+
+export async function updateSelectedCodeTheme(theme: string) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const data = selectedElement.datum() as any;
+        data.theme = theme;
+        const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
+        if (pre) {
+            const { html, background } = await highlightCode(data.code, data.lang, theme);
+            pre.innerHTML = html;
+            pre.style.backgroundColor = background;
+            pre.style.fontSize = `${data.fontSize ?? 14}px`;
+        }
+    }
+}
+
+export function updateSelectedCodeFontSize(size: number) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const data = selectedElement.datum() as any;
+        data.fontSize = size;
+        selectedElement.select<HTMLPreElement>('foreignObject > pre')
+            .style('font-size', `${size}px`);
+    }
+}
+
+
 export interface ElementCopy {
-    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing';
+    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing' | 'code';
     data: any;
 }
 
@@ -343,6 +419,7 @@ export function getSelectedElementData(): ElementCopy | null {
     if (selectedElement.classed('pasted-image')) type = 'image';
     else if (selectedElement.classed('embedded-video')) type = 'video';
     else if (selectedElement.classed('sticky-note')) type = 'sticky';
+    else if (selectedElement.classed('code-block')) type = 'code';
     else if (selectedElement.classed('guitar-board')) type = 'board';
     else if (selectedElement.classed('drawing')) type = 'drawing';
     if (!type) return null;
@@ -355,6 +432,10 @@ export function getSelectedElementData(): ElementCopy | null {
 
 export function isStickySelected(): boolean {
     return !!selectedElement && selectedElement.classed('sticky-note');
+}
+
+export function isCodeSelected(): boolean {
+    return !!selectedElement && selectedElement.classed('code-block');
 }
 
 interface ResizeOptions {
@@ -433,7 +514,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     newScaleY = ratio;
                 }
 
-                if (element.classed('sticky-note')) {
+                if (element.classed('sticky-note') || element.classed('code-block')) {
                     const stickyData = element.datum() as any;
                     const width = data.origWidth * newScaleX;
                     const height = data.origHeight * newScaleY;
@@ -478,7 +559,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 }
             })
             .on('end', function () {
-                if (element.classed('sticky-note') && typeof options.onResizeEnd === 'function') {
+                if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
                 updateDebugCross(element);

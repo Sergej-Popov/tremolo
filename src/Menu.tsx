@@ -7,11 +7,15 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import BrushIcon from '@mui/icons-material/Brush';
+import CodeIcon from '@mui/icons-material/Code';
+import StickyNote2Icon from '@mui/icons-material/StickyNote2';
+const codeLanguages = highlightLangs as readonly string[];
+const codeThemes = highlightThemes as readonly string[];
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
@@ -20,12 +24,20 @@ const Menu: React.FC = () => {
   const stickyAlign = app?.stickyAlign ?? 'center';
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
+  const codeSelected = app?.codeSelected ?? false;
+  const codeLanguage = app?.codeLanguage ?? 'typescript';
+  const setCodeLanguage = app?.setCodeLanguage ?? (() => {});
+  const codeTheme = app?.codeTheme ?? 'github-dark';
+  const setCodeTheme = app?.setCodeTheme ?? (() => {});
+  const codeFontSize = app?.codeFontSize ?? 14;
+  const setCodeFontSize = app?.setCodeFontSize ?? (() => {});
   const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
   const brushWidth = app?.brushWidth ?? 'auto';
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
+  const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -35,6 +47,16 @@ const Menu: React.FC = () => {
         setFontSize(data.fontSize != null ? data.fontSize.toString() : 'auto');
       } else {
         setFontSize('auto');
+      }
+      if (!el || !d3.select(el).classed('code-block')) {
+        setCodeSize(codeFontSize);
+      }
+      if (el && d3.select(el).classed('code-block')) {
+        const data = d3.select(el).datum() as any;
+        setCodeLanguage(data.lang ?? 'typescript');
+        setCodeTheme(data.theme ?? 'github-dark');
+        setCodeFontSize(data.fontSize ?? codeFontSize);
+        setCodeSize(data.fontSize ?? codeFontSize);
       }
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
@@ -125,6 +147,62 @@ const Menu: React.FC = () => {
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />
         </IconButton>
+        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={{ mr: 1 }}>
+          <StickyNote2Icon />
+        </IconButton>
+        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
+          <CodeIcon />
+        </IconButton>
+        {codeSelected && (
+          <>
+            <Box id="code-lang-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeLanguage}
+                onChange={(e) => {
+                  const val = e.target.value as string;
+                  setCodeLanguage(val);
+                  updateSelectedCodeLang(val);
+                }}
+              >
+                {codeLanguages.map((l) => (
+                  <MenuItem key={l} value={l}>{l}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <Box id="code-theme-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeTheme}
+                onChange={(e) => {
+                  const val = e.target.value as string;
+                  setCodeTheme(val);
+                  updateSelectedCodeTheme(val);
+                }}
+              >
+                {codeThemes.map((t) => (
+                  <MenuItem key={t} value={t}>{t}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <Box id="code-font-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeSize}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value as string);
+                  setCodeSize(val);
+                  setCodeFontSize(val);
+                  updateSelectedCodeFontSize(val);
+                }}
+              >
+                {Array.from({ length: 22 }, (_, i) => 6 + i * 2).map((s) => (
+                  <MenuItem key={s} value={s}>{`${s}px`}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+          </>
+        )}
         {drawingMode && (
           <Box id="brush-width-select" sx={{ mr: 2 }}>
             <Select

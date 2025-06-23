@@ -12,6 +12,14 @@ interface AppState {
   setStickyAlign: React.Dispatch<React.SetStateAction<'left' | 'center' | 'right'>>;
   stickySelected: boolean;
   setStickySelected: React.Dispatch<React.SetStateAction<boolean>>;
+  codeSelected: boolean;
+  setCodeSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  codeLanguage: string;
+  setCodeLanguage: React.Dispatch<React.SetStateAction<string>>;
+  codeTheme: string;
+  setCodeTheme: React.Dispatch<React.SetStateAction<string>>;
+  codeFontSize: number;
+  setCodeFontSize: React.Dispatch<React.SetStateAction<number>>;
   boards: number[];
   addBoard: () => void;
   debug: boolean;
@@ -31,6 +39,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [stickyColor, setStickyColor] = useState<string>(noteColors[0]);
   const [stickyAlign, setStickyAlign] = useState<'left' | 'center' | 'right'>('center');
   const [stickySelected, setStickySelected] = useState<boolean>(false);
+  const [codeSelected, setCodeSelected] = useState<boolean>(false);
+  const [codeLanguage, setCodeLanguage] = useState<string>('typescript');
+  const [codeTheme, setCodeTheme] = useState<string>('github-dark');
+  const [codeFontSize, setCodeFontSize] = useState<number>(14);
   const [boards, setBoards] = useState<number[]>([0]);
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
@@ -58,7 +70,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   }, [debug]);
 
   return (
-    <AppContext.Provider value={{ data, setData, stickyColor, setStickyColor, stickyAlign, setStickyAlign, stickySelected, setStickySelected, boards, addBoard, debug, setDebug, drawingMode, setDrawingMode, brushWidth, setBrushWidth }}>
+    <AppContext.Provider value={{
+      data,
+      setData,
+      stickyColor,
+      setStickyColor,
+      stickyAlign,
+      setStickyAlign,
+      stickySelected,
+      setStickySelected,
+      codeSelected,
+      setCodeSelected,
+      codeLanguage,
+      setCodeLanguage,
+      codeTheme,
+      setCodeTheme,
+      codeFontSize,
+      setCodeFontSize,
+      boards,
+      addBoard,
+      debug,
+      setDebug,
+      drawingMode,
+      setDrawingMode,
+      brushWidth,
+      setBrushWidth,
+    }}>
       {children}
     </AppContext.Provider>
   );
