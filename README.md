@@ -27,13 +27,21 @@ https://sergej-popov.github.io/tremolo/
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
 
 ## Hotkeys
+
+### General
 - **Delete** – remove the selected item.
-- **c** – crop selected image (or double-click an image to toggle cropping).
 - **Ctrl+C** – copy selected element to the clipboard.
 - **Ctrl+V** – paste copied element at the cursor location.
 - **Ctrl+D** – duplicate the selected element at the cursor.
-- **b** – toggle the brush drawing mode.
+- **r** – reset element rotation.
 - **/** or **?** – open the help dialog.
+
+### Tools
+- **b** – toggle the brush drawing mode.
+- **e** – toggle the code mode.
+
+### Images
+- **c** – crop selected image (or double-click an image to toggle cropping).
 
 ## TODO general
 

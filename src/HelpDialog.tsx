@@ -2,16 +2,33 @@ import React from 'react';
 import { Dialog, DialogTitle, DialogContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
-const shortcuts = [
-  { key: 'Delete', action: 'Remove the selected item' },
-  { key: 'c', action: 'Crop selected image' },
-  { key: 'Ctrl+C', action: 'Copy selected element' },
-  { key: 'Ctrl+V', action: 'Paste copied element at cursor' },
-  { key: 'Ctrl+D', action: 'Duplicate the selected element' },
-  { key: 'b', action: 'Toggle brush drawing mode' },
-  { key: 'd', action: 'Toggle debug mode' },
-  { key: 'r', action: 'Reset element rotation' },
-  { key: '/ or ?', action: 'Open this help dialog' },
+interface ShortcutItem { key: string; action: string }
+
+interface ShortcutSection { title: string; items: ShortcutItem[] }
+
+const shortcuts: ShortcutSection[] = [
+  {
+    title: 'General',
+    items: [
+      { key: 'Delete', action: 'Remove the selected item' },
+      { key: 'Ctrl+C', action: 'Copy selected element' },
+      { key: 'Ctrl+V', action: 'Paste copied element at cursor' },
+      { key: 'Ctrl+D', action: 'Duplicate the selected element' },
+      { key: 'r', action: 'Reset element rotation' },
+      { key: '/ or ?', action: 'Open this help dialog' },
+    ],
+  },
+  {
+    title: 'Tools',
+    items: [
+      { key: 'b', action: 'Toggle brush drawing mode' },
+      { key: 'e', action: 'Toggle code mode' },
+    ],
+  },
+  {
+    title: 'Images',
+    items: [{ key: 'c', action: 'Crop selected image' }],
+  },
 ];
 
 const HelpDialog: React.FC = () => {
@@ -52,11 +69,20 @@ const HelpDialog: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {shortcuts.map((s) => (
-                  <TableRow key={s.key}>
-                    <TableCell>{s.key}</TableCell>
-                    <TableCell>{s.action}</TableCell>
-                  </TableRow>
+                {shortcuts.map((section) => (
+                  <React.Fragment key={section.title}>
+                    <TableRow>
+                      <TableCell colSpan={2} sx={{ fontWeight: 'bold' }}>
+                        {section.title}
+                      </TableCell>
+                    </TableRow>
+                    {section.items.map((i) => (
+                      <TableRow key={i.key}>
+                        <TableCell>{i.key}</TableCell>
+                        <TableCell>{i.action}</TableCell>
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
