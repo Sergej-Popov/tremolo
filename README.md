@@ -17,7 +17,7 @@ https://sergej-popov.github.io/tremolo/
 - Scrollbars have a transparent track and respond to the mouse wheel when hovering over a sticky note.
 - Pasting text always inserts plain text. When editing a sticky note the paste goes into the note instead of creating a new one.
 - Select a pasted object and press **Delete** to remove it.
-- Insert code blocks with syntax highlighting. When a code block is selected dropdowns in the header change its language, theme and font size.
+- Insert code blocks with syntax highlighting. When a code block is selected dropdowns in the header change its language, theme, font size and line numbers. Only GitHub light and dark themes are available.
 - Use the brush tool to draw very smooth strokes that get thicker as you draw slower. A dropdown lets you set a fixed stroke width instead of pressure. Drawings can be moved, resized and rotated.
 - Quickly add predefined chords or scales or display all notes.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.

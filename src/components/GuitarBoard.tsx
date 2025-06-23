@@ -46,7 +46,7 @@ interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: st
 
 interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
-interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string; theme: string; fontSize: number }
+interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string; theme: string; fontSize: number; lineNumbers: boolean }
 
 const stickyWidth = 225;
 const stickyHeight = 150;
@@ -73,8 +73,9 @@ const GuitarBoard: React.FC = () => {
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
-  const codeTheme = app?.codeTheme ?? 'nord';
+  const codeTheme = app?.codeTheme ?? 'github-dark';
   const codeFontSize = app?.codeFontSize ?? 14;
+  const codeLineNumbers = app?.codeLineNumbers ?? false;
   const drawingMode = app?.drawingMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -377,6 +378,7 @@ const GuitarBoard: React.FC = () => {
         lang,
         theme,
         fontSize: size,
+        lineNumbers: codeLineNumbers,
         width: codeWidth,
         height: codeHeight,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
@@ -403,7 +405,7 @@ const GuitarBoard: React.FC = () => {
       .style('font-family', 'monospace')
       .style('font-size', `${size}px`);
 
-    highlightCode(code, lang, theme).then(res => {
+    highlightCode(code, lang, theme, codeLineNumbers).then(res => {
       pre.style('background-color', res.background)
         .style('font-size', `${size}px`)
         .html(res.html);
@@ -413,6 +415,7 @@ const GuitarBoard: React.FC = () => {
       pre
         .attr('contentEditable', 'true')
         .classed('edit-mode', true)
+        .style('color', theme === 'github-dark' ? '#fff' : '#000')
         .on('mousedown.edit', (event: MouseEvent) => event.stopPropagation())
         .on('keydown.edit', (event: KeyboardEvent) => event.stopPropagation())
         .on('keyup.edit', (event: KeyboardEvent) => event.stopPropagation());
@@ -428,11 +431,12 @@ const GuitarBoard: React.FC = () => {
         .on('mousedown.edit', null)
         .on('keydown.edit', null)
         .on('keyup.edit', null);
-      highlightCode(data.code, data.lang, data.theme).then(res => {
+      highlightCode(data.code, data.lang, data.theme, data.lineNumbers).then(res => {
         pre.style('background-color', res.background)
           .style('font-size', `${data.fontSize}px`)
           .html(res.html);
       });
+      pre.style('color', null);
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
@@ -481,6 +485,16 @@ const GuitarBoard: React.FC = () => {
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'code') {
       const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize);
+      const d = g.datum() as any;
+      d.lineNumbers = info.data.lineNumbers;
+      const pre = g.select<HTMLPreElement>('foreignObject > pre').node();
+      if (pre) {
+        highlightCode(info.data.code, info.data.lang, info.data.theme, info.data.lineNumbers).then(res => {
+          pre.innerHTML = res.html;
+          pre.style.backgroundColor = res.background;
+          pre.style.fontSize = `${info.data.fontSize}px`;
+        });
+      }
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;

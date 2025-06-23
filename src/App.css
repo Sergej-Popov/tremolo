@@ -42,7 +42,7 @@
 }
 
 .sticky-text.scrollable::-webkit-scrollbar {
-    width: 4px;
+    width: 3px;
 }
 
 .sticky-text.scrollable::-webkit-scrollbar-thumb {
@@ -62,12 +62,41 @@
 
 .code-block pre {
     font-size: 14px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
 
 .code-block pre.edit-mode {
     user-select: text;
     pointer-events: all;
     caret-color: black;
+}
+
+.code-block pre::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+}
+
+.code-block pre::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
+.code-block pre::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+
+.code-block .code-line {
+    display: block;
+}
+
+.code-block .line-number {
+    display: inline-block;
+    width: 2em;
+    margin-right: 6px;
+    text-align: right;
+    user-select: none;
+    color: gray;
 }
 
 .crop-controls {
