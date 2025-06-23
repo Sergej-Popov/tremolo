@@ -60,6 +60,12 @@
     caret-color: black; /* Ensure the cursor is visible */
 }
 
+.code-block pre.edit-mode {
+    user-select: text;
+    pointer-events: all;
+    caret-color: black;
+}
+
 .crop-controls {
     pointer-events: none;
 }

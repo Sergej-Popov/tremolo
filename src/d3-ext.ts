@@ -1,7 +1,6 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
-import { getHighlighter, type Highlighter, setWasm } from 'shiki';
-import onigWasm from 'shiki/onig.wasm?url';
+import { createHighlighter, type Highlighter } from 'shiki';
 
 let zoomTransform: d3.ZoomTransform = d3.zoomIdentity;
 let svgRoot: SVGSVGElement | null = null;
@@ -189,17 +188,41 @@ export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) 
 }
 
 let highlighterPromise: Promise<Highlighter> | null = null;
+export const highlightLangs = [
+    'javascript',
+    'typescript',
+    'python',
+    'java',
+    'c',
+    'cpp',
+    'csharp',
+    'go',
+    'ruby',
+    'php',
+    'rust'
+] as const;
+export const highlightThemes = [
+    'nord',
+    'github-dark',
+    'github-light',
+    'dracula',
+    'monokai',
+    'material-theme-palenight',
+    'one-dark-pro',
+    'solarized-dark',
+    'solarized-light',
+    'rose-pine'
+] as const;
 
 export interface HighlightResult { html: string; background: string }
 
-export async function highlightCode(code: string, lang: string): Promise<HighlightResult> {
+export async function highlightCode(code: string, lang: string, theme: string): Promise<HighlightResult> {
     try {
         if (!highlighterPromise) {
-            setWasm(onigWasm);
-            highlighterPromise = getHighlighter({ theme: 'github-dark' });
+            highlighterPromise = createHighlighter({ themes: highlightThemes as unknown as string[], langs: highlightLangs });
         }
         const highlighter = await highlighterPromise;
-        const raw = highlighter.codeToHtml(code, { lang });
+        const raw = highlighter.codeToHtml(code, { lang, theme });
         const bgMatch = raw.match(/background-color:([^;]+);/);
         const html = raw.replace(/^<pre[^>]*>/, '').replace(/<\/pre>$/, '');
         return { html, background: bgMatch ? bgMatch[1] : '#f5f5f5' };
@@ -360,7 +383,20 @@ export async function updateSelectedCodeLang(lang: string) {
         data.lang = lang;
         const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
         if (pre) {
-            const { html, background } = await highlightCode(data.code, lang);
+            const { html, background } = await highlightCode(data.code, lang, data.theme ?? 'nord');
+            pre.innerHTML = html;
+            pre.style.backgroundColor = background;
+        }
+    }
+}
+
+export async function updateSelectedCodeTheme(theme: string) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const data = selectedElement.datum() as any;
+        data.theme = theme;
+        const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
+        if (pre) {
+            const { html, background } = await highlightCode(data.code, data.lang, theme);
             pre.innerHTML = html;
             pre.style.backgroundColor = background;
         }

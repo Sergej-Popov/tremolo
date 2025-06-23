@@ -16,6 +16,8 @@ interface AppState {
   setCodeSelected: React.Dispatch<React.SetStateAction<boolean>>;
   codeLanguage: string;
   setCodeLanguage: React.Dispatch<React.SetStateAction<string>>;
+  codeTheme: string;
+  setCodeTheme: React.Dispatch<React.SetStateAction<string>>;
   boards: number[];
   addBoard: () => void;
   debug: boolean;
@@ -37,6 +39,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [stickySelected, setStickySelected] = useState<boolean>(false);
   const [codeSelected, setCodeSelected] = useState<boolean>(false);
   const [codeLanguage, setCodeLanguage] = useState<string>('typescript');
+  const [codeTheme, setCodeTheme] = useState<string>('nord');
   const [boards, setBoards] = useState<number[]>([0]);
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
@@ -77,6 +80,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setCodeSelected,
       codeLanguage,
       setCodeLanguage,
+      codeTheme,
+      setCodeTheme,
       boards,
       addBoard,
       debug,

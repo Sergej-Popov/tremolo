@@ -7,14 +7,13 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import BrushIcon from '@mui/icons-material/Brush';
-import CodeIcon from '@mui/icons-material/Code';
-
-const codeLanguages = ['typescript', 'javascript', 'python', 'css', 'html'];
+const codeLanguages = highlightLangs as readonly string[];
+const codeThemes = highlightThemes as readonly string[];
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
@@ -26,6 +25,8 @@ const Menu: React.FC = () => {
   const codeSelected = app?.codeSelected ?? false;
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const setCodeLanguage = app?.setCodeLanguage ?? (() => {});
+  const codeTheme = app?.codeTheme ?? 'nord';
+  const setCodeTheme = app?.setCodeTheme ?? (() => {});
   const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
@@ -45,6 +46,7 @@ const Menu: React.FC = () => {
       if (el && d3.select(el).classed('code-block')) {
         const data = d3.select(el).datum() as any;
         setCodeLanguage(data.lang ?? 'typescript');
+        setCodeTheme(data.theme ?? 'nord');
       }
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
@@ -136,24 +138,41 @@ const Menu: React.FC = () => {
           <BrushIcon />
         </IconButton>
         <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
-          <CodeIcon />
+          <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>&lt;/&gt;</Box>
         </IconButton>
         {codeSelected && (
-          <Box id="code-lang-select" sx={{ mr: 2 }}>
-            <Select
-              size="small"
-              value={codeLanguage}
-              onChange={(e) => {
-                const val = e.target.value as string;
-                setCodeLanguage(val);
-                updateSelectedCodeLang(val);
-              }}
-            >
-              {codeLanguages.map((l) => (
-                <MenuItem key={l} value={l}>{l}</MenuItem>
-              ))}
-            </Select>
-          </Box>
+          <>
+            <Box id="code-lang-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeLanguage}
+                onChange={(e) => {
+                  const val = e.target.value as string;
+                  setCodeLanguage(val);
+                  updateSelectedCodeLang(val);
+                }}
+              >
+                {codeLanguages.map((l) => (
+                  <MenuItem key={l} value={l}>{l}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <Box id="code-theme-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={codeTheme}
+                onChange={(e) => {
+                  const val = e.target.value as string;
+                  setCodeTheme(val);
+                  updateSelectedCodeTheme(val);
+                }}
+              >
+                {codeThemes.map((t) => (
+                  <MenuItem key={t} value={t}>{t}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+          </>
         )}
         {drawingMode && (
           <Box id="brush-width-select" sx={{ mr: 2 }}>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, highlightCode } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -46,7 +46,7 @@ interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: st
 
 interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
-interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string }
+interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string; theme: string }
 
 const stickyWidth = 225;
 const stickyHeight = 150;
@@ -73,6 +73,7 @@ const GuitarBoard: React.FC = () => {
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
+  const codeTheme = app?.codeTheme ?? 'nord';
   const drawingMode = app?.drawingMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -362,7 +363,7 @@ const GuitarBoard: React.FC = () => {
     return group;
   }, [stickyColor]);
 
-  const addCodeBlock = useCallback((code: string, lang: string, pos: { x: number, y: number }) => {
+  const addCodeBlock = useCallback((code: string, lang: string, theme: string, pos: { x: number, y: number }) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.code-blocks');
 
@@ -373,6 +374,7 @@ const GuitarBoard: React.FC = () => {
         type: 'code',
         code,
         lang,
+        theme,
         width: codeWidth,
         height: codeHeight,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
@@ -398,7 +400,7 @@ const GuitarBoard: React.FC = () => {
       .style('overflow', 'auto')
       .style('font-family', 'monospace');
 
-    highlightCode(code, lang).then(res => {
+    highlightCode(code, lang, theme).then(res => {
       pre.style('background-color', res.background).html(res.html);
     });
 
@@ -421,7 +423,7 @@ const GuitarBoard: React.FC = () => {
         .on('mousedown.edit', null)
         .on('keydown.edit', null)
         .on('keyup.edit', null);
-      highlightCode(data.code, data.lang).then(res => {
+      highlightCode(data.code, data.lang, data.theme).then(res => {
         pre.style('background-color', res.background).html(res.html);
       });
     });
@@ -435,7 +437,7 @@ const GuitarBoard: React.FC = () => {
 
     group.dispatch('click');
     return group;
-  }, [codeLanguage]);
+  }, [codeLanguage, codeTheme]);
 
   const duplicateElement = (info: ElementCopy) => {
     const pos = cursorRef.current;
@@ -471,7 +473,7 @@ const GuitarBoard: React.FC = () => {
       if (div) adjustStickyFont(div, d.fontSize);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'code') {
-      const g = addCodeBlock(info.data.code, info.data.lang, pos);
+      const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
@@ -608,10 +610,10 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handler = () => addCodeBlock('', codeLanguage, cursorRef.current);
+    const handler = () => addCodeBlock('', codeLanguage, codeTheme, cursorRef.current);
     window.addEventListener('createcodeblock', handler as EventListener);
     return () => window.removeEventListener('createcodeblock', handler as EventListener);
-  }, [addCodeBlock, codeLanguage]);
+  }, [addCodeBlock, codeLanguage, codeTheme]);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -625,7 +627,7 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('keydown', handle, true);
     return () => window.removeEventListener('keydown', handle, true);
-  }, [croppableSelected, codeLanguage]);
+  }, [croppableSelected, codeLanguage, codeTheme]);
 
   useEffect(() => {
     if (zoomBehaviorRef.current && svgRef.current) {
