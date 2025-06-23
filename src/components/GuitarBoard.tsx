@@ -407,7 +407,8 @@ const GuitarBoard: React.FC = () => {
         .attr('contentEditable', 'true')
         .classed('edit-mode', true)
         .on('mousedown.edit', (event: MouseEvent) => event.stopPropagation())
-        .on('keydown.edit', (event: KeyboardEvent) => event.stopPropagation());
+        .on('keydown.edit', (event: KeyboardEvent) => event.stopPropagation())
+        .on('keyup.edit', (event: KeyboardEvent) => event.stopPropagation());
       setTimeout(() => { (pre.node() as HTMLElement)?.focus(); }, 0);
     });
 
@@ -418,7 +419,8 @@ const GuitarBoard: React.FC = () => {
         .attr('contentEditable', 'false')
         .classed('edit-mode', false)
         .on('mousedown.edit', null)
-        .on('keydown.edit', null);
+        .on('keydown.edit', null)
+        .on('keyup.edit', null);
       highlightCode(data.code, data.lang).then(res => {
         pre.style('background-color', res.background).html(res.html);
       });
@@ -671,8 +673,12 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
-      if (active && active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') {
-        return; // let the browser handle paste inside editable sticky
+      if (
+        active &&
+        active.getAttribute('contentEditable') === 'true' &&
+        (active.classList.contains('sticky-text') || active.classList.contains('edit-mode'))
+      ) {
+        return; // allow paste in editable fields
       }
       const text = event.clipboardData?.getData('text/plain');
       if (text) {
@@ -728,7 +734,11 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
-      if (active && active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') {
+      if (
+        active &&
+        active.getAttribute('contentEditable') === 'true' &&
+        (active.classList.contains('sticky-text') || active.classList.contains('edit-mode'))
+      ) {
         return;
       }
       const info = getSelectedElementData();

@@ -1,6 +1,7 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
-import { getHighlighter, type Highlighter } from 'shiki';
+import { getHighlighter, type Highlighter, setWasm } from 'shiki';
+import onigWasm from 'shiki/onig.wasm?url';
 
 let zoomTransform: d3.ZoomTransform = d3.zoomIdentity;
 let svgRoot: SVGSVGElement | null = null;
@@ -194,6 +195,7 @@ export interface HighlightResult { html: string; background: string }
 export async function highlightCode(code: string, lang: string): Promise<HighlightResult> {
     try {
         if (!highlighterPromise) {
+            setWasm(onigWasm);
             highlighterPromise = getHighlighter({ theme: 'github-dark' });
         }
         const highlighter = await highlighterPromise;

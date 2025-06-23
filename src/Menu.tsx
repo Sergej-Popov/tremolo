@@ -135,7 +135,7 @@ const Menu: React.FC = () => {
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />
         </IconButton>
-        <IconButton onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
+        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
           <CodeIcon />
         </IconButton>
         {codeSelected && (
