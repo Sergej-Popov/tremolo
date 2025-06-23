@@ -189,15 +189,20 @@ export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) 
 
 let highlighterPromise: Promise<Highlighter> | null = null;
 
-export async function highlightCode(code: string, lang: string): Promise<string> {
+export interface HighlightResult { html: string; background: string }
+
+export async function highlightCode(code: string, lang: string): Promise<HighlightResult> {
     try {
         if (!highlighterPromise) {
             highlighterPromise = getHighlighter({ theme: 'github-dark' });
         }
         const highlighter = await highlighterPromise;
-        return highlighter.codeToHtml(code, { lang });
+        const raw = highlighter.codeToHtml(code, { lang });
+        const bgMatch = raw.match(/background-color:([^;]+);/);
+        const html = raw.replace(/^<pre[^>]*>/, '').replace(/<\/pre>$/, '');
+        return { html, background: bgMatch ? bgMatch[1] : '#f5f5f5' };
     } catch {
-        return `<pre>${code.replace(/</g, '&lt;')}</pre>`;
+        return { html: code.replace(/</g, '&lt;'), background: '#f5f5f5' };
     }
 }
 
@@ -353,8 +358,9 @@ export async function updateSelectedCodeLang(lang: string) {
         data.lang = lang;
         const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
         if (pre) {
-            const html = await highlightCode(data.code, lang);
+            const { html, background } = await highlightCode(data.code, lang);
             pre.innerHTML = html;
+            pre.style.backgroundColor = background;
         }
     }
 }

@@ -398,15 +398,16 @@ const GuitarBoard: React.FC = () => {
       .style('overflow', 'auto')
       .style('font-family', 'monospace');
 
-    highlightCode(code, lang).then(html => {
-      pre.html(html);
+    highlightCode(code, lang).then(res => {
+      pre.style('background-color', res.background).html(res.html);
     });
 
     group.on('dblclick', () => {
       pre
         .attr('contentEditable', 'true')
         .classed('edit-mode', true)
-        .on('mousedown.edit', (event: MouseEvent) => event.stopPropagation());
+        .on('mousedown.edit', (event: MouseEvent) => event.stopPropagation())
+        .on('keydown.edit', (event: KeyboardEvent) => event.stopPropagation());
       setTimeout(() => { (pre.node() as HTMLElement)?.focus(); }, 0);
     });
 
@@ -416,9 +417,10 @@ const GuitarBoard: React.FC = () => {
       pre
         .attr('contentEditable', 'false')
         .classed('edit-mode', false)
-        .on('mousedown.edit', null);
-      highlightCode(data.code, data.lang).then(html => {
-        pre.html(html);
+        .on('mousedown.edit', null)
+        .on('keydown.edit', null);
+      highlightCode(data.code, data.lang).then(res => {
+        pre.style('background-color', res.background).html(res.html);
       });
     });
 

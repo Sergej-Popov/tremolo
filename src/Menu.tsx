@@ -12,6 +12,7 @@ import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import BrushIcon from '@mui/icons-material/Brush';
+import CodeIcon from '@mui/icons-material/Code';
 
 const codeLanguages = ['typescript', 'javascript', 'python', 'css', 'html'];
 
@@ -135,7 +136,7 @@ const Menu: React.FC = () => {
           <BrushIcon />
         </IconButton>
         <IconButton onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
-          <Typography fontSize="small">{'</>'}</Typography>
+          <CodeIcon />
         </IconButton>
         {codeSelected && (
           <Box id="code-lang-select" sx={{ mr: 2 }}>
