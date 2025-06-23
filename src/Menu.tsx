@@ -7,11 +7,13 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import BrushIcon from '@mui/icons-material/Brush';
+
+const codeLanguages = ['typescript', 'javascript', 'python', 'css', 'html'];
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
@@ -20,6 +22,9 @@ const Menu: React.FC = () => {
   const stickyAlign = app?.stickyAlign ?? 'center';
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
+  const codeSelected = app?.codeSelected ?? false;
+  const codeLanguage = app?.codeLanguage ?? 'typescript';
+  const setCodeLanguage = app?.setCodeLanguage ?? (() => {});
   const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
@@ -35,6 +40,10 @@ const Menu: React.FC = () => {
         setFontSize(data.fontSize != null ? data.fontSize.toString() : 'auto');
       } else {
         setFontSize('auto');
+      }
+      if (el && d3.select(el).classed('code-block')) {
+        const data = d3.select(el).datum() as any;
+        setCodeLanguage(data.lang ?? 'typescript');
       }
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
@@ -125,6 +134,26 @@ const Menu: React.FC = () => {
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />
         </IconButton>
+        <IconButton onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
+          <Typography fontSize="small">{'</>'}</Typography>
+        </IconButton>
+        {codeSelected && (
+          <Box id="code-lang-select" sx={{ mr: 2 }}>
+            <Select
+              size="small"
+              value={codeLanguage}
+              onChange={(e) => {
+                const val = e.target.value as string;
+                setCodeLanguage(val);
+                updateSelectedCodeLang(val);
+              }}
+            >
+              {codeLanguages.map((l) => (
+                <MenuItem key={l} value={l}>{l}</MenuItem>
+              ))}
+            </Select>
+          </Box>
+        )}
         {drawingMode && (
           <Box id="brush-width-select" sx={{ mr: 2 }}>
             <Select

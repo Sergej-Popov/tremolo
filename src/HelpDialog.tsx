@@ -22,7 +22,7 @@ const shortcuts: ShortcutSection[] = [
     title: 'Tools',
     items: [
       { key: 'b', action: 'Toggle brush drawing mode' },
-      { key: 'e', action: 'Toggle code mode' },
+      { key: 'c', action: 'Insert code block' },
     ],
   },
   {

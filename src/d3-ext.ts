@@ -1,5 +1,6 @@
 import * as d3 from 'd3';
 import { BaseType, Selection } from 'd3';
+import { getHighlighter, type Highlighter } from 'shiki';
 
 let zoomTransform: d3.ZoomTransform = d3.zoomIdentity;
 let svgRoot: SVGSVGElement | null = null;
@@ -186,6 +187,20 @@ export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) 
     }
 }
 
+let highlighterPromise: Promise<Highlighter> | null = null;
+
+export async function highlightCode(code: string, lang: string): Promise<string> {
+    try {
+        if (!highlighterPromise) {
+            highlighterPromise = getHighlighter({ theme: 'github-dark' });
+        }
+        const highlighter = await highlighterPromise;
+        return highlighter.codeToHtml(code, { lang });
+    } catch {
+        return `<pre>${code.replace(/</g, '&lt;')}</pre>`;
+    }
+}
+
 export function addDebugCross(element: Selection<any, any, any, any>, size = 12) {
     const data: any = element.datum() || {};
     const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
@@ -332,8 +347,20 @@ export function updateSelectedFontSize(size: number | 'auto') {
     }
 }
 
+export async function updateSelectedCodeLang(lang: string) {
+    if (selectedElement && selectedElement.classed('code-block')) {
+        const data = selectedElement.datum() as any;
+        data.lang = lang;
+        const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
+        if (pre) {
+            const html = await highlightCode(data.code, lang);
+            pre.innerHTML = html;
+        }
+    }
+}
+
 export interface ElementCopy {
-    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing';
+    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing' | 'code';
     data: any;
 }
 
@@ -343,6 +370,7 @@ export function getSelectedElementData(): ElementCopy | null {
     if (selectedElement.classed('pasted-image')) type = 'image';
     else if (selectedElement.classed('embedded-video')) type = 'video';
     else if (selectedElement.classed('sticky-note')) type = 'sticky';
+    else if (selectedElement.classed('code-block')) type = 'code';
     else if (selectedElement.classed('guitar-board')) type = 'board';
     else if (selectedElement.classed('drawing')) type = 'drawing';
     if (!type) return null;
@@ -355,6 +383,10 @@ export function getSelectedElementData(): ElementCopy | null {
 
 export function isStickySelected(): boolean {
     return !!selectedElement && selectedElement.classed('sticky-note');
+}
+
+export function isCodeSelected(): boolean {
+    return !!selectedElement && selectedElement.classed('code-block');
 }
 
 interface ResizeOptions {

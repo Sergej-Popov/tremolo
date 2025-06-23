@@ -38,7 +38,7 @@ https://sergej-popov.github.io/tremolo/
 
 ### Tools
 - **b** – toggle the brush drawing mode.
-- **e** – toggle the code mode.
+- **c** – insert a code block.
 
 ### Images
 - **c** – crop selected image (or double-click an image to toggle cropping).
