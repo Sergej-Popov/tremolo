@@ -456,6 +456,61 @@ const GuitarBoard: React.FC = () => {
     return group;
   }, [codeLanguage, codeTheme]);
 
+  const addLine = useCallback((pos: { x: number, y: number }) => {
+    const svg = d3.select(svgRef.current);
+    const layer = svg.select<SVGGElement>('.lines');
+    const group = layer.append('g')
+      .attr('class', 'line-element')
+      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: string }>({
+        id: generateId(),
+        type: 'line',
+        x1: pos.x,
+        y1: pos.y,
+        x2: pos.x + 100,
+        y2: pos.y,
+        style: 'direct',
+      });
+    group.append('line')
+      .attr('x1', pos.x)
+      .attr('y1', pos.y)
+      .attr('x2', pos.x + 100)
+      .attr('y2', pos.y)
+      .attr('stroke', 'black')
+      .attr('stroke-width', 2);
+    group.append('circle')
+      .attr('class', 'line-handle start')
+      .attr('r', 4)
+      .attr('cx', pos.x)
+      .attr('cy', pos.y)
+      .call(d3.drag<SVGCircleElement, unknown>()
+        .on('drag', function (event) {
+          const g = d3.select(this.parentNode as SVGGElement);
+          const d = g.datum() as any;
+          const { x, y } = toWorkspace(event.sourceEvent.clientX, event.sourceEvent.clientY);
+          d.x1 = x;
+          d.y1 = y;
+          g.select('line').attr('x1', d.x1).attr('y1', d.y1);
+          d3.select(this).attr('cx', d.x1).attr('cy', d.y1);
+        }));
+    group.append('circle')
+      .attr('class', 'line-handle end')
+      .attr('r', 4)
+      .attr('cx', pos.x + 100)
+      .attr('cy', pos.y)
+      .call(d3.drag<SVGCircleElement, unknown>()
+        .on('drag', function (event) {
+          const g = d3.select(this.parentNode as SVGGElement);
+          const d = g.datum() as any;
+          const { x, y } = toWorkspace(event.sourceEvent.clientX, event.sourceEvent.clientY);
+          d.x2 = x;
+          d.y2 = y;
+          g.select('line').attr('x2', d.x2).attr('y2', d.y2);
+          d3.select(this).attr('cx', d.x2).attr('cy', d.y2);
+        }));
+    group.dispatch('click');
+    return group;
+  }, []);
+
   const duplicateElement = (info: ElementCopy) => {
     const pos = cursorRef.current;
     if (info.type === 'image') {
@@ -641,6 +696,12 @@ const GuitarBoard: React.FC = () => {
   }, [addCodeBlock, codeLanguage, codeTheme, codeFontSize]);
 
   useEffect(() => {
+    const handler = () => addLine(cursorRef.current);
+    window.addEventListener('createline', handler as EventListener);
+    return () => window.removeEventListener('createline', handler as EventListener);
+  }, [addLine]);
+
+  useEffect(() => {
     const handler = () => addSticky('', cursorRef.current);
     window.addEventListener('createsticky', handler as EventListener);
     return () => window.removeEventListener('createsticky', handler as EventListener);
@@ -656,6 +717,10 @@ const GuitarBoard: React.FC = () => {
         e.stopImmediatePropagation();
       } else if (e.key === 'n' && !e.ctrlKey) {
         window.dispatchEvent(new Event('createsticky'));
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      } else if (e.key === 'l' && !e.ctrlKey) {
+        window.dispatchEvent(new Event('createline'));
         e.preventDefault();
         e.stopImmediatePropagation();
       }
@@ -936,6 +1001,7 @@ const GuitarBoard: React.FC = () => {
       workspace.append('g').attr('class', 'embedded-videos');
       workspace.append('g').attr('class', 'sticky-notes');
       workspace.append('g').attr('class', 'code-blocks');
+      workspace.append('g').attr('class', 'lines');
       workspace.append('g').attr('class', 'drawings');
       if (debug) {
         workspace.append('text')

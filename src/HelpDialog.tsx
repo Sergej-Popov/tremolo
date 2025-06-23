@@ -24,6 +24,7 @@ const shortcuts: ShortcutSection[] = [
       { key: 'b', action: 'Toggle brush drawing mode' },
       { key: 'n', action: 'Insert sticky note' },
       { key: 'c', action: 'Insert code block' },
+      { key: 'l', action: 'Insert line' },
     ],
   },
   {

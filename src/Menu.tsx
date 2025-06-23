@@ -14,6 +14,7 @@ import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import BrushIcon from '@mui/icons-material/Brush';
 import CodeIcon from '@mui/icons-material/Code';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 
@@ -146,6 +147,9 @@ const Menu: React.FC = () => {
         )}
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />
+        </IconButton>
+        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createline'))} sx={{ mr: 1 }}>
+          <ShowChartIcon />
         </IconButton>
         <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={{ mr: 1 }}>
           <StickyNote2Icon />

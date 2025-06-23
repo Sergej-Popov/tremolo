@@ -268,6 +268,10 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
     const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
     element.attr('transform', buildTransform(transform, { width, height }));
+    element.select('.connect-handle-nw')?.attr('cx', 0).attr('cy', 0);
+    element.select('.connect-handle-ne')?.attr('cx', width).attr('cy', 0);
+    element.select('.connect-handle-se')?.attr('cx', width).attr('cy', height);
+    element.select('.connect-handle-sw')?.attr('cx', 0).attr('cy', height);
     if (selectedElement && element.node() === selectedElement.node()) {
         dispatchSelectionChange();
     }
@@ -639,6 +643,31 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
         );
 }
 
+function addConnectHandles(element: Selection<any, any, any, any>) {
+    if (!element.select('.connect-handle').empty()) return;
+    const data: any = element.datum() || {};
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
+    const { scaleX, scaleY } = data.transform ?? defaultTransform();
+    const r = 4 / Math.max(scaleX, scaleY);
+    const corners = [
+        { c: 'nw', x: 0, y: 0 },
+        { c: 'ne', x: width, y: 0 },
+        { c: 'se', x: width, y: height },
+        { c: 'sw', x: 0, y: height },
+    ];
+    corners.forEach(pt => {
+        element.append('circle')
+            .attr('class', `connect-handle connect-handle-${pt.c}`)
+            .attr('cx', pt.x)
+            .attr('cy', pt.y)
+            .attr('r', r)
+            .style('pointer-events', 'all')
+            .style('fill', '#7fbbf7');
+    });
+}
+
 function addOutline(element: Selection<any, any, any, any>) {
     if (!element.select('.selection-outline').empty()) return;
 
@@ -671,6 +700,7 @@ function clearSelection() {
     selectedElement.selectAll('.selection-outline').remove();
     selectedElement.selectAll('.resize-handle').remove();
     selectedElement.selectAll('.rotate-handle').remove();
+    selectedElement.selectAll('.connect-handle').remove();
     selectedElement = null;
     dispatchSelectionChange();
 }
@@ -723,6 +753,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             selectedElement = element;
             addOutline(element);
             addResizeHandle(element, options);
+            addConnectHandles(element);
             if (options.rotatable) {
                 addRotateHandle(element);
             }
