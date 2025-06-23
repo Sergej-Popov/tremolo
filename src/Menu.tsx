@@ -7,7 +7,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, highlightLangs, highlightThemes } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -39,6 +39,8 @@ const Menu: React.FC = () => {
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
+  const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc'>('direct');
+  const [lineSelected, setLineSelected] = React.useState(false);
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -62,6 +64,21 @@ const Menu: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
     return () => window.removeEventListener('stickyselectionchange', handler as EventListener);
+  }, []);
+
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      const el: HTMLElement | null = e.detail;
+      if (el && d3.select(el).classed('line-element')) {
+        const data = d3.select(el).datum() as any;
+        setLineSelected(true);
+        setLineStyle(data.style ?? 'direct');
+      } else {
+        setLineSelected(false);
+      }
+    };
+    window.addEventListener('lineselectionchange', handler as EventListener);
+    return () => window.removeEventListener('lineselectionchange', handler as EventListener);
   }, []);
 
   return (
@@ -157,6 +174,22 @@ const Menu: React.FC = () => {
         <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
           <CodeIcon />
         </IconButton>
+        {lineSelected && (
+          <Box id="line-style-select" sx={{ mr: 2 }}>
+            <Select
+              size="small"
+              value={lineStyle}
+              onChange={(e) => {
+                const val = e.target.value as 'direct' | 'arc';
+                setLineStyle(val);
+                updateSelectedLineStyle(val);
+              }}
+            >
+              <MenuItem value="direct">Direct</MenuItem>
+              <MenuItem value="arc">Arc</MenuItem>
+            </Select>
+          </Box>
+        )}
         {codeSelected && (
           <>
             <Box id="code-lang-select" sx={{ mr: 2 }}>

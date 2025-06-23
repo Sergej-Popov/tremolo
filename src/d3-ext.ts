@@ -176,6 +176,23 @@ function transformPoint(x: number, y: number, t: TransformValues, size: { width:
     return { x: rx + t.translateX, y: ry + t.translateY };
 }
 
+export function linePath(d: { x1: number; y1: number; x2: number; y2: number; style?: 'direct' | 'arc' }): string {
+    if (d.style === 'arc') {
+        const mx = (d.x1 + d.x2) / 2;
+        const my = (d.y1 + d.y2) / 2;
+        const dx = d.x2 - d.x1;
+        const dy = d.y2 - d.y1;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+        const off = 40;
+        const cx = mx + nx * off;
+        const cy = my + ny * off;
+        return `M${d.x1},${d.y1} Q${cx},${cy} ${d.x2},${d.y2}`;
+    }
+    return `M${d.x1},${d.y1} L${d.x2},${d.y2}`;
+}
+
 function getHandleCoords(element: Selection<any, any, any, any>, pos: string, width: number, height: number, t: TransformValues) {
     let x = 0, y = 0;
     if (pos === 'n') { x = width / 2; y = 0; }
@@ -198,16 +215,15 @@ function updateConnectedLines(element: Selection<any, any, any, any>) {
             const p = getHandleCoords(element, ld.startConn.position, width, height, t);
             ld.x1 = p.x;
             ld.y1 = p.y;
-            g.select('line').attr('x1', ld.x1).attr('y1', ld.y1);
             g.select('circle.start').attr('cx', ld.x1).attr('cy', ld.y1);
         }
         if (ld.endConn && ld.endConn.elementId === data.id) {
             const p = getHandleCoords(element, ld.endConn.position, width, height, t);
             ld.x2 = p.x;
             ld.y2 = p.y;
-            g.select('line').attr('x2', ld.x2).attr('y2', ld.y2);
             g.select('circle.end').attr('cx', ld.x2).attr('cy', ld.y2);
         }
+        g.select('path').attr('d', linePath(ld));
     });
 }
 
@@ -404,6 +420,9 @@ let globalInit = false;
 
 function dispatchSelectionChange() {
     window.dispatchEvent(new CustomEvent('stickyselectionchange', { detail: selectedElement?.node() || null }));
+    window.dispatchEvent(new CustomEvent('lineselectionchange', {
+        detail: selectedElement && selectedElement.classed('line-element') ? selectedElement.node() : null,
+    }));
 }
 
 export function updateSelectedColor(color: string) {
@@ -464,6 +483,14 @@ export function updateSelectedCodeFontSize(size: number) {
         data.fontSize = size;
         selectedElement.select<HTMLPreElement>('foreignObject > pre')
             .style('font-size', `${size}px`);
+    }
+}
+
+export function updateSelectedLineStyle(style: 'direct' | 'arc') {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.style = style;
+        selectedElement.select('path').attr('d', linePath(data));
     }
 }
 
@@ -699,7 +726,7 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
         );
 }
 
-function addConnectHandles(element: Selection<any, any, any, any>) {
+export function ensureConnectHandles(element: Selection<any, any, any, any>) {
     if (!element.select('.connect-handle').empty()) return;
     const data: any = element.datum() || {};
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
@@ -739,6 +766,10 @@ function addConnectHandles(element: Selection<any, any, any, any>) {
                 })
         );
     });
+}
+
+export function removeConnectHandles(element: Selection<any, any, any, any>) {
+    element.selectAll('.connect-handle').remove();
 }
 
 function addOutline(element: Selection<any, any, any, any>) {
@@ -825,10 +856,12 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
 
             selectedElement = element;
             addOutline(element);
-            addResizeHandle(element, options);
-            addConnectHandles(element);
-            if (options.rotatable) {
-                addRotateHandle(element);
+            if (!element.classed('line-element')) {
+                addResizeHandle(element, options);
+                ensureConnectHandles(element);
+                if (options.rotatable) {
+                    addRotateHandle(element);
+                }
             }
             if (debugEnabled) {
                 if (element.select('.component-debug-cross').empty()) {

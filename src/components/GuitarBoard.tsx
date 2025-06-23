@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -473,12 +473,26 @@ const GuitarBoard: React.FC = () => {
     return best;
   };
 
+  const showTempHandles = () => {
+    const workspace = d3.select(workspaceRef.current);
+    workspace.selectAll<SVGGElement, any>('g')
+      .filter(function () { return !d3.select(this).classed('line-element'); })
+      .each(function () { ensureConnectHandles(d3.select(this)); });
+  };
+
+  const hideTempHandles = () => {
+    const workspace = d3.select(workspaceRef.current);
+    workspace.selectAll<SVGGElement, any>('g')
+      .filter(function () { return d3.select(this).select('.selection-outline').empty(); })
+      .each(function () { removeConnectHandles(d3.select(this)); });
+  };
+
   const addLine = useCallback((start: { x: number, y: number }, end?: { x: number, y: number }, startConn?: ConnectionInfo, endConn?: ConnectionInfo) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.lines');
     const group = layer.append('g')
       .attr('class', 'line-element')
-      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: string; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
+      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc'; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
         id: generateId(),
         type: 'line',
         x1: start.x,
@@ -489,12 +503,10 @@ const GuitarBoard: React.FC = () => {
         startConn,
         endConn,
       });
-    group.append('line')
-      .attr('x1', start.x)
-      .attr('y1', start.y)
-      .attr('x2', end ? end.x : start.x + 100)
-      .attr('y2', end ? end.y : start.y)
+    const path = group.append('path')
+      .attr('d', linePath(group.datum()))
       .attr('stroke', 'black')
+      .attr('fill', 'none')
       .attr('stroke-width', 2);
     group.append('circle')
       .attr('class', 'line-handle start')
@@ -502,6 +514,7 @@ const GuitarBoard: React.FC = () => {
       .attr('cx', start.x)
       .attr('cy', start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
+        .on('start', showTempHandles)
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
@@ -515,8 +528,11 @@ const GuitarBoard: React.FC = () => {
             d.y1 = snap.y;
             d.startConn = { elementId: snap.elementId, position: snap.position };
           }
-          g.select('line').attr('x1', d.x1).attr('y1', d.y1);
+          g.select('path').attr('d', linePath(d));
           d3.select(this).attr('cx', d.x1).attr('cy', d.y1);
+        })
+        .on('end', function () {
+          hideTempHandles();
         }));
     group.append('circle')
       .attr('class', 'line-handle end')
@@ -524,6 +540,7 @@ const GuitarBoard: React.FC = () => {
       .attr('cx', end ? end.x : start.x + 100)
       .attr('cy', end ? end.y : start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
+        .on('start', showTempHandles)
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
@@ -537,8 +554,11 @@ const GuitarBoard: React.FC = () => {
             d.y2 = snap.y;
             d.endConn = { elementId: snap.elementId, position: snap.position };
           }
-          g.select('line').attr('x2', d.x2).attr('y2', d.y2);
+          g.select('path').attr('d', linePath(d));
           d3.select(this).attr('cx', d.x2).attr('cy', d.y2);
+        })
+        .on('end', function () {
+          hideTempHandles();
         }));
     group.call(makeResizable);
     group.dispatch('click');
@@ -740,6 +760,7 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const start = (e: CustomEvent) => {
       const { x, y, elementId, position } = e.detail;
+      showTempHandles();
       activeLine.current = addLine({ x, y }, { x, y }, { elementId, position });
     };
     const drag = (e: CustomEvent) => {
@@ -755,7 +776,7 @@ const GuitarBoard: React.FC = () => {
         d.y2 = snap.y;
         d.endConn = { elementId: snap.elementId, position: snap.position };
       }
-      activeLine.current.select('line').attr('x2', d.x2).attr('y2', d.y2);
+      activeLine.current.select('path').attr('d', linePath(d));
       activeLine.current.select('circle.end').attr('cx', d.x2).attr('cy', d.y2);
     };
     const end = (e: CustomEvent) => {
@@ -764,6 +785,7 @@ const GuitarBoard: React.FC = () => {
         activeLine.current.call(makeResizable);
         activeLine.current = null;
       }
+      hideTempHandles();
     };
     window.addEventListener('lineconnectstart', start as EventListener);
     window.addEventListener('lineconnectdrag', drag as EventListener);
