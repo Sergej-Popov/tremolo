@@ -732,7 +732,8 @@ export function ensureConnectHandles(element: Selection<any, any, any, any>) {
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
     const height = data.height ?? bbox.height;
-    const { scaleX, scaleY } = data.transform ?? defaultTransform();
+    const transform = data.transform ?? defaultTransform();
+    const { scaleX, scaleY } = transform;
     const r = 4 / Math.max(scaleX, scaleY);
     const points = [
         { p: 'n', x: width / 2, y: 0 },
@@ -750,6 +751,8 @@ export function ensureConnectHandles(element: Selection<any, any, any, any>) {
             .attr('data-parent', data.id)
             .style('pointer-events', 'all')
             .style('fill', '#7fbbf7');
+        const abs = transformPoint(pt.x, pt.y, transform, { width, height });
+        h.attr('data-abs-x', abs.x).attr('data-abs-y', abs.y);
         h.call(
             d3.drag<SVGCircleElement, unknown>()
                 .on('start', function (event) {
