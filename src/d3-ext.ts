@@ -199,7 +199,8 @@ export const highlightLangs = [
     'go',
     'ruby',
     'php',
-    'rust'
+    'rust',
+    'markdown'
 ] as const;
 export const highlightThemes = [
     'github-dark',
@@ -208,7 +209,7 @@ export const highlightThemes = [
 
 export interface HighlightResult { html: string; background: string }
 
-export async function highlightCode(code: string, lang: string, theme: string, lineNumbers = false): Promise<HighlightResult> {
+export async function highlightCode(code: string, lang: string, theme: string): Promise<HighlightResult> {
     try {
         if (!highlighterPromise) {
             highlighterPromise = createHighlighter({ themes: highlightThemes as unknown as string[], langs: highlightLangs });
@@ -216,11 +217,7 @@ export async function highlightCode(code: string, lang: string, theme: string, l
         const highlighter = await highlighterPromise;
         const raw = highlighter.codeToHtml(code, { lang, theme });
         const bgMatch = raw.match(/background-color:([^;]+);/);
-        let html = raw.replace(/^<pre[^>]*>/, '').replace(/<\/pre>$/, '');
-        if (lineNumbers) {
-            const lines = html.split(/\r?\n/);
-            html = lines.map((ln, i) => `<span class="code-line"><span class="line-number">${i + 1}</span>${ln}</span>`).join('\n');
-        }
+        const html = raw.replace(/^<pre[^>]*>/, '').replace(/<\/pre>$/, '');
         return { html, background: bgMatch ? bgMatch[1] : '#f5f5f5' };
     } catch {
         return { html: code.replace(/</g, '&lt;'), background: '#f5f5f5' };
@@ -379,7 +376,7 @@ export async function updateSelectedCodeLang(lang: string) {
         data.lang = lang;
         const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
         if (pre) {
-            const { html, background } = await highlightCode(data.code, lang, data.theme ?? 'github-dark', data.lineNumbers ?? false);
+            const { html, background } = await highlightCode(data.code, lang, data.theme ?? 'github-dark');
             pre.innerHTML = html;
             pre.style.backgroundColor = background;
             pre.style.fontSize = `${data.fontSize ?? 14}px`;
@@ -393,7 +390,7 @@ export async function updateSelectedCodeTheme(theme: string) {
         data.theme = theme;
         const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
         if (pre) {
-            const { html, background } = await highlightCode(data.code, data.lang, theme, data.lineNumbers ?? false);
+            const { html, background } = await highlightCode(data.code, data.lang, theme);
             pre.innerHTML = html;
             pre.style.backgroundColor = background;
             pre.style.fontSize = `${data.fontSize ?? 14}px`;
@@ -410,19 +407,6 @@ export function updateSelectedCodeFontSize(size: number) {
     }
 }
 
-export async function updateSelectedCodeLineNumbers(show: boolean) {
-    if (selectedElement && selectedElement.classed('code-block')) {
-        const data = selectedElement.datum() as any;
-        data.lineNumbers = show;
-        const pre = selectedElement.select<HTMLPreElement>('foreignObject > pre').node();
-        if (pre) {
-            const { html, background } = await highlightCode(data.code, data.lang, data.theme, show);
-            pre.innerHTML = html;
-            pre.style.backgroundColor = background;
-            pre.style.fontSize = `${data.fontSize ?? 14}px`;
-        }
-    }
-}
 
 export interface ElementCopy {
     type: 'image' | 'video' | 'sticky' | 'board' | 'drawing' | 'code';

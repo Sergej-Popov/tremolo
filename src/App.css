@@ -86,18 +86,6 @@
     background-color: transparent;
 }
 
-.code-block .code-line {
-    display: block;
-}
-
-.code-block .line-number {
-    display: inline-block;
-    width: 2em;
-    margin-right: 6px;
-    text-align: right;
-    user-select: none;
-    color: gray;
-}
 
 .crop-controls {
     pointer-events: none;

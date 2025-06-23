@@ -7,13 +7,13 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedCodeLineNumbers, highlightLangs, highlightThemes } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import BrushIcon from '@mui/icons-material/Brush';
 import CodeIcon from '@mui/icons-material/Code';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
+import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 
@@ -31,8 +31,6 @@ const Menu: React.FC = () => {
   const setCodeTheme = app?.setCodeTheme ?? (() => {});
   const codeFontSize = app?.codeFontSize ?? 14;
   const setCodeFontSize = app?.setCodeFontSize ?? (() => {});
-  const codeLineNumbers = app?.codeLineNumbers ?? false;
-  const setCodeLineNumbers = app?.setCodeLineNumbers ?? (() => {});
   const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
@@ -52,7 +50,6 @@ const Menu: React.FC = () => {
       }
       if (!el || !d3.select(el).classed('code-block')) {
         setCodeSize(codeFontSize);
-        setCodeLineNumbers(codeLineNumbers);
       }
       if (el && d3.select(el).classed('code-block')) {
         const data = d3.select(el).datum() as any;
@@ -60,7 +57,6 @@ const Menu: React.FC = () => {
         setCodeTheme(data.theme ?? 'github-dark');
         setCodeFontSize(data.fontSize ?? codeFontSize);
         setCodeSize(data.fontSize ?? codeFontSize);
-        setCodeLineNumbers(!!data.lineNumbers);
       }
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
@@ -151,6 +147,9 @@ const Menu: React.FC = () => {
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />
         </IconButton>
+        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={{ mr: 1 }}>
+          <StickyNote2Icon />
+        </IconButton>
         <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
           <CodeIcon />
         </IconButton>
@@ -202,13 +201,6 @@ const Menu: React.FC = () => {
                 ))}
               </Select>
             </Box>
-            <IconButton color={codeLineNumbers ? 'secondary' : 'inherit'} onClick={() => {
-              const val = !codeLineNumbers;
-              setCodeLineNumbers(val);
-              updateSelectedCodeLineNumbers(val);
-            }} sx={{ mr: 1 }}>
-              <FormatListNumberedIcon />
-            </IconButton>
           </>
         )}
         {drawingMode && (
