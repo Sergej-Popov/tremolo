@@ -387,7 +387,8 @@ const GuitarBoard: React.FC = () => {
       .attr('y', 0)
       .attr('width', codeWidth)
       .attr('height', codeHeight)
-      .attr('fill', '#f5f5f5');
+      .attr('stroke', '#333')
+      .attr('stroke-width', 1);
 
     const fo = group.append('foreignObject')
       .attr('x', 0)
