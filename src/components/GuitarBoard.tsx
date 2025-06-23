@@ -671,8 +671,7 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
-      if (active && ((active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') ||
-        (active.tagName === 'CODE' && active.getAttribute('contentEditable') === 'true'))) {
+      if (active && active.getAttribute('contentEditable') === 'true') {
         return; // let the browser handle paste inside editable elements
       }
       const text = event.clipboardData?.getData('text/plain');
@@ -728,9 +727,9 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
-      const active = document.activeElement as HTMLElement | null;
-      if (active && active.classList.contains('sticky-text') && active.getAttribute('contentEditable') === 'true') {
-        return;
+      const active = document.activeElement as HTMLElement | null
+      if (active && active.getAttribute('contentEditable') === 'true') {
+        return
       }
       const info = getSelectedElementData();
       if (info) {
@@ -740,6 +739,10 @@ const GuitarBoard: React.FC = () => {
     };
 
     const handleKey = (e: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null
+      if (active && active.getAttribute('contentEditable') === 'true') {
+        return
+      }
       if (e.ctrlKey && e.key.toLowerCase() === 'd') {
         const info = getSelectedElementData();
         if (info) {

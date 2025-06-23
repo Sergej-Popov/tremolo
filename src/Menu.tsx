@@ -151,7 +151,6 @@ const Menu: React.FC = () => {
                 <MenuItem value="python">Python</MenuItem>
                 <MenuItem value="java">Java</MenuItem>
                 <MenuItem value="cpp">C++</MenuItem>
-                <MenuItem value="plaintext">Plain Text</MenuItem>
               </Select>
             </Box>
             <Box id="code-font-select" sx={{ mr: 2 }}>
