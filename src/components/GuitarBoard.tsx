@@ -456,57 +456,91 @@ const GuitarBoard: React.FC = () => {
     return group;
   }, [codeLanguage, codeTheme]);
 
-  const addLine = useCallback((pos: { x: number, y: number }) => {
+  interface ConnectionInfo { elementId: string; position: string }
+
+  const findClosestHandle = (x: number, y: number) => {
+    const handles = d3.select(svgRef.current).selectAll<SVGCircleElement, any>('.connect-handle');
+    let best: { x: number, y: number, elementId: string, position: string } | null = null;
+    handles.each(function () {
+      const h = d3.select(this);
+      const hx = parseFloat(h.attr('data-abs-x') || '0');
+      const hy = parseFloat(h.attr('data-abs-y') || '0');
+      const dist = Math.hypot(hx - x, hy - y);
+      if (dist < 10 && (!best || dist < Math.hypot(best.x - x, best.y - y))) {
+        best = { x: hx, y: hy, elementId: h.attr('data-parent') || '', position: h.attr('data-pos') || '' };
+      }
+    });
+    return best;
+  };
+
+  const addLine = useCallback((start: { x: number, y: number }, end?: { x: number, y: number }, startConn?: ConnectionInfo, endConn?: ConnectionInfo) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.lines');
     const group = layer.append('g')
       .attr('class', 'line-element')
-      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: string }>({
+      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: string; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
         id: generateId(),
         type: 'line',
-        x1: pos.x,
-        y1: pos.y,
-        x2: pos.x + 100,
-        y2: pos.y,
+        x1: start.x,
+        y1: start.y,
+        x2: end ? end.x : start.x + 100,
+        y2: end ? end.y : start.y,
         style: 'direct',
+        startConn,
+        endConn,
       });
     group.append('line')
-      .attr('x1', pos.x)
-      .attr('y1', pos.y)
-      .attr('x2', pos.x + 100)
-      .attr('y2', pos.y)
+      .attr('x1', start.x)
+      .attr('y1', start.y)
+      .attr('x2', end ? end.x : start.x + 100)
+      .attr('y2', end ? end.y : start.y)
       .attr('stroke', 'black')
       .attr('stroke-width', 2);
     group.append('circle')
       .attr('class', 'line-handle start')
       .attr('r', 4)
-      .attr('cx', pos.x)
-      .attr('cy', pos.y)
+      .attr('cx', start.x)
+      .attr('cy', start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
           const { x, y } = toWorkspace(event.sourceEvent.clientX, event.sourceEvent.clientY);
+          d.startConn = undefined;
           d.x1 = x;
           d.y1 = y;
+          const snap = findClosestHandle(x, y);
+          if (snap) {
+            d.x1 = snap.x;
+            d.y1 = snap.y;
+            d.startConn = { elementId: snap.elementId, position: snap.position };
+          }
           g.select('line').attr('x1', d.x1).attr('y1', d.y1);
           d3.select(this).attr('cx', d.x1).attr('cy', d.y1);
         }));
     group.append('circle')
       .attr('class', 'line-handle end')
       .attr('r', 4)
-      .attr('cx', pos.x + 100)
-      .attr('cy', pos.y)
+      .attr('cx', end ? end.x : start.x + 100)
+      .attr('cy', end ? end.y : start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
           const { x, y } = toWorkspace(event.sourceEvent.clientX, event.sourceEvent.clientY);
+          d.endConn = undefined;
           d.x2 = x;
           d.y2 = y;
+          const snap = findClosestHandle(x, y);
+          if (snap) {
+            d.x2 = snap.x;
+            d.y2 = snap.y;
+            d.endConn = { elementId: snap.elementId, position: snap.position };
+          }
           g.select('line').attr('x2', d.x2).attr('y2', d.y2);
           d3.select(this).attr('cx', d.x2).attr('cy', d.y2);
         }));
+    group.call(makeResizable);
     group.dispatch('click');
     return group;
   }, []);
@@ -699,6 +733,46 @@ const GuitarBoard: React.FC = () => {
     const handler = () => addLine(cursorRef.current);
     window.addEventListener('createline', handler as EventListener);
     return () => window.removeEventListener('createline', handler as EventListener);
+  }, [addLine]);
+
+  const activeLine = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
+
+  useEffect(() => {
+    const start = (e: CustomEvent) => {
+      const { x, y, elementId, position } = e.detail;
+      activeLine.current = addLine({ x, y }, { x, y }, { elementId, position });
+    };
+    const drag = (e: CustomEvent) => {
+      if (!activeLine.current) return;
+      const { x, y } = e.detail;
+      const d = activeLine.current.datum() as any;
+      d.endConn = undefined;
+      d.x2 = x;
+      d.y2 = y;
+      const snap = findClosestHandle(x, y);
+      if (snap) {
+        d.x2 = snap.x;
+        d.y2 = snap.y;
+        d.endConn = { elementId: snap.elementId, position: snap.position };
+      }
+      activeLine.current.select('line').attr('x2', d.x2).attr('y2', d.y2);
+      activeLine.current.select('circle.end').attr('cx', d.x2).attr('cy', d.y2);
+    };
+    const end = (e: CustomEvent) => {
+      drag(e);
+      if (activeLine.current) {
+        activeLine.current.call(makeResizable);
+        activeLine.current = null;
+      }
+    };
+    window.addEventListener('lineconnectstart', start as EventListener);
+    window.addEventListener('lineconnectdrag', drag as EventListener);
+    window.addEventListener('lineconnectend', end as EventListener);
+    return () => {
+      window.removeEventListener('lineconnectstart', start as EventListener);
+      window.removeEventListener('lineconnectdrag', drag as EventListener);
+      window.removeEventListener('lineconnectend', end as EventListener);
+    };
   }, [addLine]);
 
   useEffect(() => {

@@ -19,7 +19,7 @@ https://sergej-popov.github.io/tremolo/
 - Select a pasted object and press **Delete** to remove it.
 - Insert code blocks with syntax highlighting. When a code block is selected dropdowns in the header change its language, theme and font size. Only GitHub light and dark themes are available.
 - Use the brush tool to draw very smooth strokes that get thicker as you draw slower. A dropdown lets you set a fixed stroke width instead of pressure. Drawings can be moved, resized and rotated.
-- Draw straight lines and connect them to other elements.
+- Draw straight lines. Endpoints snap to subtle connectors at each element's side and stay attached when those elements move.
 - Quickly add predefined chords or scales or display all notes.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.
 - Change sticky note text alignment using the header buttons when a note is selected.

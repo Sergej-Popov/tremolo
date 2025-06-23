@@ -165,6 +165,52 @@ export const defaultTransform = (): TransformValues => ({
     rotate: 0,
 });
 
+function transformPoint(x: number, y: number, t: TransformValues, size: { width: number; height: number }) {
+    const cx = (size.width * t.scaleX) / 2;
+    const cy = (size.height * t.scaleY) / 2;
+    const rad = t.rotate * Math.PI / 180;
+    let px = x * t.scaleX;
+    let py = y * t.scaleY;
+    const rx = Math.cos(rad) * (px - cx) - Math.sin(rad) * (py - cy) + cx;
+    const ry = Math.sin(rad) * (px - cx) + Math.cos(rad) * (py - cy) + cy;
+    return { x: rx + t.translateX, y: ry + t.translateY };
+}
+
+function getHandleCoords(element: Selection<any, any, any, any>, pos: string, width: number, height: number, t: TransformValues) {
+    let x = 0, y = 0;
+    if (pos === 'n') { x = width / 2; y = 0; }
+    if (pos === 'e') { x = width; y = height / 2; }
+    if (pos === 's') { x = width / 2; y = height; }
+    if (pos === 'w') { x = 0; y = height / 2; }
+    return transformPoint(x, y, t, { width, height });
+}
+
+function updateConnectedLines(element: Selection<any, any, any, any>) {
+    if (!workspaceRoot) return;
+    const data: any = element.datum() || {};
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+    const t: TransformValues = data.transform ?? defaultTransform();
+    const lines = d3.select(workspaceRoot).selectAll<SVGGElement, any>('.line-element');
+    lines.each(function (ld) {
+        const g = d3.select(this);
+        if (ld.startConn && ld.startConn.elementId === data.id) {
+            const p = getHandleCoords(element, ld.startConn.position, width, height, t);
+            ld.x1 = p.x;
+            ld.y1 = p.y;
+            g.select('line').attr('x1', ld.x1).attr('y1', ld.y1);
+            g.select('circle.start').attr('cx', ld.x1).attr('cy', ld.y1);
+        }
+        if (ld.endConn && ld.endConn.elementId === data.id) {
+            const p = getHandleCoords(element, ld.endConn.position, width, height, t);
+            ld.x2 = p.x;
+            ld.y2 = p.y;
+            g.select('line').attr('x2', ld.x2).attr('y2', ld.y2);
+            g.select('circle.end').attr('cx', ld.x2).attr('cy', ld.y2);
+        }
+    });
+}
+
 export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) {
     let size = fixedSize ?? 16;
     el.classList.remove('scrollable');
@@ -268,10 +314,20 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
     const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
     element.attr('transform', buildTransform(transform, { width, height }));
-    element.select('.connect-handle-nw')?.attr('cx', 0).attr('cy', 0);
-    element.select('.connect-handle-ne')?.attr('cx', width).attr('cy', 0);
-    element.select('.connect-handle-se')?.attr('cx', width).attr('cy', height);
-    element.select('.connect-handle-sw')?.attr('cx', 0).attr('cy', height);
+    const handles = element.selectAll<SVGCircleElement, any>('.connect-handle');
+    handles.each(function () {
+        const h = d3.select(this);
+        const pos = h.attr('data-pos');
+        let x = 0, y = 0;
+        if (pos === 'n') { x = width / 2; y = 0; }
+        if (pos === 'e') { x = width; y = height / 2; }
+        if (pos === 's') { x = width / 2; y = height; }
+        if (pos === 'w') { x = 0; y = height / 2; }
+        h.attr('cx', x).attr('cy', y);
+        const p = transformPoint(x, y, transform, { width, height });
+        h.attr('data-abs-x', p.x).attr('data-abs-y', p.y);
+    });
+    updateConnectedLines(element);
     if (selectedElement && element.node() === selectedElement.node()) {
         dispatchSelectionChange();
     }
@@ -651,20 +707,37 @@ function addConnectHandles(element: Selection<any, any, any, any>) {
     const height = data.height ?? bbox.height;
     const { scaleX, scaleY } = data.transform ?? defaultTransform();
     const r = 4 / Math.max(scaleX, scaleY);
-    const corners = [
-        { c: 'nw', x: 0, y: 0 },
-        { c: 'ne', x: width, y: 0 },
-        { c: 'se', x: width, y: height },
-        { c: 'sw', x: 0, y: height },
+    const points = [
+        { p: 'n', x: width / 2, y: 0 },
+        { p: 'e', x: width, y: height / 2 },
+        { p: 's', x: width / 2, y: height },
+        { p: 'w', x: 0, y: height / 2 },
     ];
-    corners.forEach(pt => {
-        element.append('circle')
-            .attr('class', `connect-handle connect-handle-${pt.c}`)
+    points.forEach(pt => {
+        const h = element.append('circle')
+            .attr('class', `connect-handle connect-handle-${pt.p}`)
             .attr('cx', pt.x)
             .attr('cy', pt.y)
             .attr('r', r)
+            .attr('data-pos', pt.p)
+            .attr('data-parent', data.id)
             .style('pointer-events', 'all')
             .style('fill', '#7fbbf7');
+        h.call(
+            d3.drag<SVGCircleElement, unknown>()
+                .on('start', function (event) {
+                    const [sx, sy] = toWorkspaceCoords(event);
+                    window.dispatchEvent(new CustomEvent('lineconnectstart', { detail: { elementId: data.id, position: pt.p, x: sx, y: sy } }));
+                })
+                .on('drag', function (event) {
+                    const [mx, my] = toWorkspaceCoords(event);
+                    window.dispatchEvent(new CustomEvent('lineconnectdrag', { detail: { x: mx, y: my } }));
+                })
+                .on('end', function (event) {
+                    const [ex, ey] = toWorkspaceCoords(event);
+                    window.dispatchEvent(new CustomEvent('lineconnectend', { detail: { x: ex, y: ey } }));
+                })
+        );
     });
 }
 
