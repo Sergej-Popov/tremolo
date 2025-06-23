@@ -24,14 +24,24 @@ https://sergej-popov.github.io/tremolo/
 - Set a fixed font size for a sticky note from the header dropdown or choose "Auto" for automatic sizing (6–48px in even steps).
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
+- Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
 
 ## Hotkeys
+
+### General
 - **Delete** – remove the selected item.
-- **c** – crop selected image (or double-click an image to toggle cropping).
 - **Ctrl+C** – copy selected element to the clipboard.
 - **Ctrl+V** – paste copied element at the cursor location.
 - **Ctrl+D** – duplicate the selected element at the cursor.
+- **r** – reset element rotation.
+- **/** or **?** – open the help dialog.
+
+### Tools
 - **b** – toggle the brush drawing mode.
+- **e** – toggle the code mode.
+
+### Images
+- **c** – crop selected image (or double-click an image to toggle cropping).
 
 ## TODO general
 
