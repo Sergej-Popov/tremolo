@@ -40,6 +40,8 @@ const Menu: React.FC = () => {
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
   const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('direct');
+  const [lineColor, setLineColor] = React.useState<string>(noteColors[0]);
+  const [lineConn, setLineConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
   const [lineSelected, setLineSelected] = React.useState(false);
 
   React.useEffect(() => {
@@ -73,6 +75,8 @@ const Menu: React.FC = () => {
         const data = d3.select(el).datum() as any;
         setLineSelected(true);
         setLineStyle(data.style ?? 'direct');
+        setLineColor(data.color ?? noteColors[0]);
+        setLineConn(data.conn ?? 'circle');
       } else {
         setLineSelected(false);
       }
@@ -175,21 +179,56 @@ const Menu: React.FC = () => {
           <CodeIcon />
         </IconButton>
         {lineSelected && (
-          <Box id="line-style-select" sx={{ mr: 2 }}>
-            <Select
-              size="small"
-              value={lineStyle}
-              onChange={(e) => {
-                const val = e.target.value as 'direct' | 'arc' | 'corner';
-                setLineStyle(val);
-                updateSelectedLineStyle(val);
-              }}
-            >
-              <MenuItem value="direct">Direct</MenuItem>
-              <MenuItem value="arc">Arc</MenuItem>
-              <MenuItem value="corner">Corner</MenuItem>
-            </Select>
-          </Box>
+          <>
+            <Box id="line-color-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineColor}
+                onChange={(e) => {
+                  const c = e.target.value as string;
+                  setLineColor(c);
+                  updateSelectedLineColor(c);
+                }}
+              >
+                {noteColors.map((c) => (
+                  <MenuItem value={c} key={c}>
+                    <Box sx={{ width: 20, height: 20, backgroundColor: c }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <Box id="line-conn-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineConn}
+                onChange={(e) => {
+                  const s = e.target.value as 'circle' | 'arrow' | 'triangle' | 'none';
+                  setLineConn(s);
+                  updateSelectedConnectionStyle(s);
+                }}
+              >
+                <MenuItem value="circle">Circle</MenuItem>
+                <MenuItem value="arrow">Arrow</MenuItem>
+                <MenuItem value="triangle">Triangle</MenuItem>
+                <MenuItem value="none">None</MenuItem>
+              </Select>
+            </Box>
+            <Box id="line-style-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineStyle}
+                onChange={(e) => {
+                  const val = e.target.value as 'direct' | 'arc' | 'corner';
+                  setLineStyle(val);
+                  updateSelectedLineStyle(val);
+                }}
+              >
+                <MenuItem value="direct">Direct</MenuItem>
+                <MenuItem value="arc">Arc</MenuItem>
+                <MenuItem value="corner">Corner</MenuItem>
+              </Select>
+            </Box>
+          </>
         )}
         {codeSelected && (
           <>

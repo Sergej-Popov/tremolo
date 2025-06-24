@@ -182,7 +182,7 @@ export function linePath(d: {
     startConn?: { position: string } | undefined;
     endConn?: { position: string } | undefined;
 }): string {
-    const off = 40;
+    const off = 100;
     if (d.style === 'arc') {
         const dir = (pos?: string, x1 = 0, y1 = 0, x2 = 0, y2 = 0) => {
             if (pos === 'n') return { dx: 0, dy: -off };
@@ -517,6 +517,70 @@ export function updateSelectedLineStyle(style: 'direct' | 'arc' | 'corner') {
         const data = selectedElement.datum() as any;
         data.style = style;
         selectedElement.select('path').attr('d', linePath(data));
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+export function updateSelectedLineColor(color: string) {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.color = color;
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+export function updateSelectedConnectionStyle(style: 'circle' | 'arrow' | 'triangle' | 'none') {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.conn = style;
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+function applyLineAppearance(element: Selection<SVGGElement, any, any, any>) {
+    const data = element.datum() as any;
+    const color = data.color ?? 'black';
+    element.select('path').attr('stroke', color).attr('d', linePath(data));
+    let defs = element.select<SVGDefsElement>('defs');
+    if (defs.empty()) defs = element.append('defs');
+    defs.selectAll('*').remove();
+    if (data.conn && data.conn !== 'none') {
+        const common = {
+            markerWidth: 10,
+            markerHeight: 10,
+            refX: 10,
+            refY: 5,
+            orient: 'auto'
+        } as any;
+        const start = defs.append('marker')
+            .attr('id', `${data.id}-start`)
+            .attr('markerWidth', common.markerWidth)
+            .attr('markerHeight', common.markerHeight)
+            .attr('refX', 0)
+            .attr('refY', common.refY)
+            .attr('orient', 'auto-start-reverse');
+        const end = defs.append('marker')
+            .attr('id', `${data.id}-end`)
+            .attr('markerWidth', common.markerWidth)
+            .attr('markerHeight', common.markerHeight)
+            .attr('refX', common.refX)
+            .attr('refY', common.refY)
+            .attr('orient', common.orient);
+        if (data.conn === 'circle') {
+            start.append('circle').attr('cx', 5).attr('cy', 5).attr('r', 3).attr('fill', color);
+            end.append('circle').attr('cx', 5).attr('cy', 5).attr('r', 3).attr('fill', color);
+        } else if (data.conn === 'arrow') {
+            start.append('path').attr('d', 'M0,0 L10,5 L0,10').attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2);
+            end.append('path').attr('d', 'M0,0 L10,5 L0,10').attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2);
+        } else if (data.conn === 'triangle') {
+            start.append('path').attr('d', 'M0,0 L10,5 L0,10 Z').attr('fill', color);
+            end.append('path').attr('d', 'M0,0 L10,5 L0,10 Z').attr('fill', color);
+        }
+        element.select('path')
+            .attr('marker-start', `url(#${data.id}-start)`)
+            .attr('marker-end', `url(#${data.id}-end)`);
+    } else {
+        element.select('path').attr('marker-start', null).attr('marker-end', null);
     }
 }
 

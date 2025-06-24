@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedConnectionStyle } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
+import { noteColors } from '../theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton } from '@mui/material';
 import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -492,7 +493,7 @@ const GuitarBoard: React.FC = () => {
     const layer = svg.select<SVGGElement>('.lines');
     const group = layer.append('g')
       .attr('class', 'line-element')
-      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc' | 'corner'; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
+      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc' | 'corner'; color: string; conn: 'circle' | 'arrow' | 'triangle' | 'none'; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
         id: generateId(),
         type: 'line',
         x1: start.x,
@@ -500,14 +501,17 @@ const GuitarBoard: React.FC = () => {
         x2: end ? end.x : start.x + 100,
         y2: end ? end.y : start.y,
         style: 'direct',
+        color: noteColors[0],
+        conn: 'circle',
         startConn,
         endConn,
       });
     const path = group.append('path')
       .attr('d', linePath(group.datum()))
-      .attr('stroke', 'black')
+      .attr('stroke', noteColors[0])
       .attr('fill', 'none')
       .attr('stroke-width', 2);
+    applyLineAppearance(group as any);
     group.append('circle')
       .attr('class', 'line-handle start')
       .attr('r', 4)
@@ -562,6 +566,8 @@ const GuitarBoard: React.FC = () => {
         }));
     group.call(makeResizable);
     group.dispatch('click');
+    updateSelectedLineColor(noteColors[0]);
+    updateSelectedConnectionStyle('circle');
     return group;
   }, []);
 
