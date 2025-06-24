@@ -558,8 +558,7 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
         const common = {
             markerWidth: 10,
             markerHeight: 10,
-            refY: 5,
-            orient: 'auto'
+            refY: 5
         } as const;
         let startMarker: Selection<SVGMarkerElement, unknown, any, any> | null = null;
         let endMarker: Selection<SVGMarkerElement, unknown, any, any> | null = null;
@@ -569,7 +568,7 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
                 .attr('markerWidth', common.markerWidth)
                 .attr('markerHeight', common.markerHeight)
                 .attr('refY', common.refY)
-                .attr('orient', common.orient);
+                .attr('orient', 'auto-start-reverse');
         }
         if (hasEnd) {
             endMarker = defs.append('marker')
@@ -577,7 +576,7 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
                 .attr('markerWidth', common.markerWidth)
                 .attr('markerHeight', common.markerHeight)
                 .attr('refY', common.refY)
-                .attr('orient', common.orient);
+                .attr('orient', 'auto');
         }
 
         const drawShape = (m: Selection<SVGMarkerElement, unknown, any, any> | null, style: string, start: boolean) => {
