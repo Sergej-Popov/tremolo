@@ -139,7 +139,8 @@
 
 .line-handle {
     cursor: crosshair;
-    fill: black;
+    fill: transparent;
+    stroke: none;
 }
 #root, html, body {
     height: 100%;

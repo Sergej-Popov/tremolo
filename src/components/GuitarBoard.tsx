@@ -500,10 +500,10 @@ const GuitarBoard: React.FC = () => {
         y1: start.y,
         x2: end ? end.x : start.x + 100,
         y2: end ? end.y : start.y,
-        style: 'direct',
+        style: 'arc',
         color: defaultLineColor,
-        startStyle: 'circle',
-        endStyle: 'circle',
+        startStyle: 'triangle',
+        endStyle: 'triangle',
         startConn,
         endConn,
       });

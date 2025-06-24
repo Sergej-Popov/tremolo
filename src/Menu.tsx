@@ -39,10 +39,10 @@ const Menu: React.FC = () => {
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
-  const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('direct');
+  const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('arc');
   const [lineColor, setLineColor] = React.useState<string>(defaultLineColor);
-  const [lineStartConn, setLineStartConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
-  const [lineEndConn, setLineEndConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
+  const [lineStartConn, setLineStartConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('triangle');
+  const [lineEndConn, setLineEndConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('triangle');
   const [lineSelected, setLineSelected] = React.useState(false);
 
   React.useEffect(() => {
@@ -75,10 +75,10 @@ const Menu: React.FC = () => {
       if (el && d3.select(el).classed('line-element')) {
         const data = d3.select(el).datum() as any;
         setLineSelected(true);
-        setLineStyle(data.style ?? 'direct');
+        setLineStyle(data.style ?? 'arc');
         setLineColor(data.color ?? defaultLineColor);
-        setLineStartConn(data.startStyle ?? 'circle');
-        setLineEndConn(data.endStyle ?? 'circle');
+        setLineStartConn(data.startStyle ?? 'triangle');
+        setLineEndConn(data.endStyle ?? 'triangle');
       } else {
         setLineSelected(false);
       }
