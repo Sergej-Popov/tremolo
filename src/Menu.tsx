@@ -6,14 +6,15 @@ import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
-import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, highlightLangs, highlightThemes } from './d3-ext';
+import { noteColors, defaultLineColor } from './theme';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import BrushIcon from '@mui/icons-material/Brush';
 import CodeIcon from '@mui/icons-material/Code';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 
@@ -38,6 +39,11 @@ const Menu: React.FC = () => {
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
+  const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('arc');
+  const [lineColor, setLineColor] = React.useState<string>(defaultLineColor);
+  const [lineStartConn, setLineStartConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('triangle');
+  const [lineEndConn, setLineEndConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('triangle');
+  const [lineSelected, setLineSelected] = React.useState(false);
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -61,6 +67,24 @@ const Menu: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
     return () => window.removeEventListener('stickyselectionchange', handler as EventListener);
+  }, []);
+
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      const el: HTMLElement | null = e.detail;
+      if (el && d3.select(el).classed('line-element')) {
+        const data = d3.select(el).datum() as any;
+        setLineSelected(true);
+        setLineStyle(data.style ?? 'arc');
+        setLineColor(data.color ?? defaultLineColor);
+        setLineStartConn(data.startStyle ?? 'triangle');
+        setLineEndConn(data.endStyle ?? 'triangle');
+      } else {
+        setLineSelected(false);
+      }
+    };
+    window.addEventListener('lineselectionchange', handler as EventListener);
+    return () => window.removeEventListener('lineselectionchange', handler as EventListener);
   }, []);
 
   return (
@@ -147,12 +171,83 @@ const Menu: React.FC = () => {
         <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
           <BrushIcon />
         </IconButton>
+        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createline'))} sx={{ mr: 1 }}>
+          <ShowChartIcon />
+        </IconButton>
         <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={{ mr: 1 }}>
           <StickyNote2Icon />
         </IconButton>
         <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
           <CodeIcon />
         </IconButton>
+        {lineSelected && (
+          <>
+            <Box id="line-color-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineColor}
+                onChange={(e) => {
+                  const c = e.target.value as string;
+                  setLineColor(c);
+                  updateSelectedLineColor(c);
+                }}
+              >
+                {noteColors.map((c) => (
+                  <MenuItem value={c} key={c}>
+                    <Box sx={{ width: 20, height: 20, backgroundColor: c }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <Box id="line-start-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineStartConn}
+                onChange={(e) => {
+                  const s = e.target.value as 'circle' | 'arrow' | 'triangle' | 'none';
+                  setLineStartConn(s);
+                  updateSelectedStartConnectionStyle(s);
+                }}
+              >
+                <MenuItem value="circle">Start Circle</MenuItem>
+                <MenuItem value="arrow">Start Arrow</MenuItem>
+                <MenuItem value="triangle">Start Triangle</MenuItem>
+                <MenuItem value="none">Start None</MenuItem>
+              </Select>
+            </Box>
+            <Box id="line-end-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineEndConn}
+                onChange={(e) => {
+                  const s = e.target.value as 'circle' | 'arrow' | 'triangle' | 'none';
+                  setLineEndConn(s);
+                  updateSelectedEndConnectionStyle(s);
+                }}
+              >
+                <MenuItem value="circle">End Circle</MenuItem>
+                <MenuItem value="arrow">End Arrow</MenuItem>
+                <MenuItem value="triangle">End Triangle</MenuItem>
+                <MenuItem value="none">End None</MenuItem>
+              </Select>
+            </Box>
+            <Box id="line-style-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineStyle}
+                onChange={(e) => {
+                  const val = e.target.value as 'direct' | 'arc' | 'corner';
+                  setLineStyle(val);
+                  updateSelectedLineStyle(val);
+                }}
+              >
+                <MenuItem value="direct">Direct</MenuItem>
+                <MenuItem value="arc">Arc</MenuItem>
+                <MenuItem value="corner">Corner</MenuItem>
+              </Select>
+            </Box>
+          </>
+        )}
         {codeSelected && (
           <>
             <Box id="code-lang-select" sx={{ mr: 2 }}>

@@ -19,6 +19,8 @@ https://sergej-popov.github.io/tremolo/
 - Select a pasted object and press **Delete** to remove it.
 - Insert code blocks with syntax highlighting. When a code block is selected dropdowns in the header change its language, theme and font size. Only GitHub light and dark themes are available.
 - Use the brush tool to draw very smooth strokes that get thicker as you draw slower. A dropdown lets you set a fixed stroke width instead of pressure. Drawings can be moved, resized and rotated.
+- Draw lines with straight, arched or cornered style. New lines start arched with triangle connectors and snap to subtle connectors at each element's side, remaining attached when those elements move.
+- Change a line's colour from the sticky note palette (now including black) and set the start and end connection style independently: circle, arrow, filled triangle or none. Lines default to black.
 - Quickly add predefined chords or scales or display all notes.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.
 - Change sticky note text alignment using the header buttons when a note is selected.
@@ -41,6 +43,7 @@ https://sergej-popov.github.io/tremolo/
 - **b** – toggle the brush drawing mode.
 - **n** – insert a sticky note.
 - **c** – insert a code block.
+- **l** – insert a line.
 
 ### Images
 - **c** – crop selected image (or double-click an image to toggle cropping).
@@ -48,11 +51,10 @@ https://sergej-popov.github.io/tremolo/
 ## TODO general
 
 1. [Large] Provide undo and redo support for board changes.
-2. Connectiing lines
-3. Add a dark and light theme toggle for the fretboard interface.
-4. Draw style themes
-5. Tool pannel
-6. Contextual menu panel
+2. Add a dark and light theme toggle for the fretboard interface.
+3. Draw style themes
+4. Tool pannel
+5. Contextual menu panel
 
 ## TODO collaboration
 

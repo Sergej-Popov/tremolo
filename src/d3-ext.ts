@@ -165,6 +165,94 @@ export const defaultTransform = (): TransformValues => ({
     rotate: 0,
 });
 
+function transformPoint(x: number, y: number, t: TransformValues, size: { width: number; height: number }) {
+    const cx = (size.width * t.scaleX) / 2;
+    const cy = (size.height * t.scaleY) / 2;
+    const rad = t.rotate * Math.PI / 180;
+    let px = x * t.scaleX;
+    let py = y * t.scaleY;
+    const rx = Math.cos(rad) * (px - cx) - Math.sin(rad) * (py - cy) + cx;
+    const ry = Math.sin(rad) * (px - cx) + Math.cos(rad) * (py - cy) + cy;
+    return { x: rx + t.translateX, y: ry + t.translateY };
+}
+
+export function linePath(d: {
+    x1: number; y1: number; x2: number; y2: number;
+    style?: 'direct' | 'arc' | 'corner';
+    startConn?: { position: string } | undefined;
+    endConn?: { position: string } | undefined;
+}): string {
+    const off = 100;
+    if (d.style === 'arc') {
+        const dir = (pos?: string, x1 = 0, y1 = 0, x2 = 0, y2 = 0) => {
+            if (pos === 'n') return { dx: 0, dy: -off };
+            if (pos === 's') return { dx: 0, dy: off };
+            if (pos === 'e') return { dx: off, dy: 0 };
+            if (pos === 'w') return { dx: -off, dy: 0 };
+            return { dx: Math.sign(x2 - x1) * off, dy: Math.sign(y2 - y1) * off };
+        };
+        const s = dir(d.startConn?.position, d.x1, d.y1, d.x2, d.y2);
+        const e = dir(d.endConn?.position, d.x2, d.y2, d.x1, d.y1);
+        const c1x = d.x1 + s.dx;
+        const c1y = d.y1 + s.dy;
+        const c2x = d.x2 + e.dx;
+        const c2y = d.y2 + e.dy;
+        return `M${d.x1},${d.y1} C${c1x},${c1y} ${c2x},${c2y} ${d.x2},${d.y2}`;
+    } else if (d.style === 'corner') {
+        const dir = (pos?: string, x1 = 0, y1 = 0, x2 = 0, y2 = 0) => {
+            if (pos === 'n') return { dx: 0, dy: -off };
+            if (pos === 's') return { dx: 0, dy: off };
+            if (pos === 'e') return { dx: off, dy: 0 };
+            if (pos === 'w') return { dx: -off, dy: 0 };
+            return { dx: Math.sign(x2 - x1) * off, dy: Math.sign(y2 - y1) * off };
+        };
+        const s = dir(d.startConn?.position, d.x1, d.y1, d.x2, d.y2);
+        const e = dir(d.endConn?.position, d.x2, d.y2, d.x1, d.y1);
+        const p1x = d.x1 + s.dx;
+        const p1y = d.y1 + s.dy;
+        const p2x = d.x2 + e.dx;
+        const p2y = d.y2 + e.dy;
+        const midX = Math.abs(p1x - d.x2) < Math.abs(p1y - d.y2) ? p1x : p2x;
+        const midY = Math.abs(p1y - d.y2) < Math.abs(p1x - d.x2) ? p1y : p2y;
+        return `M${d.x1},${d.y1} L${p1x},${p1y} L${midX},${midY} L${p2x},${p2y} L${d.x2},${d.y2}`;
+    }
+    return `M${d.x1},${d.y1} L${d.x2},${d.y2}`;
+}
+
+function getHandleCoords(element: Selection<any, any, any, any>, pos: string, width: number, height: number, t: TransformValues) {
+    let x = 0, y = 0;
+    if (pos === 'n') { x = width / 2; y = 0; }
+    if (pos === 'e') { x = width; y = height / 2; }
+    if (pos === 's') { x = width / 2; y = height; }
+    if (pos === 'w') { x = 0; y = height / 2; }
+    return transformPoint(x, y, t, { width, height });
+}
+
+function updateConnectedLines(element: Selection<any, any, any, any>) {
+    if (!workspaceRoot) return;
+    const data: any = element.datum() || {};
+    const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+    const t: TransformValues = data.transform ?? defaultTransform();
+    const lines = d3.select(workspaceRoot).selectAll<SVGGElement, any>('.line-element');
+    lines.each(function (ld) {
+        const g = d3.select(this);
+        if (ld.startConn && ld.startConn.elementId === data.id) {
+            const p = getHandleCoords(element, ld.startConn.position, width, height, t);
+            ld.x1 = p.x;
+            ld.y1 = p.y;
+            g.select('circle.start').attr('cx', ld.x1).attr('cy', ld.y1);
+        }
+        if (ld.endConn && ld.endConn.elementId === data.id) {
+            const p = getHandleCoords(element, ld.endConn.position, width, height, t);
+            ld.x2 = p.x;
+            ld.y2 = p.y;
+            g.select('circle.end').attr('cx', ld.x2).attr('cy', ld.y2);
+        }
+        g.select('path').attr('d', linePath(ld));
+    });
+}
+
 export function adjustStickyFont(el: HTMLDivElement, fixedSize?: number | null) {
     let size = fixedSize ?? 16;
     el.classList.remove('scrollable');
@@ -268,6 +356,20 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
     const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
     element.attr('transform', buildTransform(transform, { width, height }));
+    const handles = element.selectAll<SVGCircleElement, any>('.connect-handle');
+    handles.each(function () {
+        const h = d3.select(this);
+        const pos = h.attr('data-pos');
+        let x = 0, y = 0;
+        if (pos === 'n') { x = width / 2; y = 0; }
+        if (pos === 'e') { x = width; y = height / 2; }
+        if (pos === 's') { x = width / 2; y = height; }
+        if (pos === 'w') { x = 0; y = height / 2; }
+        h.attr('cx', x).attr('cy', y);
+        const p = transformPoint(x, y, transform, { width, height });
+        h.attr('data-abs-x', p.x).attr('data-abs-y', p.y);
+    });
+    updateConnectedLines(element);
     if (selectedElement && element.node() === selectedElement.node()) {
         dispatchSelectionChange();
     }
@@ -344,6 +446,9 @@ let globalInit = false;
 
 function dispatchSelectionChange() {
     window.dispatchEvent(new CustomEvent('stickyselectionchange', { detail: selectedElement?.node() || null }));
+    window.dispatchEvent(new CustomEvent('lineselectionchange', {
+        detail: selectedElement && selectedElement.classed('line-element') ? selectedElement.node() : null,
+    }));
 }
 
 export function updateSelectedColor(color: string) {
@@ -404,6 +509,96 @@ export function updateSelectedCodeFontSize(size: number) {
         data.fontSize = size;
         selectedElement.select<HTMLPreElement>('foreignObject > pre')
             .style('font-size', `${size}px`);
+    }
+}
+
+export function updateSelectedLineStyle(style: 'direct' | 'arc' | 'corner') {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.style = style;
+        selectedElement.select('path').attr('d', linePath(data));
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+export function updateSelectedLineColor(color: string) {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.color = color;
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+export function updateSelectedStartConnectionStyle(style: 'circle' | 'arrow' | 'triangle' | 'none') {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.startStyle = style;
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+export function updateSelectedEndConnectionStyle(style: 'circle' | 'arrow' | 'triangle' | 'none') {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.endStyle = style;
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+export function applyLineAppearance(element: Selection<SVGGElement, any, any, any>) {
+    const data = element.datum() as any;
+    const color = data.color ?? 'black';
+    element.select('path').attr('stroke', color).attr('d', linePath(data));
+    let defs = element.select<SVGDefsElement>('defs');
+    if (defs.empty()) defs = element.append('defs');
+    defs.selectAll('*').remove();
+    const hasStart = data.startStyle && data.startStyle !== 'none';
+    const hasEnd = data.endStyle && data.endStyle !== 'none';
+    if (hasStart || hasEnd) {
+        const common = {
+            markerWidth: 10,
+            markerHeight: 10,
+            refY: 5
+        } as const;
+        let startMarker: Selection<SVGMarkerElement, unknown, any, any> | null = null;
+        let endMarker: Selection<SVGMarkerElement, unknown, any, any> | null = null;
+        if (hasStart) {
+            startMarker = defs.append('marker')
+                .attr('id', `${data.id}-start`)
+                .attr('markerWidth', common.markerWidth)
+                .attr('markerHeight', common.markerHeight)
+                .attr('refY', common.refY)
+                .attr('orient', 'auto-start-reverse');
+        }
+        if (hasEnd) {
+            endMarker = defs.append('marker')
+                .attr('id', `${data.id}-end`)
+                .attr('markerWidth', common.markerWidth)
+                .attr('markerHeight', common.markerHeight)
+                .attr('refY', common.refY)
+                .attr('orient', 'auto');
+        }
+
+        const drawShape = (m: Selection<SVGMarkerElement, unknown, any, any> | null, style: string, start: boolean) => {
+            if (!m) return;
+            if (style === 'circle') {
+                m.attr('refX', 5)
+                    .append('circle').attr('cx', 5).attr('cy', 5).attr('r', 3).attr('fill', color);
+            } else if (style === 'arrow') {
+                m.attr('refX', 10)
+                    .append('path').attr('d', 'M0,0 L10,5 L0,10').attr('fill', 'none').attr('stroke', color).attr('stroke-width', 1.5);
+            } else if (style === 'triangle') {
+                m.attr('refX', 9)
+                    .append('path').attr('d', 'M0,1 L9,5 L0,9 Z').attr('fill', color);
+            }
+        };
+        drawShape(startMarker, data.startStyle, true);
+        drawShape(endMarker, data.endStyle, false);
+        element.select('path')
+            .attr('marker-start', hasStart ? `url(#${data.id}-start)` : null)
+            .attr('marker-end', hasEnd ? `url(#${data.id}-end)` : null);
+    } else {
+        element.select('path').attr('marker-start', null).attr('marker-end', null);
     }
 }
 
@@ -639,6 +834,55 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
         );
 }
 
+export function ensureConnectHandles(element: Selection<any, any, any, any>) {
+    if (!element.select('.connect-handle').empty()) return;
+    const data: any = element.datum() || {};
+    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+    const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
+    const transform = data.transform ?? defaultTransform();
+    const { scaleX, scaleY } = transform;
+    const r = 4 / Math.max(scaleX, scaleY);
+    const points = [
+        { p: 'n', x: width / 2, y: 0 },
+        { p: 'e', x: width, y: height / 2 },
+        { p: 's', x: width / 2, y: height },
+        { p: 'w', x: 0, y: height / 2 },
+    ];
+    points.forEach(pt => {
+        const h = element.append('circle')
+            .attr('class', `connect-handle connect-handle-${pt.p}`)
+            .attr('cx', pt.x)
+            .attr('cy', pt.y)
+            .attr('r', r)
+            .attr('data-pos', pt.p)
+            .attr('data-parent', data.id)
+            .style('pointer-events', 'all')
+            .style('fill', '#7fbbf7');
+        const abs = transformPoint(pt.x, pt.y, transform, { width, height });
+        h.attr('data-abs-x', abs.x).attr('data-abs-y', abs.y);
+        h.call(
+            d3.drag<SVGCircleElement, unknown>()
+                .on('start', function (event) {
+                    const [sx, sy] = toWorkspaceCoords(event);
+                    window.dispatchEvent(new CustomEvent('lineconnectstart', { detail: { elementId: data.id, position: pt.p, x: sx, y: sy } }));
+                })
+                .on('drag', function (event) {
+                    const [mx, my] = toWorkspaceCoords(event);
+                    window.dispatchEvent(new CustomEvent('lineconnectdrag', { detail: { x: mx, y: my } }));
+                })
+                .on('end', function (event) {
+                    const [ex, ey] = toWorkspaceCoords(event);
+                    window.dispatchEvent(new CustomEvent('lineconnectend', { detail: { x: ex, y: ey } }));
+                })
+        );
+    });
+}
+
+export function removeConnectHandles(element: Selection<any, any, any, any>) {
+    element.selectAll('.connect-handle').remove();
+}
+
 function addOutline(element: Selection<any, any, any, any>) {
     if (!element.select('.selection-outline').empty()) return;
 
@@ -671,6 +915,7 @@ function clearSelection() {
     selectedElement.selectAll('.selection-outline').remove();
     selectedElement.selectAll('.resize-handle').remove();
     selectedElement.selectAll('.rotate-handle').remove();
+    selectedElement.selectAll('.connect-handle').remove();
     selectedElement = null;
     dispatchSelectionChange();
 }
@@ -722,9 +967,12 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
 
             selectedElement = element;
             addOutline(element);
-            addResizeHandle(element, options);
-            if (options.rotatable) {
-                addRotateHandle(element);
+            if (!element.classed('line-element')) {
+                addResizeHandle(element, options);
+                ensureConnectHandles(element);
+                if (options.rotatable) {
+                    addRotateHandle(element);
+                }
             }
             if (debugEnabled) {
                 if (element.select('.component-debug-cross').empty()) {

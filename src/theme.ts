@@ -16,6 +16,9 @@ export const noteColors = [
     "#BC4B51",
     "#168AAD",
     "#FF9B85",
+    "#000000",
 ];
+
+export const defaultLineColor = "#000000";
 
 export default theme;

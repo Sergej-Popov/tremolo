@@ -131,6 +131,17 @@
     pointer-events: none;
     opacity: 1;
 }
+
+.connect-handle {
+    cursor: crosshair;
+    fill: #7fbbf7;
+}
+
+.line-handle {
+    cursor: crosshair;
+    fill: transparent;
+    stroke: none;
+}
 #root, html, body {
     height: 100%;
     margin: 0;
