@@ -537,7 +537,7 @@ export function updateSelectedConnectionStyle(style: 'circle' | 'arrow' | 'trian
     }
 }
 
-function applyLineAppearance(element: Selection<SVGGElement, any, any, any>) {
+export function applyLineAppearance(element: Selection<SVGGElement, any, any, any>) {
     const data = element.datum() as any;
     const color = data.color ?? 'black';
     element.select('path').attr('stroke', color).attr('d', linePath(data));
