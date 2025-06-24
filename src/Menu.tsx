@@ -7,7 +7,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
 import { noteColors } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, highlightLangs, highlightThemes } from './d3-ext';
+import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -41,7 +41,8 @@ const Menu: React.FC = () => {
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
   const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('direct');
   const [lineColor, setLineColor] = React.useState<string>(noteColors[0]);
-  const [lineConn, setLineConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
+  const [lineStartConn, setLineStartConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
+  const [lineEndConn, setLineEndConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
   const [lineSelected, setLineSelected] = React.useState(false);
 
   React.useEffect(() => {
@@ -76,7 +77,8 @@ const Menu: React.FC = () => {
         setLineSelected(true);
         setLineStyle(data.style ?? 'direct');
         setLineColor(data.color ?? noteColors[0]);
-        setLineConn(data.conn ?? 'circle');
+        setLineStartConn(data.startStyle ?? 'circle');
+        setLineEndConn(data.endStyle ?? 'circle');
       } else {
         setLineSelected(false);
       }
@@ -197,20 +199,36 @@ const Menu: React.FC = () => {
                 ))}
               </Select>
             </Box>
-            <Box id="line-conn-select" sx={{ mr: 2 }}>
+            <Box id="line-start-select" sx={{ mr: 2 }}>
               <Select
                 size="small"
-                value={lineConn}
+                value={lineStartConn}
                 onChange={(e) => {
                   const s = e.target.value as 'circle' | 'arrow' | 'triangle' | 'none';
-                  setLineConn(s);
-                  updateSelectedConnectionStyle(s);
+                  setLineStartConn(s);
+                  updateSelectedStartConnectionStyle(s);
                 }}
               >
-                <MenuItem value="circle">Circle</MenuItem>
-                <MenuItem value="arrow">Arrow</MenuItem>
-                <MenuItem value="triangle">Triangle</MenuItem>
-                <MenuItem value="none">None</MenuItem>
+                <MenuItem value="circle">Start Circle</MenuItem>
+                <MenuItem value="arrow">Start Arrow</MenuItem>
+                <MenuItem value="triangle">Start Triangle</MenuItem>
+                <MenuItem value="none">Start None</MenuItem>
+              </Select>
+            </Box>
+            <Box id="line-end-select" sx={{ mr: 2 }}>
+              <Select
+                size="small"
+                value={lineEndConn}
+                onChange={(e) => {
+                  const s = e.target.value as 'circle' | 'arrow' | 'triangle' | 'none';
+                  setLineEndConn(s);
+                  updateSelectedEndConnectionStyle(s);
+                }}
+              >
+                <MenuItem value="circle">End Circle</MenuItem>
+                <MenuItem value="arrow">End Arrow</MenuItem>
+                <MenuItem value="triangle">End Triangle</MenuItem>
+                <MenuItem value="none">End None</MenuItem>
               </Select>
             </Box>
             <Box id="line-style-select" sx={{ mr: 2 }}>

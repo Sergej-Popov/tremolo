@@ -529,10 +529,18 @@ export function updateSelectedLineColor(color: string) {
     }
 }
 
-export function updateSelectedConnectionStyle(style: 'circle' | 'arrow' | 'triangle' | 'none') {
+export function updateSelectedStartConnectionStyle(style: 'circle' | 'arrow' | 'triangle' | 'none') {
     if (selectedElement && selectedElement.classed('line-element')) {
         const data = selectedElement.datum() as any;
-        data.conn = style;
+        data.startStyle = style;
+        applyLineAppearance(selectedElement as any);
+    }
+}
+
+export function updateSelectedEndConnectionStyle(style: 'circle' | 'arrow' | 'triangle' | 'none') {
+    if (selectedElement && selectedElement.classed('line-element')) {
+        const data = selectedElement.datum() as any;
+        data.endStyle = style;
         applyLineAppearance(selectedElement as any);
     }
 }
@@ -544,7 +552,9 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
     let defs = element.select<SVGDefsElement>('defs');
     if (defs.empty()) defs = element.append('defs');
     defs.selectAll('*').remove();
-    if (data.conn && data.conn !== 'none') {
+    const hasStart = data.startStyle && data.startStyle !== 'none';
+    const hasEnd = data.endStyle && data.endStyle !== 'none';
+    if (hasStart || hasEnd) {
         const common = {
             markerWidth: 10,
             markerHeight: 10,
@@ -552,33 +562,42 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
             refY: 5,
             orient: 'auto'
         } as any;
-        const start = defs.append('marker')
-            .attr('id', `${data.id}-start`)
-            .attr('markerWidth', common.markerWidth)
-            .attr('markerHeight', common.markerHeight)
-            .attr('refX', 0)
-            .attr('refY', common.refY)
-            .attr('orient', 'auto-start-reverse');
-        const end = defs.append('marker')
-            .attr('id', `${data.id}-end`)
-            .attr('markerWidth', common.markerWidth)
-            .attr('markerHeight', common.markerHeight)
-            .attr('refX', common.refX)
-            .attr('refY', common.refY)
-            .attr('orient', common.orient);
-        if (data.conn === 'circle') {
-            start.append('circle').attr('cx', 5).attr('cy', 5).attr('r', 3).attr('fill', color);
-            end.append('circle').attr('cx', 5).attr('cy', 5).attr('r', 3).attr('fill', color);
-        } else if (data.conn === 'arrow') {
-            start.append('path').attr('d', 'M0,0 L10,5 L0,10').attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2);
-            end.append('path').attr('d', 'M0,0 L10,5 L0,10').attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2);
-        } else if (data.conn === 'triangle') {
-            start.append('path').attr('d', 'M0,0 L10,5 L0,10 Z').attr('fill', color);
-            end.append('path').attr('d', 'M0,0 L10,5 L0,10 Z').attr('fill', color);
+        let startMarker: Selection<SVGMarkerElement, unknown, any, any> | null = null;
+        let endMarker: Selection<SVGMarkerElement, unknown, any, any> | null = null;
+        if (hasStart) {
+            startMarker = defs.append('marker')
+                .attr('id', `${data.id}-start`)
+                .attr('markerWidth', common.markerWidth)
+                .attr('markerHeight', common.markerHeight)
+                .attr('refX', 0)
+                .attr('refY', common.refY)
+                .attr('orient', 'auto-start-reverse');
         }
+        if (hasEnd) {
+            endMarker = defs.append('marker')
+                .attr('id', `${data.id}-end`)
+                .attr('markerWidth', common.markerWidth)
+                .attr('markerHeight', common.markerHeight)
+                .attr('refX', common.refX)
+                .attr('refY', common.refY)
+                .attr('orient', common.orient);
+        }
+
+        const drawShape = (m: Selection<SVGMarkerElement, unknown, any, any> | null, style: string) => {
+            if (!m) return;
+            if (style === 'circle') {
+                m.append('circle').attr('cx', 5).attr('cy', 5).attr('r', 3).attr('fill', color);
+            } else if (style === 'arrow') {
+                m.append('path').attr('d', 'M0,0 L10,5 L0,10').attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2);
+            } else if (style === 'triangle') {
+                m.append('path').attr('d', 'M0,0 L10,5 L0,10 Z').attr('fill', color);
+            }
+        };
+        drawShape(startMarker, data.startStyle);
+        drawShape(endMarker, data.endStyle);
         element.select('path')
-            .attr('marker-start', `url(#${data.id}-start)`)
-            .attr('marker-end', `url(#${data.id}-end)`);
+            .attr('marker-start', hasStart ? `url(#${data.id}-start)` : null)
+            .attr('marker-end', hasEnd ? `url(#${data.id}-end)` : null);
     } else {
         element.select('path').attr('marker-start', null).attr('marker-end', null);
     }
