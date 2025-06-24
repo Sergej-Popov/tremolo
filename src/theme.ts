@@ -9,6 +9,7 @@ const theme = createTheme({
 });
 
 export const noteColors = [
+    "#000000",
     "#8CB369",
     "#F4E285",
     "#F4A259",
