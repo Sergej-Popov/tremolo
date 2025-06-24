@@ -4,7 +4,7 @@ import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransfo
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
-import { noteColors } from '../theme';
+import { noteColors, defaultLineColor } from '../theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton } from '@mui/material';
 import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -501,7 +501,7 @@ const GuitarBoard: React.FC = () => {
         x2: end ? end.x : start.x + 100,
         y2: end ? end.y : start.y,
         style: 'direct',
-        color: noteColors[0],
+        color: defaultLineColor,
         startStyle: 'circle',
         endStyle: 'circle',
         startConn,
@@ -509,7 +509,7 @@ const GuitarBoard: React.FC = () => {
       });
     const path = group.append('path')
       .attr('d', linePath(group.datum()))
-      .attr('stroke', noteColors[0])
+      .attr('stroke', defaultLineColor)
       .attr('fill', 'none')
       .attr('stroke-width', 2);
     applyLineAppearance(group as any);
@@ -567,7 +567,7 @@ const GuitarBoard: React.FC = () => {
         }));
     group.call(makeResizable);
     group.dispatch('click');
-    updateSelectedLineColor(noteColors[0]);
+    updateSelectedLineColor(defaultLineColor);
     updateSelectedStartConnectionStyle('circle');
     updateSelectedEndConnectionStyle('circle');
     return group;

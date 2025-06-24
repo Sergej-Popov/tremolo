@@ -6,7 +6,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { AppContext } from './Store';
-import { noteColors } from './theme';
+import { noteColors, defaultLineColor } from './theme';
 import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
@@ -40,7 +40,7 @@ const Menu: React.FC = () => {
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
   const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('direct');
-  const [lineColor, setLineColor] = React.useState<string>(noteColors[0]);
+  const [lineColor, setLineColor] = React.useState<string>(defaultLineColor);
   const [lineStartConn, setLineStartConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
   const [lineEndConn, setLineEndConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('circle');
   const [lineSelected, setLineSelected] = React.useState(false);
@@ -76,7 +76,7 @@ const Menu: React.FC = () => {
         const data = d3.select(el).datum() as any;
         setLineSelected(true);
         setLineStyle(data.style ?? 'direct');
-        setLineColor(data.color ?? noteColors[0]);
+        setLineColor(data.color ?? defaultLineColor);
         setLineStartConn(data.startStyle ?? 'circle');
         setLineEndConn(data.endStyle ?? 'circle');
       } else {

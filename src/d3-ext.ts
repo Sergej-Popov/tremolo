@@ -586,10 +586,10 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
                 m.attr('refX', 5)
                     .append('circle').attr('cx', 5).attr('cy', 5).attr('r', 3).attr('fill', color);
             } else if (style === 'arrow') {
-                m.attr('refX', 10)
+                m.attr('refX', start ? 10 : 0)
                     .append('path').attr('d', 'M0,0 L10,5 L0,10').attr('fill', 'none').attr('stroke', color).attr('stroke-width', 1.5);
             } else if (style === 'triangle') {
-                m.attr('refX', 9)
+                m.attr('refX', start ? 9 : 0)
                     .append('path').attr('d', 'M0,1 L9,5 L0,9 Z').attr('fill', color);
             }
         };

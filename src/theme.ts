@@ -9,7 +9,6 @@ const theme = createTheme({
 });
 
 export const noteColors = [
-    "#000000",
     "#8CB369",
     "#F4E285",
     "#F4A259",
@@ -17,6 +16,9 @@ export const noteColors = [
     "#BC4B51",
     "#168AAD",
     "#FF9B85",
+    "#000000",
 ];
+
+export const defaultLineColor = "#000000";
 
 export default theme;
