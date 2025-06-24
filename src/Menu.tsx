@@ -39,7 +39,7 @@ const Menu: React.FC = () => {
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
-  const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc'>('direct');
+  const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('direct');
   const [lineSelected, setLineSelected] = React.useState(false);
 
   React.useEffect(() => {
@@ -180,13 +180,14 @@ const Menu: React.FC = () => {
               size="small"
               value={lineStyle}
               onChange={(e) => {
-                const val = e.target.value as 'direct' | 'arc';
+                const val = e.target.value as 'direct' | 'arc' | 'corner';
                 setLineStyle(val);
                 updateSelectedLineStyle(val);
               }}
             >
               <MenuItem value="direct">Direct</MenuItem>
               <MenuItem value="arc">Arc</MenuItem>
+              <MenuItem value="corner">Corner</MenuItem>
             </Select>
           </Box>
         )}

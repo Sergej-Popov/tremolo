@@ -492,7 +492,7 @@ const GuitarBoard: React.FC = () => {
     const layer = svg.select<SVGGElement>('.lines');
     const group = layer.append('g')
       .attr('class', 'line-element')
-      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc'; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
+      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc' | 'corner'; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
         id: generateId(),
         type: 'line',
         x1: start.x,
