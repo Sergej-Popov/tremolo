@@ -15,7 +15,7 @@ import BrushIcon from '@mui/icons-material/Brush';
 import CodeIcon from '@mui/icons-material/Code';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
-import DownloadIcon from '@mui/icons-material/Download';
+import SaveIcon from '@mui/icons-material/Save';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 
@@ -317,7 +317,7 @@ const Menu: React.FC = () => {
           </Box>
         )}
         <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('exportimage'))} sx={{ mr: 1 }}>
-          <DownloadIcon fontSize='large' />
+          <SaveIcon fontSize='large' />
         </IconButton>
         <IconButton target='_blank' href='https://github.com/Sergej-Popov/tremolo' >
           <GitHubIcon fontSize='large' />
