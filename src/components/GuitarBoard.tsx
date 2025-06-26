@@ -10,6 +10,8 @@ import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
 
+let loadedFromStorage = false;
+
 const edgeOffset = 20;
 const boardWidth = 500;
 const boardHeight = 200;
@@ -1300,6 +1302,8 @@ const GuitarBoard: React.FC = () => {
   }, [debug]);
 
   useEffect(() => {
+    if (loadedFromStorage) return;
+    loadedFromStorage = true;
     const saved = localStorage.getItem('tremoloBoard');
     if (saved) {
       try {
