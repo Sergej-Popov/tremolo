@@ -13,3 +13,7 @@
 * Do not introduce new build tools or workflows without discussion.
 
 * When adding new shortcut, update help dialog
+
+Menu has 2 sections
+Left side, are tool buttons
+Right side are contextual buttons / customisers. Active only when certain type of element or tool is selected.
