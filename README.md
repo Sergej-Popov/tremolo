@@ -31,7 +31,11 @@ https://sergej-popov.github.io/tremolo/
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
-- Click the **save icon** or press **Ctrl+S** to export the current board as a **PNG** image with 40 px padding around the visible area.
+- Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image with 40 px padding around the visible area.
+- Board state, including lines, fret ranges, zoom level and sticky note settings, is saved automatically in the browser and restored on reload.
+- Use the side menu to save the board to a file or open a previously saved file.
+- Pasted images are stored as data URLs so saved boards load correctly from file.
+- Use **Clear Board** in the side menu to reset the workspace.
 
 ## Hotkeys
 
@@ -60,10 +64,6 @@ https://sergej-popov.github.io/tremolo/
 3. Draw style themes
 4. Tool pannel
 5. Contextual menu panel
-
-## TODO collaboration
-
-1. Save and load board layouts from local storage.
 
 ## TODO music
 

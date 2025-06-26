@@ -10,6 +10,8 @@ import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
 
+let loadedFromStorage = false;
+
 const edgeOffset = 20;
 const boardWidth = 500;
 const boardHeight = 200;
@@ -72,6 +74,7 @@ const GuitarBoard: React.FC = () => {
   const stickyAlign = app?.stickyAlign ?? 'center';
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
+  const setBoards = app?.setBoards ?? (() => {});
   const setBoardSelected = app?.setBoardSelected ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
@@ -89,6 +92,7 @@ const GuitarBoard: React.FC = () => {
   const showNoteNamesRef = useRef(true);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const initialZoom = useRef<d3.ZoomTransform | null>(null);
   const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
   const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
@@ -113,14 +117,19 @@ const GuitarBoard: React.FC = () => {
     updateNoteNameVisibility();
   }, [showNoteNames, updateNoteNameVisibility]);
 
-  const boards = app?.boards ?? [0];
+  const boards = app?.boards ?? [];
   const boardsRef = useRef<number[]>(boards);
-  const [selectedBoard, setSelectedBoard] = useState<number>(boards[0]);
-  const fretRangesRef = useRef<Record<number, number[]>>({ 0: [1, fretCount] });
+  const [selectedBoard, setSelectedBoard] = useState<number | null>(boards.length ? boards[0] : null);
+  const fretRangesRef = useRef<Record<number, number[]>>({});
   
   const [fretRange, setFretRange] = useState<number[]>([1, fretCount]);
 
   useEffect(() => {
+    if (!boards.length) {
+      boardsRef.current = boards;
+      setSelectedBoard(null);
+      return;
+    }
     const newest = boards[boards.length - 1];
     if (!(newest in fretRangesRef.current)) {
       fretRangesRef.current[newest] = [1, fretCount];
@@ -130,8 +139,15 @@ const GuitarBoard: React.FC = () => {
   }, [boards]);
 
   const changeFretRange = (_: Event, newValue: number | number[]) => {
+    if (selectedBoard == null) return;
     const range = Array.isArray(newValue) ? newValue : [newValue, newValue];
     fretRangesRef.current[selectedBoard] = range;
+    const workspace = d3.select(workspaceRef.current);
+    const g = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`);
+    if (!g.empty()) {
+      const d = g.datum() as any;
+      d.range = range;
+    }
     setFretRange(range);
   };
 
@@ -275,20 +291,21 @@ const GuitarBoard: React.FC = () => {
   }
 
 
-  const addSticky = useCallback((text: string, pos: { x: number, y: number }) => {
+  const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
     const svg = d3.select(svgRef.current);
     const notesLayer = svg.select<SVGGElement>('.sticky-notes');
 
     const group = notesLayer.append('g')
       .attr('class', 'sticky-note')
-      .datum<StickyNoteDatum & { width: number, height: number, transform: any, fontSize: number | null }>({
+      .datum<StickyNoteDatum & { width: number; height: number; transform: any; fontSize: number | null; color: string }>({
         id: generateId(),
         type: 'sticky',
         text,
-        align: stickyAlign,
+        align: opts.align ?? stickyAlign,
         width: stickyWidth,
         height: stickyHeight,
-        fontSize: null,
+        fontSize: opts.fontSize ?? null,
+        color: opts.color ?? stickyColor,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
       })
       .style('filter', 'drop-shadow(2px 2px 2px rgba(0,0,0,0.3))');
@@ -298,7 +315,7 @@ const GuitarBoard: React.FC = () => {
       .attr('y', 0)
       .attr('width', stickyWidth)
       .attr('height', stickyHeight)
-      .attr('fill', stickyColor);
+      .attr('fill', opts.color ?? stickyColor);
 
     const fo = group.append('foreignObject')
       .attr('x', 0)
@@ -315,7 +332,7 @@ const GuitarBoard: React.FC = () => {
       .style('font-family', 'Segoe UI')
       .style('font-size', '12px')
       .style('padding', '12px')
-      .style('text-align', stickyAlign)
+      .style('text-align', opts.align ?? stickyAlign)
       .style('overflow', 'hidden')
       .style('white-space', 'pre-wrap')
       .style('word-break', 'break-word')
@@ -323,7 +340,7 @@ const GuitarBoard: React.FC = () => {
 
     setTimeout(() => {
       const node = div.node() as HTMLDivElement | null;
-      if (node) adjustStickyFont(node, null);
+      if (node) adjustStickyFont(node, opts.fontSize ?? null);
     }, 0);
 
     group.on('dblclick', () => {
@@ -596,6 +613,7 @@ const GuitarBoard: React.FC = () => {
     if (info.type === 'image') {
       const g = addImage(info.data.src, pos, info.data.width, info.data.height);
       const d = g.datum() as any;
+      d.id = info.data.id;
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       if (info.data.crop) {
         d.crop = { ...info.data.crop };
@@ -608,16 +626,20 @@ const GuitarBoard: React.FC = () => {
     } else if (info.type === 'video') {
       const g = addVideo(info.data.url, pos);
       if (g) {
+        (g.datum() as any).id = info.data.id;
         applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       }
     } else if (info.type === 'sticky') {
-      const g = addSticky(info.data.text, pos);
+      const g = addSticky(info.data.text, pos, { fontSize: info.data.fontSize ?? null, color: info.data.color, align: info.data.align });
       const d = g.datum() as any;
+      d.id = info.data.id;
       d.width = info.data.width;
       d.height = info.data.height;
       d.align = info.data.align;
       d.fontSize = info.data.fontSize ?? null;
+      d.color = info.data.color ?? stickyColor;
       g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
+      g.select('rect').attr('fill', d.color);
       g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
       const div = g.select<HTMLDivElement>('foreignObject > .sticky-text')
         .style('text-align', info.data.align)
@@ -634,6 +656,7 @@ const GuitarBoard: React.FC = () => {
           pre.style.fontSize = `${info.data.fontSize}px`;
         });
       }
+      (g.datum() as any).id = info.data.id;
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
@@ -645,19 +668,40 @@ const GuitarBoard: React.FC = () => {
           requestAnimationFrame(apply);
           return;
         }
+        (g.datum() as any).id = info.data.id;
         applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
         if (Array.isArray(info.data.notes)) {
           info.data.notes.forEach((n: any) => addNoteToBoard(g, n.string, n.fret));
         }
+        if (Array.isArray(info.data.range)) {
+          fretRangesRef.current[newId] = info.data.range;
+          const d = g.datum() as any;
+          d.range = info.data.range;
+          drawBoard(g, info.data.range);
+        }
       };
       apply();
+    } else if (info.type === 'line') {
+      const g = addLine(
+        { x: info.data.x1, y: info.data.y1 },
+        { x: info.data.x2, y: info.data.y2 },
+        info.data.startConn,
+        info.data.endConn
+      );
+      const d = g.datum() as any;
+      d.id = info.data.id;
+      d.style = info.data.style;
+      d.color = info.data.color;
+      d.startStyle = info.data.startStyle;
+      d.endStyle = info.data.endStyle;
+      applyLineAppearance(g as any);
     } else if (info.type === 'drawing') {
       const svg = d3.select(svgRef.current);
       const layer = svg.select<SVGGElement>('.drawings');
       const g = layer.append('g')
         .attr('class', 'drawing')
         .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[] }>({
-          id: generateId(),
+          id: info.data.id ?? generateId(),
           type: 'drawing',
           width: info.data.width,
           height: info.data.height,
@@ -680,6 +724,68 @@ const GuitarBoard: React.FC = () => {
     }
   };
 
+  const serializeWorkspace = (): ElementCopy[] => {
+    const svg = d3.select(svgRef.current);
+    const workspace = svg.select<SVGGElement>('.workspace');
+    const items: ElementCopy[] = [];
+    const selector = '.pasted-image, .embedded-video, .sticky-note, .code-block, .line-element, .drawing, .guitar-board';
+    workspace.selectAll<SVGGElement, any>(selector).each(function () {
+      const el = d3.select(this);
+      const data = { ...(el.datum() as any) };
+      if (!data || !data.type) return;
+      if (!['image','video','sticky','board','drawing','code','line'].includes(data.type)) return;
+      const info: ElementCopy = { type: data.type, data: { ...data } };
+      if (info.type === 'board') {
+        info.data.notes = el.selectAll('.note').data().map((n: any) => ({ string: n.string, fret: n.fret }));
+        const cls = el.attr('class') || '';
+        const m = cls.match(/guitar-board-(\d+)/);
+        if (m) {
+          const id = parseInt(m[1], 10);
+          if (fretRangesRef.current[id]) {
+            info.data.range = fretRangesRef.current[id];
+          }
+        }
+      }
+      items.push(info);
+    });
+    items.push({ type: 'meta', data: { zoom: { x: zoomRef.current.x, y: zoomRef.current.y, k: zoomRef.current.k } } });
+    return items;
+  };
+
+  const clearWorkspace = () => {
+    const svg = d3.select(svgRef.current);
+    svg.select('.workspace').remove();
+    setBoards([]);
+    boardsRef.current = [];
+    setSelectedBoard(null);
+  };
+
+  const loadWorkspace = (items: ElementCopy[]) => {
+    localStorage.setItem('tremoloBoard', JSON.stringify(items));
+    clearWorkspace();
+    ensureWorkspace();
+    let zoomItem: any = null;
+    items.forEach((info) => {
+      if (info.type === 'meta') {
+        zoomItem = info.data.zoom;
+        return;
+      }
+      cursorRef.current = {
+        x: info.data.transform?.translateX ?? 0,
+        y: info.data.transform?.translateY ?? 0,
+      };
+      duplicateElement(info);
+    });
+    if (zoomItem) {
+      initialZoom.current = d3.zoomIdentity.translate(zoomItem.x, zoomItem.y).scale(zoomItem.k);
+      if (zoomBehaviorRef.current && svgRef.current) {
+        d3.select(svgRef.current).call(zoomBehaviorRef.current.transform, initialZoom.current);
+        setZoomValue(zoomItem.k);
+        initialZoom.current = null;
+      }
+    }
+  };
+
 
   function fillAllNotes() {
     d3.select(boardRef.current).selectAll('.note').remove();
@@ -697,7 +803,10 @@ const GuitarBoard: React.FC = () => {
     boardSel: d3.Selection<SVGGElement, any, any, any> | null = d3.select(boardRef.current),
     range: number[] = fretRange
   ) => {
-    if (!boardSel) return;
+    if (!boardSel || boardSel.empty()) return;
+
+    const d = boardSel.datum() as any;
+    if (d) d.range = range;
 
     boardSel.selectAll('.string').remove();
     boardSel.selectAll('.fret').remove();
@@ -757,7 +866,15 @@ const GuitarBoard: React.FC = () => {
     max = max < fretCount ? max + 1 : max;
 
     const range = [min, max];
-    fretRangesRef.current[selectedBoard] = range;
+    if (selectedBoard != null) {
+      fretRangesRef.current[selectedBoard] = range;
+      const workspace = d3.select(workspaceRef.current);
+      const g = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`);
+      if (!g.empty()) {
+        const d = g.datum() as any;
+        d.range = range;
+      }
+    }
     setFretRange(range);
   }
 
@@ -848,6 +965,35 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('exportimage', handler as EventListener);
     return () => window.removeEventListener('exportimage', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      const data = serializeWorkspace();
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'tremolo-board.json';
+      a.click();
+    };
+    window.addEventListener('savefile', handler as EventListener);
+    return () => window.removeEventListener('savefile', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const load = (e: CustomEvent<ElementCopy[]>) => {
+      loadWorkspace(e.detail);
+    };
+    const clear = () => {
+      clearWorkspace();
+      localStorage.removeItem('tremoloBoard');
+    };
+    window.addEventListener('loadboard', load as EventListener);
+    window.addEventListener('clearboard', clear as EventListener);
+    return () => {
+      window.removeEventListener('loadboard', load as EventListener);
+      window.removeEventListener('clearboard', clear as EventListener);
+    };
   }, []);
 
   useEffect(() => {
@@ -959,12 +1105,16 @@ const GuitarBoard: React.FC = () => {
         if (item.type.startsWith('image/')) {
           const file = item.getAsFile();
           if (!file) continue;
-          const url = URL.createObjectURL(file);
-          const img = new Image();
-          img.onload = () => {
-            addImage(url, cursorRef.current, img.width, img.height);
+          const reader = new FileReader();
+          reader.onload = () => {
+            const src = reader.result as string;
+            const img = new Image();
+            img.onload = () => {
+              addImage(src, cursorRef.current, img.width, img.height);
+            };
+            img.src = src;
           };
-          img.src = url;
+          reader.readAsDataURL(file);
           event.preventDefault();
         }
       }
@@ -1140,7 +1290,7 @@ const GuitarBoard: React.FC = () => {
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
-  useEffect(() => {
+  const ensureWorkspace = () => {
     const svg = d3.select(svgRef.current);
     let workspace = svg.select<SVGGElement>('.workspace');
     if (workspace.empty()) {
@@ -1166,6 +1316,11 @@ const GuitarBoard: React.FC = () => {
     }
     workspaceRef.current = workspace.node();
     setSvgRoot(svgRef.current, workspaceRef.current);
+    return workspace;
+  };
+
+  useEffect(() => {
+    const workspace = ensureWorkspace();
 
     boards.forEach((id) => {
       let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
@@ -1173,10 +1328,11 @@ const GuitarBoard: React.FC = () => {
         b = workspace
           .append('g')
           .attr('class', `guitar-board guitar-board-${id}`)
-          .datum<{ id: string; type: 'board'; transform: any }>({
+          .datum<{ id: string; type: 'board'; transform: any; range?: number[] }>({
             id: generateId(),
             type: 'board',
             transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+            range: fretRangesRef.current[id] ?? [1, fretCount],
           });
         b.call(makeDraggable);
         b.call(makeResizable, { rotatable: true });
@@ -1193,10 +1349,14 @@ const GuitarBoard: React.FC = () => {
       }
     });
 
-    boardRef.current = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`).node() || null;
-    setFretRange(fretRangesRef.current[selectedBoard] ?? [1, fretCount]);
-    drawBoard();
-    updateNoteNameVisibility();
+    if (selectedBoard != null) {
+      boardRef.current = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`).node() || null;
+      setFretRange(fretRangesRef.current[selectedBoard] ?? [1, fretCount]);
+      drawBoard();
+      updateNoteNameVisibility();
+    } else {
+      boardRef.current = null;
+    }
   }, [boards, selectedBoard]);
 
   useEffect(() => {
@@ -1219,6 +1379,33 @@ const GuitarBoard: React.FC = () => {
       d3.selectAll('.component-debug-cross').style('display', debug ? 'block' : 'none');
     }
   }, [debug]);
+
+  useEffect(() => {
+    if (loadedFromStorage) return;
+    loadedFromStorage = true;
+    const saved = localStorage.getItem('tremoloBoard');
+    if (saved) {
+      try {
+        const items: ElementCopy[] = JSON.parse(saved);
+        loadWorkspace(items);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const save = () => {
+      const data = serializeWorkspace();
+      localStorage.setItem('tremoloBoard', JSON.stringify(data));
+    };
+    const id = setInterval(save, 2000);
+    window.addEventListener('beforeunload', save);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('beforeunload', save);
+    };
+  }, []);
 
   useEffect(() => {
     const svg = d3.select(svgRef.current);
@@ -1244,6 +1431,11 @@ const GuitarBoard: React.FC = () => {
     zoomBehaviorRef.current = zoom;
     setZoomTransform(d3.zoomIdentity);
     setSvgRoot(svgRef.current, workspaceRef.current);
+    if (initialZoom.current) {
+      d3.select(svgRef.current).call(zoom.transform, initialZoom.current);
+      setZoomValue(initialZoom.current.k);
+      initialZoom.current = null;
+    }
   }, []);
 
   useEffect(() => {

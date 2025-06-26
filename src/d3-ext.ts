@@ -454,6 +454,8 @@ function dispatchSelectionChange() {
 export function updateSelectedColor(color: string) {
     if (selectedElement && selectedElement.classed('sticky-note')) {
         selectedElement.select('rect').attr('fill', color);
+        const data = selectedElement.datum() as any;
+        data.color = color;
     }
 }
 
@@ -604,7 +606,7 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
 
 
 export interface ElementCopy {
-    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing' | 'code';
+    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing' | 'code' | 'line' | 'meta';
     data: any;
 }
 
@@ -617,6 +619,7 @@ export function getSelectedElementData(): ElementCopy | null {
     else if (selectedElement.classed('code-block')) type = 'code';
     else if (selectedElement.classed('guitar-board')) type = 'board';
     else if (selectedElement.classed('drawing')) type = 'drawing';
+    else if (selectedElement.classed('line-element')) type = 'line';
     if (!type) return null;
     const data = { ...(selectedElement.datum() as any) };
     if (type === 'board') {
