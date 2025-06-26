@@ -5,7 +5,7 @@ import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransfo
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
 import { noteColors, defaultLineColor } from '../theme';
-import { Button, Slider, Drawer, Box, Typography, IconButton } from '@mui/material';
+import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel } from '@mui/material';
 import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
@@ -72,6 +72,7 @@ const GuitarBoard: React.FC = () => {
   const stickyAlign = app?.stickyAlign ?? 'center';
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
+  const setBoardSelected = app?.setBoardSelected ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
@@ -84,6 +85,8 @@ const GuitarBoard: React.FC = () => {
   const boardRef = useRef<SVGGElement | null>(null);
   const controlsRef = useRef<HTMLDivElement | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  const [showNoteNames, setShowNoteNames] = useState(true);
+  const showNoteNamesRef = useRef(true);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
@@ -96,6 +99,19 @@ const GuitarBoard: React.FC = () => {
   const lastPoint = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
+
+  const updateNoteNameVisibility = useCallback(() => {
+    if (boardRef.current) {
+      d3.select(boardRef.current)
+        .selectAll<SVGTextElement, unknown>('.note text')
+        .style('display', showNoteNamesRef.current ? 'block' : 'none');
+    }
+  }, []);
+
+  useEffect(() => {
+    showNoteNamesRef.current = showNoteNames;
+    updateNoteNameVisibility();
+  }, [showNoteNames, updateNoteNameVisibility]);
 
   const boards = app?.boards ?? [0];
   const boardsRef = useRef<number[]>(boards);
@@ -153,7 +169,8 @@ const GuitarBoard: React.FC = () => {
       .attr('fill', 'white')
       .attr('dx', x)
       .attr('dy', y + 2)
-      .attr('class', 'non-selectable');
+      .attr('class', 'non-selectable')
+      .style('display', showNoteNamesRef.current ? 'block' : 'none');
 
     return note;
   };
@@ -727,6 +744,8 @@ const GuitarBoard: React.FC = () => {
       .attr('width', (fretRangeCount - 1) * fretWidth)
       .attr('height', fretBoardHeight)
       .attr('fill', 'white');
+
+    updateNoteNameVisibility();
   };
 
   const fitFretBoard = () => {
@@ -811,6 +830,15 @@ const GuitarBoard: React.FC = () => {
     window.addEventListener('createsticky', handler as EventListener);
     return () => window.removeEventListener('createsticky', handler as EventListener);
   }, [addSticky]);
+
+  useEffect(() => {
+    const handler = () => {
+      setBoardSelected(true);
+      setShowPanel(true);
+    };
+    window.addEventListener('editnotes', handler as EventListener);
+    return () => window.removeEventListener('editnotes', handler as EventListener);
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -1155,10 +1183,11 @@ const GuitarBoard: React.FC = () => {
         if (debug) {
           addDebugCross(b);
         }
-        b.on('click.board', () => setSelectedBoard(id));
+        b.on('click.board', () => { setSelectedBoard(id); setBoardSelected(true); });
         b.on('dblclick.board', () => {
           setSelectedBoard(id);
           setShowPanel(true);
+          setBoardSelected(true);
         });
         drawBoard(b, fretRangesRef.current[id] ?? [1, fretCount]);
       }
@@ -1167,6 +1196,7 @@ const GuitarBoard: React.FC = () => {
     boardRef.current = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`).node() || null;
     setFretRange(fretRangesRef.current[selectedBoard] ?? [1, fretCount]);
     drawBoard();
+    updateNoteNameVisibility();
   }, [boards, selectedBoard]);
 
   useEffect(() => {
@@ -1223,6 +1253,7 @@ const GuitarBoard: React.FC = () => {
         return;
       }
       setShowPanel(false);
+      setBoardSelected(false);
     };
     window.addEventListener('click', handle);
     return () => window.removeEventListener('click', handle);
@@ -1281,6 +1312,9 @@ const GuitarBoard: React.FC = () => {
                 min={1}
                 max={fretCount}
               />
+            </div>
+            <div>
+              <FormControlLabel control={<Checkbox checked={showNoteNames} onChange={() => setShowNoteNames(!showNoteNames)} />} label="Show Note Names" />
             </div>
             <div>
               {chords.map((chord) => (
