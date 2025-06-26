@@ -14,6 +14,8 @@ const shortcuts: ShortcutSection[] = [
       { key: 'Ctrl+C', action: 'Copy selected element' },
       { key: 'Ctrl+V', action: 'Paste copied element at cursor' },
       { key: 'Ctrl+D', action: 'Duplicate the selected element' },
+      { key: 'Ctrl+Z', action: 'Undo last change' },
+      { key: 'Ctrl+Shift+Z', action: 'Redo last undone change' },
       { key: 'r', action: 'Reset element rotation' },
       { key: '/ or ?', action: 'Open this help dialog' },
       { key: 'Ctrl+S', action: 'Export board as extra-high-resolution PNG image (save icon)' },

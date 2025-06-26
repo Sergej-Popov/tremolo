@@ -19,6 +19,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 
@@ -44,6 +46,8 @@ const Menu: React.FC = () => {
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const brushColor = app?.brushColor ?? defaultLineColor;
   const setBrushColor = app?.setBrushColor ?? (() => {});
+  const undo = app?.undo ?? (() => {});
+  const redo = app?.redo ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
   const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('arc');
@@ -128,6 +132,12 @@ const Menu: React.FC = () => {
           </IconButton>
           <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
             <CodeIcon />
+          </IconButton>
+          <IconButton color="inherit" onClick={undo} sx={{ mr: 1 }}>
+            <UndoIcon />
+          </IconButton>
+          <IconButton color="inherit" onClick={redo} sx={{ mr: 1 }}>
+            <RedoIcon />
           </IconButton>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>

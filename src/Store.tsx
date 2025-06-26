@@ -33,6 +33,10 @@ interface AppState {
   setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
   brushColor: string;
   setBrushColor: React.Dispatch<React.SetStateAction<string>>;
+  pushHistory: (state: any[]) => void;
+  undo: () => void;
+  redo: () => void;
+  registerSerializer: (fn: () => any[]) => void;
 }
 
 export const AppContext = createContext<AppState | undefined>(undefined);
@@ -54,6 +58,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
   const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
   const [brushColor, setBrushColor] = useState<string>(noteColors[noteColors.length - 1]);
+
+  const [past, setPast] = useState<string[]>([]);
+  const [future, setFuture] = useState<string[]>([]);
+  const serializerRef = React.useRef<() => any[]>(() => []);
+
+  const registerSerializer = (fn: () => any[]) => {
+    serializerRef.current = fn;
+  };
+
+  const pushHistory = (state: any[]) => {
+    setPast((p) => [...p, JSON.stringify(state)]);
+    setFuture([]);
+  };
+
+  const undo = () => {
+    setPast((p) => {
+      if (!p.length) return p;
+      const prev = p[p.length - 1];
+      const newPast = p.slice(0, -1);
+      setFuture((f) => [...f, JSON.stringify(serializerRef.current())]);
+      window.dispatchEvent(new CustomEvent('loadboard', { detail: JSON.parse(prev) }));
+      return newPast;
+    });
+  };
+
+  const redo = () => {
+    setFuture((f) => {
+      if (!f.length) return f;
+      const next = f[f.length - 1];
+      const newFuture = f.slice(0, -1);
+      setPast((p) => [...p, JSON.stringify(serializerRef.current())]);
+      window.dispatchEvent(new CustomEvent('loadboard', { detail: JSON.parse(next) }));
+      return newFuture;
+    });
+  };
 
   const addBoard = () => {
     setBoards((ids) => [...ids, ids.length ? Math.max(...ids) + 1 : 0]);
@@ -88,6 +127,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
     };
   }, []);
 
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.key.toLowerCase() !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) {
+        redo();
+      } else {
+        undo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undo, redo]);
+
   return (
     <AppContext.Provider value={{
       data,
@@ -119,6 +172,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setBrushWidth,
       brushColor,
       setBrushColor,
+      pushHistory,
+      undo,
+      redo,
+      registerSerializer,
     }}>
       {children}
     </AppContext.Provider>

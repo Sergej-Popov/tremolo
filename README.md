@@ -38,6 +38,7 @@ https://sergej-popov.github.io/tremolo/
 - Use the side menu to save the board to a file or open a previously saved file.
 - Pasted images are stored as data URLs so saved boards load correctly from file.
 - Use **Clear Board** in the side menu to reset the workspace.
+- Undo and redo board changes with **Ctrl+Z**/**Ctrl+Shift+Z** or the toolbar buttons.
 
 ## Hotkeys
 
@@ -49,6 +50,8 @@ https://sergej-popov.github.io/tremolo/
 - **r** – reset element rotation.
 - **/** or **?** – open the help dialog.
 - **Ctrl+S** – export the board as an extra-high-resolution PNG image.
+- **Ctrl+Z** – undo the last change.
+- **Ctrl+Shift+Z** – redo the last undone change.
 
 ### Tools
 - **b** – toggle the brush drawing mode.
@@ -62,7 +65,6 @@ https://sergej-popov.github.io/tremolo/
 
 ## TODO general
 
-1. [Large] Provide undo and redo support for board changes.
 2. Add a dark and light theme toggle for the fretboard interface.
 3. Draw style themes
 4. Tool pannel

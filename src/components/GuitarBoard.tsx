@@ -84,6 +84,8 @@ const GuitarBoard: React.FC = () => {
   const drawingMode = app?.drawingMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
   const brushColor = app?.brushColor ?? defaultLineColor;
+  const pushHistory = app?.pushHistory ?? (() => {});
+  const registerSerializer = app?.registerSerializer ?? (() => {});
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -639,6 +641,18 @@ const GuitarBoard: React.FC = () => {
     return group;
   }, []);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true')) return;
+      if (e.key === 'Delete' || e.key.toLowerCase() === 'r') {
+        pushHistory(serializeWorkspace());
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [pushHistory]);
+
   const duplicateElement = (info: ElementCopy) => {
     const pos = cursorRef.current;
     if (info.type === 'image') {
@@ -784,6 +798,10 @@ const GuitarBoard: React.FC = () => {
     return items;
   };
 
+  React.useEffect(() => {
+    registerSerializer(serializeWorkspace);
+  }, [registerSerializer]);
+
   const clearWorkspace = () => {
     const svg = d3.select(svgRef.current);
     svg.select('.workspace').remove();
@@ -921,13 +939,19 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handler = () => addCodeBlock('', codeLanguage, codeTheme, getSpawnPosition(), codeFontSize);
+    const handler = () => {
+      pushHistory(serializeWorkspace());
+      addCodeBlock('', codeLanguage, codeTheme, getSpawnPosition(), codeFontSize);
+    };
     window.addEventListener('createcodeblock', handler as EventListener);
     return () => window.removeEventListener('createcodeblock', handler as EventListener);
   }, [addCodeBlock, codeLanguage, codeTheme, codeFontSize]);
 
   useEffect(() => {
-    const handler = () => addLine(getSpawnPosition());
+    const handler = () => {
+      pushHistory(serializeWorkspace());
+      addLine(getSpawnPosition());
+    };
     window.addEventListener('createline', handler as EventListener);
     return () => window.removeEventListener('createline', handler as EventListener);
   }, [addLine]);
@@ -975,13 +999,17 @@ const GuitarBoard: React.FC = () => {
   }, [addLine]);
 
   useEffect(() => {
-    const handler = () => addSticky('', getSpawnPosition());
+    const handler = () => {
+      pushHistory(serializeWorkspace());
+      addSticky('', getSpawnPosition());
+    };
     window.addEventListener('createsticky', handler as EventListener);
     return () => window.removeEventListener('createsticky', handler as EventListener);
   }, [addSticky]);
 
   useEffect(() => {
     const handler = () => {
+      pushHistory(serializeWorkspace());
       const pos = getSpawnPosition();
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
       addBoard();
@@ -1034,9 +1062,11 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const load = (e: CustomEvent<ElementCopy[]>) => {
+      pushHistory(serializeWorkspace());
       loadWorkspace(e.detail);
     };
     const clear = () => {
+      pushHistory(serializeWorkspace());
       clearWorkspace();
       localStorage.removeItem('tremoloBoard');
     };
@@ -1142,12 +1172,14 @@ const GuitarBoard: React.FC = () => {
         }
         const id = extractVideoId(trimmed);
         if (id) {
+          pushHistory(serializeWorkspace());
           addVideo(trimmed, cursorRef.current);
           event.preventDefault();
           return;
         }
 
         if (trimmed.length > 0) {
+          pushHistory(serializeWorkspace());
           addSticky(trimmed, cursorRef.current);
           event.preventDefault();
           return;
@@ -1166,6 +1198,7 @@ const GuitarBoard: React.FC = () => {
             const src = reader.result as string;
             const img = new Image();
             img.onload = () => {
+              pushHistory(serializeWorkspace());
               addImage(src, cursorRef.current, img.width, img.height);
             };
             img.src = src;
@@ -1201,6 +1234,7 @@ const GuitarBoard: React.FC = () => {
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+        pushHistory(serializeWorkspace());
         const info = getSelectedElementData();
         if (info) {
           duplicateElement(info);
@@ -1368,6 +1402,9 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const workspace = ensureWorkspace();
+    const down = () => pushHistory(serializeWorkspace());
+    const node = workspace.node();
+    node?.addEventListener('pointerdown', down);
 
     boards.forEach((id) => {
       let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
@@ -1404,6 +1441,9 @@ const GuitarBoard: React.FC = () => {
     } else {
       boardRef.current = null;
     }
+    return () => {
+      node?.removeEventListener('pointerdown', down);
+    };
   }, [boards, selectedBoard]);
 
   useEffect(() => {
