@@ -1,3 +1,5 @@
+const EXPORT_SCALE = 8;
+
 export async function exportBoardPng(
   svg: SVGSVGElement,
   filename = 'tremolo-board.png',
@@ -58,14 +60,14 @@ export async function exportBoardPng(
   const svgStr = new XMLSerializer().serializeToString(wrapper);
   const img = new Image();
   img.onload = () => {
-    const scale = window.devicePixelRatio || 1;
+    const scale = (window.devicePixelRatio || 1) * EXPORT_SCALE;
     const canvas = document.createElement('canvas');
     canvas.width = width * scale;
     canvas.height = height * scale;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.scale(scale, scale);
     ctx.drawImage(img, 0, 0);
     const link = document.createElement('a');
