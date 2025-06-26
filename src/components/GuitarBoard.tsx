@@ -717,6 +717,7 @@ const GuitarBoard: React.FC = () => {
   const loadWorkspace = (items: ElementCopy[]) => {
     localStorage.setItem('tremoloBoard', JSON.stringify(items));
     clearWorkspace();
+    ensureWorkspace();
     items.forEach((info) => {
       cursorRef.current = {
         x: info.data.transform?.translateX ?? 0,
@@ -1217,7 +1218,7 @@ const GuitarBoard: React.FC = () => {
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
-  useEffect(() => {
+  const ensureWorkspace = () => {
     const svg = d3.select(svgRef.current);
     let workspace = svg.select<SVGGElement>('.workspace');
     if (workspace.empty()) {
@@ -1243,6 +1244,11 @@ const GuitarBoard: React.FC = () => {
     }
     workspaceRef.current = workspace.node();
     setSvgRoot(svgRef.current, workspaceRef.current);
+    return workspace;
+  };
+
+  useEffect(() => {
+    const workspace = ensureWorkspace();
 
     boards.forEach((id) => {
       let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
