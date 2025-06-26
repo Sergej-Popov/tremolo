@@ -23,6 +23,8 @@ https://sergej-popov.github.io/tremolo/
 - Draw lines with straight, arched or cornered style. New lines start arched with triangle connectors and snap to subtle connectors at each element's side, remaining attached when those elements move.
 - Change a line's colour from the sticky note palette (now including black) and set the start and end connection style independently: circle, arrow, filled triangle or none. Lines default to black.
 - Quickly add predefined chords or scales or display all notes.
+- Click the **edit icon** when a board is selected to open its editor.
+- Show or hide note names from the board controls.
 - Choose sticky note colour from the palette in the header when a sticky note is selected.
 - Change sticky note text alignment using the header buttons when a note is selected.
 - Set a fixed font size for a sticky note from the header dropdown or choose "Auto" for automatic sizing (6–48px in even steps).
@@ -64,8 +66,6 @@ https://sergej-popov.github.io/tremolo/
 1. Save and load board layouts from local storage.
 
 ## TODO music
-
-1. Provide an option to toggle note names on or off.
 
 ## TODO bugs and technical
 

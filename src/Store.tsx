@@ -22,6 +22,8 @@ interface AppState {
   setCodeFontSize: React.Dispatch<React.SetStateAction<number>>;
   boards: number[];
   addBoard: () => void;
+  boardSelected: boolean;
+  setBoardSelected: React.Dispatch<React.SetStateAction<boolean>>;
   debug: boolean;
   setDebug: React.Dispatch<React.SetStateAction<boolean>>;
   drawingMode: boolean;
@@ -44,6 +46,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [codeTheme, setCodeTheme] = useState<string>('github-dark');
   const [codeFontSize, setCodeFontSize] = useState<number>(14);
   const [boards, setBoards] = useState<number[]>([0]);
+  const [boardSelected, setBoardSelected] = useState<boolean>(false);
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
   const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
@@ -89,6 +92,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setCodeFontSize,
       boards,
       addBoard,
+      boardSelected,
+      setBoardSelected,
       debug,
       setDebug,
       drawingMode,

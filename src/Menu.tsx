@@ -16,6 +16,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import SaveIcon from '@mui/icons-material/Save';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 
@@ -27,6 +28,7 @@ const Menu: React.FC = () => {
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
   const codeSelected = app?.codeSelected ?? false;
+  const boardSelected = app?.boardSelected ?? false;
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const setCodeLanguage = app?.setCodeLanguage ?? (() => {});
   const codeTheme = app?.codeTheme ?? 'github-dark';
@@ -126,6 +128,19 @@ const Menu: React.FC = () => {
           </IconButton>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        {boardSelected && (
+          <IconButton
+            color="inherit"
+            id="board-edit-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new Event('editnotes'));
+            }}
+            sx={{ mr: 1 }}
+          >
+            <EditNoteIcon />
+          </IconButton>
+        )}
         {stickySelected && (
           <>
             <Box id="sticky-color-select" sx={{ mr: 2 }}>
