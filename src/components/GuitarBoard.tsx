@@ -114,14 +114,19 @@ const GuitarBoard: React.FC = () => {
     updateNoteNameVisibility();
   }, [showNoteNames, updateNoteNameVisibility]);
 
-  const boards = app?.boards ?? [0];
+  const boards = app?.boards ?? [];
   const boardsRef = useRef<number[]>(boards);
-  const [selectedBoard, setSelectedBoard] = useState<number>(boards[0]);
-  const fretRangesRef = useRef<Record<number, number[]>>({ 0: [1, fretCount] });
+  const [selectedBoard, setSelectedBoard] = useState<number | null>(boards.length ? boards[0] : null);
+  const fretRangesRef = useRef<Record<number, number[]>>({});
   
   const [fretRange, setFretRange] = useState<number[]>([1, fretCount]);
 
   useEffect(() => {
+    if (!boards.length) {
+      boardsRef.current = boards;
+      setSelectedBoard(null);
+      return;
+    }
     const newest = boards[boards.length - 1];
     if (!(newest in fretRangesRef.current)) {
       fretRangesRef.current[newest] = [1, fretCount];
@@ -131,6 +136,7 @@ const GuitarBoard: React.FC = () => {
   }, [boards]);
 
   const changeFretRange = (_: Event, newValue: number | number[]) => {
+    if (selectedBoard == null) return;
     const range = Array.isArray(newValue) ? newValue : [newValue, newValue];
     fretRangesRef.current[selectedBoard] = range;
     setFretRange(range);
@@ -780,7 +786,9 @@ const GuitarBoard: React.FC = () => {
     max = max < fretCount ? max + 1 : max;
 
     const range = [min, max];
-    fretRangesRef.current[selectedBoard] = range;
+    if (selectedBoard != null) {
+      fretRangesRef.current[selectedBoard] = range;
+    }
     setFretRange(range);
   }
 
@@ -1229,10 +1237,14 @@ const GuitarBoard: React.FC = () => {
       }
     });
 
-    boardRef.current = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`).node() || null;
-    setFretRange(fretRangesRef.current[selectedBoard] ?? [1, fretCount]);
-    drawBoard();
-    updateNoteNameVisibility();
+    if (selectedBoard != null) {
+      boardRef.current = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`).node() || null;
+      setFretRange(fretRangesRef.current[selectedBoard] ?? [1, fretCount]);
+      drawBoard();
+      updateNoteNameVisibility();
+    } else {
+      boardRef.current = null;
+    }
   }, [boards, selectedBoard]);
 
   useEffect(() => {

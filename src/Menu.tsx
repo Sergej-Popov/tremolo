@@ -17,6 +17,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import SaveIcon from '@mui/icons-material/Save';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
@@ -94,6 +95,7 @@ const Menu: React.FC = () => {
   }, []);
 
   return (
+    <>
     <AppBar position="static" style={{ marginBottom: "15px" }}>
       <Toolbar>
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
@@ -370,11 +372,18 @@ const Menu: React.FC = () => {
             reader.readAsText(file);
           }} />
         </Button>
+        <Button startIcon={<DeleteForeverIcon />} onClick={() => {
+          localStorage.removeItem('tremoloBoard');
+          window.location.reload();
+        }} fullWidth sx={{ mb: 1 }}>
+          Clear Board
+        </Button>
         <Button startIcon={<FileDownloadIcon />} onClick={() => window.dispatchEvent(new Event('exportimage'))} fullWidth>
           Export
         </Button>
       </Box>
     </Drawer>
+    </>
   );
 };
 
