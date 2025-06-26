@@ -1105,12 +1105,16 @@ const GuitarBoard: React.FC = () => {
         if (item.type.startsWith('image/')) {
           const file = item.getAsFile();
           if (!file) continue;
-          const url = URL.createObjectURL(file);
-          const img = new Image();
-          img.onload = () => {
-            addImage(url, cursorRef.current, img.width, img.height);
+          const reader = new FileReader();
+          reader.onload = () => {
+            const src = reader.result as string;
+            const img = new Image();
+            img.onload = () => {
+              addImage(src, cursorRef.current, img.width, img.height);
+            };
+            img.src = src;
           };
-          img.src = url;
+          reader.readAsDataURL(file);
           event.preventDefault();
         }
       }
