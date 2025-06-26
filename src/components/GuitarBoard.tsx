@@ -291,7 +291,7 @@ const GuitarBoard: React.FC = () => {
   }
 
 
-  const addSticky = useCallback((text: string, pos: { x: number, y: number }) => {
+  const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
     const svg = d3.select(svgRef.current);
     const notesLayer = svg.select<SVGGElement>('.sticky-notes');
 
@@ -301,11 +301,11 @@ const GuitarBoard: React.FC = () => {
         id: generateId(),
         type: 'sticky',
         text,
-        align: stickyAlign,
+        align: opts.align ?? stickyAlign,
         width: stickyWidth,
         height: stickyHeight,
-        fontSize: null,
-        color: stickyColor,
+        fontSize: opts.fontSize ?? null,
+        color: opts.color ?? stickyColor,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
       })
       .style('filter', 'drop-shadow(2px 2px 2px rgba(0,0,0,0.3))');
@@ -315,7 +315,7 @@ const GuitarBoard: React.FC = () => {
       .attr('y', 0)
       .attr('width', stickyWidth)
       .attr('height', stickyHeight)
-      .attr('fill', stickyColor);
+      .attr('fill', opts.color ?? stickyColor);
 
     const fo = group.append('foreignObject')
       .attr('x', 0)
@@ -332,7 +332,7 @@ const GuitarBoard: React.FC = () => {
       .style('font-family', 'Segoe UI')
       .style('font-size', '12px')
       .style('padding', '12px')
-      .style('text-align', stickyAlign)
+      .style('text-align', opts.align ?? stickyAlign)
       .style('overflow', 'hidden')
       .style('white-space', 'pre-wrap')
       .style('word-break', 'break-word')
@@ -340,7 +340,7 @@ const GuitarBoard: React.FC = () => {
 
     setTimeout(() => {
       const node = div.node() as HTMLDivElement | null;
-      if (node) adjustStickyFont(node, null);
+      if (node) adjustStickyFont(node, opts.fontSize ?? null);
     }, 0);
 
     group.on('dblclick', () => {
@@ -630,7 +630,7 @@ const GuitarBoard: React.FC = () => {
         applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       }
     } else if (info.type === 'sticky') {
-      const g = addSticky(info.data.text, pos);
+      const g = addSticky(info.data.text, pos, { fontSize: info.data.fontSize ?? null, color: info.data.color, align: info.data.align });
       const d = g.datum() as any;
       d.id = info.data.id;
       d.width = info.data.width;
@@ -1381,15 +1381,9 @@ const GuitarBoard: React.FC = () => {
     if (saved) {
       try {
         const items: ElementCopy[] = JSON.parse(saved);
-        items.forEach((info) => {
-          cursorRef.current = {
-            x: info.data.transform?.translateX ?? 0,
-            y: info.data.transform?.translateY ?? 0,
-          };
-          duplicateElement(info);
-        });
+        loadWorkspace(items);
       } catch {
-        // ignore
+        /* ignore */
       }
     }
   }, []);
