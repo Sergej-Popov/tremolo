@@ -8,28 +8,28 @@ export async function exportBoardPng(
 
   const clone = svg.cloneNode(true) as SVGSVGElement;
 
-  const images = Array.from(clone.querySelectorAll('image'));
-  await Promise.all(
-    images.map(async (img) => {
-      const href = img.getAttribute('href');
-      if (!href || href.startsWith('data:')) return;
-      try {
-        const res = await fetch(href);
-        const blob = await res.blob();
-        const reader = new FileReader();
-        const data: string = await new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error('read fail'));
-          reader.readAsDataURL(blob);
-        });
-        img.setAttribute('href', data);
-      } catch {
-        // ignore failures and keep original href
-      }
-    })
-  );
+  const inlineImage = async (img: SVGImageElement) => {
+    const href = img.getAttribute('href');
+    if (!href || href.startsWith('data:')) return;
+    try {
+      const res = await fetch(href);
+      const blob = await res.blob();
+      const reader = new FileReader();
+      const data: string = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('read fail'));
+        reader.readAsDataURL(blob);
+      });
+      img.setAttribute('href', data);
+    } catch {
+      // ignore failures and keep original href
+    }
+  };
 
-  clone.querySelectorAll('.embedded-video').forEach((video) => {
+  const images = Array.from(clone.querySelectorAll('image'));
+  await Promise.all(images.map(inlineImage));
+
+  await Promise.all(Array.from(clone.querySelectorAll('.embedded-video')).map(async (video) => {
     const fo = video.querySelector('foreignObject');
     const iframe = fo?.querySelector('iframe');
     const match = iframe?.getAttribute('src')?.match(/embed\/(.*?)(?:\?|$)/);
@@ -40,9 +40,10 @@ export async function exportBoardPng(
       img.setAttribute('width', fo.getAttribute('width') || '0');
       img.setAttribute('height', fo.getAttribute('height') || '0');
       img.setAttribute('href', `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`);
+      await inlineImage(img);
       fo.replaceWith(img);
     }
-  });
+  }));
 
   const wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   wrapper.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
