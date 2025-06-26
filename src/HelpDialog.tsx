@@ -16,6 +16,7 @@ const shortcuts: ShortcutSection[] = [
       { key: 'Ctrl+D', action: 'Duplicate the selected element' },
       { key: 'r', action: 'Reset element rotation' },
       { key: '/ or ?', action: 'Open this help dialog' },
+      { key: 'Ctrl+S', action: 'Export board as image' },
       { key: 'Ctrl+drag', action: 'Snap movement to grid' },
       { key: 'Ctrl+resize', action: 'Snap size to grid' },
     ],

@@ -8,6 +8,7 @@ import { noteColors, defaultLineColor } from '../theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton } from '@mui/material';
 import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import { exportSvgImage } from '../exportSvg';
 
 const edgeOffset = 20;
 const boardWidth = 500;
@@ -812,6 +813,16 @@ const GuitarBoard: React.FC = () => {
   }, [addSticky]);
 
   useEffect(() => {
+    const handler = () => {
+      if (svgRef.current) {
+        exportSvgImage(svgRef.current);
+      }
+    };
+    window.addEventListener('exportimage', handler as EventListener);
+    return () => window.removeEventListener('exportimage', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true')) return;
@@ -959,6 +970,11 @@ const GuitarBoard: React.FC = () => {
         const info = getSelectedElementData();
         if (info) {
           duplicateElement(info);
+          e.preventDefault();
+        }
+      } else if (e.ctrlKey && e.key.toLowerCase() === 's') {
+        if (svgRef.current) {
+          exportSvgImage(svgRef.current);
           e.preventDefault();
         }
       }
