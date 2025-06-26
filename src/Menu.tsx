@@ -129,7 +129,15 @@ const Menu: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
         {boardSelected && (
-          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('editnotes'))} sx={{ mr: 1 }}>
+          <IconButton
+            color="inherit"
+            id="board-edit-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new Event('editnotes'));
+            }}
+            sx={{ mr: 1 }}
+          >
             <EditNoteIcon />
           </IconButton>
         )}

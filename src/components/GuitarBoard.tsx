@@ -1249,7 +1249,11 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const handle = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (boardRef.current?.contains(target) || controlsRef.current?.contains(target)) {
+      if (
+        boardRef.current?.contains(target) ||
+        controlsRef.current?.contains(target) ||
+        (target as HTMLElement).closest('#board-edit-button')
+      ) {
         return;
       }
       setShowPanel(false);
