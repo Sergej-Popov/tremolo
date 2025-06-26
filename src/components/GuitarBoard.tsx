@@ -83,6 +83,7 @@ const GuitarBoard: React.FC = () => {
   const codeFontSize = app?.codeFontSize ?? 14;
   const drawingMode = app?.drawingMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
+  const brushColor = app?.brushColor ?? defaultLineColor;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -700,18 +701,19 @@ const GuitarBoard: React.FC = () => {
       const layer = svg.select<SVGGElement>('.drawings');
       const g = layer.append('g')
         .attr('class', 'drawing')
-        .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[] }>({
+        .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[]; color: string }>({
           id: info.data.id ?? generateId(),
           type: 'drawing',
           width: info.data.width,
           height: info.data.height,
           transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
-          lines: info.data.lines.map((ln: any) => ({ ...ln }))
+          lines: info.data.lines.map((ln: any) => ({ ...ln })),
+          color: info.data.color ?? '#000000'
         });
       info.data.lines.forEach((ln: any) => {
         g.append('path')
           .attr('d', `M ${ln.x1} ${ln.y1} Q ${ln.cx} ${ln.cy} ${ln.x2} ${ln.y2}`)
-          .attr('stroke', 'black')
+          .attr('stroke', info.data.color ?? '#000000')
           .attr('fill', 'none')
           .attr('stroke-linecap', 'round')
           .attr('stroke-linejoin', 'round')
@@ -1199,13 +1201,14 @@ const GuitarBoard: React.FC = () => {
     const layer = svg.select<SVGGElement>('.drawings');
     const g = layer.append('g')
       .attr('class', 'drawing')
-      .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[] }>({
+      .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[]; color: string }>({
         id: generateId(),
         type: 'drawing',
         width: 0,
         height: 0,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
         lines: [],
+        color: brushColor,
       });
     drawingSel.current = g;
     drawing.current = true;
@@ -1243,7 +1246,7 @@ const GuitarBoard: React.FC = () => {
     const midY = (prev.y + sy) / 2;
     drawingSel.current.append('path')
       .attr('d', `M ${midPrev.x} ${midPrev.y} Q ${prev.x} ${prev.y} ${midX} ${midY}`)
-      .attr('stroke', 'black')
+      .attr('stroke', brushColor)
       .attr('fill', 'none')
       .attr('stroke-linecap', 'round')
       .attr('stroke-linejoin', 'round')
@@ -1259,6 +1262,7 @@ const GuitarBoard: React.FC = () => {
     const g = drawingSel.current;
     const bbox = (g.node() as SVGGraphicsElement).getBBox();
     const data: any = g.datum();
+    data.color = brushColor;
     data.width = bbox.width;
     data.height = bbox.height;
     data.lines = data.lines.map((ln: any) => ({

@@ -42,6 +42,8 @@ const Menu: React.FC = () => {
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
   const brushWidth = app?.brushWidth ?? 'auto';
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
+  const brushColor = app?.brushColor ?? defaultLineColor;
+  const setBrushColor = app?.setBrushColor ?? (() => {});
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
   const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('arc');
@@ -334,6 +336,24 @@ const Menu: React.FC = () => {
               <MenuItem value="auto">Auto</MenuItem>
               {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
                 <MenuItem key={n} value={n.toString()}>{`${n}px`}</MenuItem>
+              ))}
+            </Select>
+          </Box>
+        )}
+        {drawingMode && (
+          <Box id="brush-color-select" sx={{ mr: 2 }}>
+            <Select
+              size="small"
+              value={brushColor}
+              onChange={(e) => {
+                const c = e.target.value as string;
+                setBrushColor(c);
+              }}
+            >
+              {noteColors.map((c) => (
+                <MenuItem value={c} key={c}>
+                  <Box sx={{ width: 20, height: 20, backgroundColor: c }} />
+                </MenuItem>
               ))}
             </Select>
           </Box>

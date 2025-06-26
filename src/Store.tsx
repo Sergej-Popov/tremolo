@@ -31,6 +31,8 @@ interface AppState {
   setDrawingMode: React.Dispatch<React.SetStateAction<boolean>>;
   brushWidth: number | 'auto';
   setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
+  brushColor: string;
+  setBrushColor: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export const AppContext = createContext<AppState | undefined>(undefined);
@@ -51,6 +53,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
   const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
+  const [brushColor, setBrushColor] = useState<string>(noteColors[noteColors.length - 1]);
 
   const addBoard = () => {
     setBoards((ids) => [...ids, ids.length ? Math.max(...ids) + 1 : 0]);
@@ -72,6 +75,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   React.useEffect(() => {
     setDebugMode(debug);
   }, [debug]);
+
+  React.useEffect(() => {
+    const disable = () => setDrawingMode(false);
+    window.addEventListener('createsticky', disable as EventListener);
+    window.addEventListener('createcodeblock', disable as EventListener);
+    window.addEventListener('createline', disable as EventListener);
+    return () => {
+      window.removeEventListener('createsticky', disable as EventListener);
+      window.removeEventListener('createcodeblock', disable as EventListener);
+      window.removeEventListener('createline', disable as EventListener);
+    };
+  }, []);
 
   return (
     <AppContext.Provider value={{
@@ -102,6 +117,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setDrawingMode,
       brushWidth,
       setBrushWidth,
+      brushColor,
+      setBrushColor,
     }}>
       {children}
     </AppContext.Provider>
