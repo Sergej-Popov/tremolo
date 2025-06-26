@@ -105,6 +105,36 @@ const GuitarBoard: React.FC = () => {
   const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
 
+  const cursorScreenRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const updateCursor = (clientX: number, clientY: number) => {
+    if (!svgRef.current) return;
+    cursorScreenRef.current = { x: clientX, y: clientY };
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+    const [x, y] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
+    cursorRef.current = { x, y };
+    setCursorPos(cursorRef.current);
+  };
+
+  const getSpawnPosition = useCallback(() => {
+    if (!svgRef.current) return cursorRef.current;
+    const rect = svgRef.current.getBoundingClientRect();
+    const { x, y } = cursorScreenRef.current;
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      return cursorRef.current;
+    }
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = rect.left + rect.width / 2;
+    pt.y = rect.top + rect.height / 2;
+    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+    const [cx, cy] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
+    return { x: cx, y: cy };
+  }, []);
+
+
   const updateNoteNameVisibility = useCallback(() => {
     if (boardRef.current) {
       d3.select(boardRef.current)
@@ -1190,35 +1220,6 @@ const GuitarBoard: React.FC = () => {
       window.removeEventListener('copy', handleCopy);
       window.removeEventListener('keydown', handleKey);
     };
-  }, []);
-
-  const cursorScreenRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const updateCursor = (clientX: number, clientY: number) => {
-    if (!svgRef.current) return;
-    cursorScreenRef.current = { x: clientX, y: clientY };
-    const pt = svgRef.current.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-    const [x, y] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
-    cursorRef.current = { x, y };
-    setCursorPos(cursorRef.current);
-  };
-
-  const getSpawnPosition = useCallback(() => {
-    if (!svgRef.current) return cursorRef.current;
-    const rect = svgRef.current.getBoundingClientRect();
-    const { x, y } = cursorScreenRef.current;
-    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-      return cursorRef.current;
-    }
-    const pt = svgRef.current.createSVGPoint();
-    pt.x = rect.left + rect.width / 2;
-    pt.y = rect.top + rect.height / 2;
-    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-    const [cx, cy] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
-    return { x: cx, y: cy };
   }, []);
 
   const toWorkspace = (clientX: number, clientY: number) => {
