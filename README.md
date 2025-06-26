@@ -29,7 +29,7 @@ https://sergej-popov.github.io/tremolo/
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
-- Export the current board as an image with 40 px padding around the visible area.
+- Export the current board as a **PNG** image with 40 px padding around the visible area.
 
 ## Hotkeys
 
@@ -40,7 +40,7 @@ https://sergej-popov.github.io/tremolo/
 - **Ctrl+D** – duplicate the selected element at the cursor.
 - **r** – reset element rotation.
 - **/** or **?** – open the help dialog.
-- **Ctrl+S** – export the board as an image.
+- **Ctrl+S** – export the board as a PNG image.
 
 ### Tools
 - **b** – toggle the brush drawing mode.

@@ -1,4 +1,4 @@
-export function exportSvgImage(svg: SVGSVGElement, filename = 'tremolo-board.png') {
+export function exportBoardPng(svg: SVGSVGElement, filename = 'tremolo-board.png') {
   const rect = svg.getBoundingClientRect();
   const width = rect.width + 80;
   const height = rect.height + 80;

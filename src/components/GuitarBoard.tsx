@@ -8,7 +8,7 @@ import { noteColors, defaultLineColor } from '../theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton } from '@mui/material';
 import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import { exportSvgImage } from '../exportSvg';
+import { exportBoardPng } from '../exportPng';
 
 const edgeOffset = 20;
 const boardWidth = 500;
@@ -815,7 +815,7 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const handler = () => {
       if (svgRef.current) {
-        exportSvgImage(svgRef.current);
+        exportBoardPng(svgRef.current);
       }
     };
     window.addEventListener('exportimage', handler as EventListener);
@@ -974,7 +974,7 @@ const GuitarBoard: React.FC = () => {
         }
       } else if (e.ctrlKey && e.key.toLowerCase() === 's') {
         if (svgRef.current) {
-          exportSvgImage(svgRef.current);
+          exportBoardPng(svgRef.current);
           e.preventDefault();
         }
       }
