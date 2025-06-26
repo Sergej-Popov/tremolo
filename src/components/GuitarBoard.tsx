@@ -728,10 +728,12 @@ const GuitarBoard: React.FC = () => {
     const svg = d3.select(svgRef.current);
     const workspace = svg.select<SVGGElement>('.workspace');
     const items: ElementCopy[] = [];
-    workspace.selectAll<SVGGElement, any>('g').each(function () {
+    const selector = '.pasted-image, .embedded-video, .sticky-note, .code-block, .line-element, .drawing, .guitar-board';
+    workspace.selectAll<SVGGElement, any>(selector).each(function () {
       const el = d3.select(this);
       const data = { ...(el.datum() as any) };
       if (!data || !data.type) return;
+      if (!['image','video','sticky','board','drawing','code','line'].includes(data.type)) return;
       const info: ElementCopy = { type: data.type, data: { ...data } };
       if (info.type === 'board') {
         info.data.notes = el.selectAll('.note').data().map((n: any) => ({ string: n.string, fret: n.fret }));
