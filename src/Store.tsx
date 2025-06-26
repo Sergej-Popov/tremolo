@@ -21,6 +21,7 @@ interface AppState {
   codeFontSize: number;
   setCodeFontSize: React.Dispatch<React.SetStateAction<number>>;
   boards: number[];
+  setBoards: React.Dispatch<React.SetStateAction<number[]>>;
   addBoard: () => void;
   boardSelected: boolean;
   setBoardSelected: React.Dispatch<React.SetStateAction<boolean>>;
@@ -91,6 +92,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       codeFontSize,
       setCodeFontSize,
       boards,
+      setBoards,
       addBoard,
       boardSelected,
       setBoardSelected,

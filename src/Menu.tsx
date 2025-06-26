@@ -1,7 +1,6 @@
 import React, { useContext } from 'react';
 import * as d3 from 'd3';
-import { Link } from 'react-router-dom';
-import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton, Drawer, Button } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -16,6 +15,8 @@ import CodeIcon from '@mui/icons-material/Code';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import SaveIcon from '@mui/icons-material/Save';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
@@ -47,6 +48,8 @@ const Menu: React.FC = () => {
   const [lineStartConn, setLineStartConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('triangle');
   const [lineEndConn, setLineEndConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('triangle');
   const [lineSelected, setLineSelected] = React.useState(false);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const fileInput = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -94,17 +97,16 @@ const Menu: React.FC = () => {
     <AppBar position="static" style={{ marginBottom: "15px" }}>
       <Toolbar>
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          <Link to="/second">
-            <IconButton
-              size="large"
-              edge="start"
-              color="inherit"
-              aria-label="menu"
-              sx={{ mr: 1 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          </Link>
+          <IconButton
+            size="large"
+            edge="start"
+            color="inherit"
+            aria-label="menu"
+            onClick={() => setDrawerOpen(true)}
+            sx={{ mr: 1 }}
+          >
+            <MenuIcon />
+          </IconButton>
           <Typography variant="h6" component="div" sx={{ mr: 2 }}>
             Tremolo
           </Typography>
@@ -122,9 +124,6 @@ const Menu: React.FC = () => {
           </IconButton>
           <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
             <CodeIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('exportimage'))} sx={{ mr: 1 }}>
-            <SaveIcon />
           </IconButton>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -348,6 +347,34 @@ const Menu: React.FC = () => {
         </IconButton>
       </Toolbar>
     </AppBar>
+    <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+      <Box sx={{ width: 200, p: 2 }}>
+        <Button startIcon={<SaveIcon />} onClick={() => window.dispatchEvent(new Event('savefile'))} fullWidth sx={{ mb: 1 }}>
+          Save File
+        </Button>
+        <Button startIcon={<FolderOpenIcon />} component="label" fullWidth sx={{ mb: 1 }}>
+          Open File
+          <input type="file" hidden ref={fileInput} onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const data = JSON.parse(reader.result as string);
+                localStorage.setItem('tremoloBoard', JSON.stringify(data));
+                window.location.reload();
+              } catch {
+                /* ignore */
+              }
+            };
+            reader.readAsText(file);
+          }} />
+        </Button>
+        <Button startIcon={<FileDownloadIcon />} onClick={() => window.dispatchEvent(new Event('exportimage'))} fullWidth>
+          Export
+        </Button>
+      </Box>
+    </Drawer>
   );
 };
 

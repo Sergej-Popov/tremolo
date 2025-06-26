@@ -72,6 +72,7 @@ const GuitarBoard: React.FC = () => {
   const stickyAlign = app?.stickyAlign ?? 'center';
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
+  const setBoards = app?.setBoards ?? (() => {});
   const setBoardSelected = app?.setBoardSelected ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
@@ -680,6 +681,28 @@ const GuitarBoard: React.FC = () => {
     }
   };
 
+  const serializeWorkspace = (): ElementCopy[] => {
+    const svg = d3.select(svgRef.current);
+    const workspace = svg.select<SVGGElement>('.workspace');
+    const items: ElementCopy[] = [];
+    workspace.selectAll<SVGGElement, any>('g').each(function () {
+      const el = d3.select(this);
+      const data = { ...(el.datum() as any) };
+      if (!data || !data.type) return;
+      const info: ElementCopy = { type: data.type, data: { ...data } };
+      if (info.type === 'board') {
+        info.data.notes = el.selectAll('.note').data().map((n: any) => ({ string: n.string, fret: n.fret }));
+      }
+      items.push(info);
+    });
+    return items;
+  };
+
+  const loadWorkspace = (items: ElementCopy[]) => {
+    localStorage.setItem('tremoloBoard', JSON.stringify(items));
+    window.location.reload();
+  };
+
 
   function fillAllNotes() {
     d3.select(boardRef.current).selectAll('.note').remove();
@@ -848,6 +871,19 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('exportimage', handler as EventListener);
     return () => window.removeEventListener('exportimage', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      const data = serializeWorkspace();
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'tremolo-board.json';
+      a.click();
+    };
+    window.addEventListener('savefile', handler as EventListener);
+    return () => window.removeEventListener('savefile', handler as EventListener);
   }, []);
 
   useEffect(() => {
@@ -1219,6 +1255,37 @@ const GuitarBoard: React.FC = () => {
       d3.selectAll('.component-debug-cross').style('display', debug ? 'block' : 'none');
     }
   }, [debug]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('tremoloBoard');
+    if (saved) {
+      try {
+        const items: ElementCopy[] = JSON.parse(saved);
+        items.forEach((info) => {
+          cursorRef.current = {
+            x: info.data.transform?.translateX ?? 0,
+            y: info.data.transform?.translateY ?? 0,
+          };
+          duplicateElement(info);
+        });
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const save = () => {
+      const data = serializeWorkspace();
+      localStorage.setItem('tremoloBoard', JSON.stringify(data));
+    };
+    const id = setInterval(save, 2000);
+    window.addEventListener('beforeunload', save);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('beforeunload', save);
+    };
+  }, []);
 
   useEffect(() => {
     const svg = d3.select(svgRef.current);
