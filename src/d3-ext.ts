@@ -687,6 +687,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 data.transform = transform;
                 const [startX, startY] = toWorkspaceCoords(event);
                 debugLog('resize start', width, height);
+                setGridVisible((event as any).sourceEvent?.ctrlKey);
 
                 d3.select(this)
                     .datum({ startX, startY, transform, width, height, origWidth: width, origHeight: height });
@@ -702,11 +703,20 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
                 let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
 
-                const shift = (event as any).sourceEvent?.shiftKey;
+                const source = (event as any).sourceEvent as MouseEvent | undefined;
+                const shift = source?.shiftKey;
+                const ctrl = source?.ctrlKey;
                 if (lockAspectRatio ? !shift : shift) {
                     const ratio = Math.max(newScaleX, newScaleY);
                     newScaleX = ratio;
                     newScaleY = ratio;
+                }
+
+                if (ctrl) {
+                    const snapWidth = Math.round((data.width * newScaleX) / 10) * 10;
+                    const snapHeight = Math.round((data.height * newScaleY) / 10) * 10;
+                    newScaleX = snapWidth / data.width;
+                    newScaleY = snapHeight / data.height;
                 }
 
                 if (element.classed('sticky-note') || element.classed('code-block')) {
@@ -752,12 +762,14 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     updateDebugCross(element);
                     debugLog('resize drag', newScaleX, newScaleY);
                 }
+                setGridVisible(!!ctrl);
             })
             .on('end', function () {
                 if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
                 updateDebugCross(element);
+                setGridVisible(false);
                 debugLog('resize end');
             })
     );

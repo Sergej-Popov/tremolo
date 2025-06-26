@@ -9,6 +9,7 @@ https://sergej-popov.github.io/tremolo/
 ## Features
 - Drag and resize the guitar board.
 - Hold **Ctrl** while dragging to snap elements to a 10 px grid. A grid overlay appears while snapping or in debug mode. Hold **Shift** to constrain movement to one axis. Rotating with **Ctrl** snaps to 15° steps.
+- Hold **Ctrl** while resizing to snap dimensions to the grid, with the overlay visible while snapping.
 - Add multiple guitar boards in the same workspace.
 - Paste images that can be positioned and resized.
 - Paste YouTube links to embed videos while preserving aspect ratio.
