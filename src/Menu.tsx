@@ -114,7 +114,7 @@ const Menu: React.FC = () => {
           <Typography variant="h6" component="div" sx={{ mr: 2 }}>
             Tremolo
           </Typography>
-          <IconButton size="large" color="inherit" onClick={addBoard} sx={{ mr: 1 }}>
+          <IconButton size="large" color="inherit" onClick={() => window.dispatchEvent(new Event('createboard'))} sx={{ mr: 1 }}>
             <MusicNoteIcon />
           </IconButton>
           <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>

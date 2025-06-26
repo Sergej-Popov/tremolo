@@ -952,6 +952,26 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handler = () => {
+      const pos = getSpawnPosition();
+      const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
+      addBoard();
+      const apply = () => {
+        const workspace = d3.select(workspaceRef.current);
+        const g = workspace.select<SVGGElement>(`.guitar-board-${newId}`);
+        if (g.empty()) {
+          requestAnimationFrame(apply);
+          return;
+        }
+        applyTransform(g, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
+      };
+      apply();
+    };
+    window.addEventListener('createboard', handler as EventListener);
+    return () => window.removeEventListener('createboard', handler as EventListener);
+  }, [addBoard, getSpawnPosition]);
+
+  useEffect(() => {
+    const handler = () => {
       setBoardSelected(true);
       setShowPanel(true);
     };
@@ -1012,6 +1032,10 @@ const GuitarBoard: React.FC = () => {
         e.stopImmediatePropagation();
       } else if (e.key === 'l' && !e.ctrlKey) {
         window.dispatchEvent(new Event('createline'));
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      } else if (e.key === 'g' && !e.ctrlKey) {
+        window.dispatchEvent(new Event('createboard'));
         e.preventDefault();
         e.stopImmediatePropagation();
       }

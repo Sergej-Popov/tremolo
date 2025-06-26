@@ -28,6 +28,7 @@ const shortcuts: ShortcutSection[] = [
       { key: 'n', action: 'Insert sticky note' },
       { key: 'c', action: 'Insert code block' },
       { key: 'l', action: 'Insert line' },
+      { key: 'g', action: 'Insert guitar board' },
     ],
   },
   {

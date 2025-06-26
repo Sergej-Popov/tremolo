@@ -55,6 +55,7 @@ https://sergej-popov.github.io/tremolo/
 - **n** – insert a sticky note.
 - **c** – insert a code block.
 - **l** – insert a line.
+- **g** – insert a guitar board.
 
 ### Images
 - **c** – crop selected image (or double-click an image to toggle cropping).
