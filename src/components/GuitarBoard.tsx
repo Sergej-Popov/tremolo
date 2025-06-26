@@ -92,6 +92,7 @@ const GuitarBoard: React.FC = () => {
   const showNoteNamesRef = useRef(true);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const initialZoom = useRef<d3.ZoomTransform | null>(null);
   const cursorRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
   const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
@@ -296,7 +297,7 @@ const GuitarBoard: React.FC = () => {
 
     const group = notesLayer.append('g')
       .attr('class', 'sticky-note')
-      .datum<StickyNoteDatum & { width: number, height: number, transform: any, fontSize: number | null }>({
+      .datum<StickyNoteDatum & { width: number; height: number; transform: any; fontSize: number | null; color: string }>({
         id: generateId(),
         type: 'sticky',
         text,
@@ -304,6 +305,7 @@ const GuitarBoard: React.FC = () => {
         width: stickyWidth,
         height: stickyHeight,
         fontSize: null,
+        color: stickyColor,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
       })
       .style('filter', 'drop-shadow(2px 2px 2px rgba(0,0,0,0.3))');
@@ -611,6 +613,7 @@ const GuitarBoard: React.FC = () => {
     if (info.type === 'image') {
       const g = addImage(info.data.src, pos, info.data.width, info.data.height);
       const d = g.datum() as any;
+      d.id = info.data.id;
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       if (info.data.crop) {
         d.crop = { ...info.data.crop };
@@ -623,16 +626,20 @@ const GuitarBoard: React.FC = () => {
     } else if (info.type === 'video') {
       const g = addVideo(info.data.url, pos);
       if (g) {
+        (g.datum() as any).id = info.data.id;
         applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       }
     } else if (info.type === 'sticky') {
       const g = addSticky(info.data.text, pos);
       const d = g.datum() as any;
+      d.id = info.data.id;
       d.width = info.data.width;
       d.height = info.data.height;
       d.align = info.data.align;
       d.fontSize = info.data.fontSize ?? null;
+      d.color = info.data.color ?? stickyColor;
       g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
+      g.select('rect').attr('fill', d.color);
       g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
       const div = g.select<HTMLDivElement>('foreignObject > .sticky-text')
         .style('text-align', info.data.align)
@@ -649,6 +656,7 @@ const GuitarBoard: React.FC = () => {
           pre.style.fontSize = `${info.data.fontSize}px`;
         });
       }
+      (g.datum() as any).id = info.data.id;
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
@@ -660,6 +668,7 @@ const GuitarBoard: React.FC = () => {
           requestAnimationFrame(apply);
           return;
         }
+        (g.datum() as any).id = info.data.id;
         applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
         if (Array.isArray(info.data.notes)) {
           info.data.notes.forEach((n: any) => addNoteToBoard(g, n.string, n.fret));
@@ -680,6 +689,7 @@ const GuitarBoard: React.FC = () => {
         info.data.endConn
       );
       const d = g.datum() as any;
+      d.id = info.data.id;
       d.style = info.data.style;
       d.color = info.data.color;
       d.startStyle = info.data.startStyle;
@@ -691,7 +701,7 @@ const GuitarBoard: React.FC = () => {
       const g = layer.append('g')
         .attr('class', 'drawing')
         .datum<{ id: string; type: 'drawing'; width: number; height: number; transform: any; lines: any[] }>({
-          id: generateId(),
+          id: info.data.id ?? generateId(),
           type: 'drawing',
           width: info.data.width,
           height: info.data.height,
@@ -736,6 +746,7 @@ const GuitarBoard: React.FC = () => {
       }
       items.push(info);
     });
+    items.push({ type: 'meta', data: { zoom: { x: zoomRef.current.x, y: zoomRef.current.y, k: zoomRef.current.k } } });
     return items;
   };
 
@@ -751,13 +762,26 @@ const GuitarBoard: React.FC = () => {
     localStorage.setItem('tremoloBoard', JSON.stringify(items));
     clearWorkspace();
     ensureWorkspace();
+    let zoomItem: any = null;
     items.forEach((info) => {
+      if (info.type === 'meta') {
+        zoomItem = info.data.zoom;
+        return;
+      }
       cursorRef.current = {
         x: info.data.transform?.translateX ?? 0,
         y: info.data.transform?.translateY ?? 0,
       };
       duplicateElement(info);
     });
+    if (zoomItem) {
+      initialZoom.current = d3.zoomIdentity.translate(zoomItem.x, zoomItem.y).scale(zoomItem.k);
+      if (zoomBehaviorRef.current && svgRef.current) {
+        d3.select(svgRef.current).call(zoomBehaviorRef.current.transform, initialZoom.current);
+        setZoomValue(zoomItem.k);
+        initialZoom.current = null;
+      }
+    }
   };
 
 
@@ -1407,6 +1431,11 @@ const GuitarBoard: React.FC = () => {
     zoomBehaviorRef.current = zoom;
     setZoomTransform(d3.zoomIdentity);
     setSvgRoot(svgRef.current, workspaceRef.current);
+    if (initialZoom.current) {
+      d3.select(svgRef.current).call(zoom.transform, initialZoom.current);
+      setZoomValue(initialZoom.current.k);
+      initialZoom.current = null;
+    }
   }, []);
 
   useEffect(() => {
