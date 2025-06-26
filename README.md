@@ -34,7 +34,7 @@ https://sergej-popov.github.io/tremolo/
 - Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image with 40 px padding around the visible area.
 - Board state is saved automatically in the browser and restored on reload.
 - Use the side menu to save the board to a file or open a previously saved file.
-- Use **Clear Board** in the side menu to start fresh.
+- Use **Clear Board** in the side menu to reset the workspace.
 
 ## Hotkeys
 

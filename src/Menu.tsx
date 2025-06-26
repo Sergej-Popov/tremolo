@@ -363,8 +363,7 @@ const Menu: React.FC = () => {
             reader.onload = () => {
               try {
                 const data = JSON.parse(reader.result as string);
-                localStorage.setItem('tremoloBoard', JSON.stringify(data));
-                window.location.reload();
+                window.dispatchEvent(new CustomEvent('loadboard', { detail: data }));
               } catch {
                 /* ignore */
               }
@@ -373,8 +372,7 @@ const Menu: React.FC = () => {
           }} />
         </Button>
         <Button startIcon={<DeleteForeverIcon />} onClick={() => {
-          localStorage.removeItem('tremoloBoard');
-          window.location.reload();
+          window.dispatchEvent(new Event('clearboard'));
         }} fullWidth sx={{ mb: 1 }}>
           Clear Board
         </Button>

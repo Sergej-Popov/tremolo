@@ -704,9 +704,24 @@ const GuitarBoard: React.FC = () => {
     return items;
   };
 
+  const clearWorkspace = () => {
+    const svg = d3.select(svgRef.current);
+    svg.select('.workspace').remove();
+    setBoards([]);
+    boardsRef.current = [];
+    setSelectedBoard(null);
+  };
+
   const loadWorkspace = (items: ElementCopy[]) => {
     localStorage.setItem('tremoloBoard', JSON.stringify(items));
-    window.location.reload();
+    clearWorkspace();
+    items.forEach((info) => {
+      cursorRef.current = {
+        x: info.data.transform?.translateX ?? 0,
+        y: info.data.transform?.translateY ?? 0,
+      };
+      duplicateElement(info);
+    });
   };
 
 
@@ -892,6 +907,22 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('savefile', handler as EventListener);
     return () => window.removeEventListener('savefile', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const load = (e: CustomEvent<ElementCopy[]>) => {
+      loadWorkspace(e.detail);
+    };
+    const clear = () => {
+      clearWorkspace();
+      localStorage.removeItem('tremoloBoard');
+    };
+    window.addEventListener('loadboard', load as EventListener);
+    window.addEventListener('clearboard', clear as EventListener);
+    return () => {
+      window.removeEventListener('loadboard', load as EventListener);
+      window.removeEventListener('clearboard', clear as EventListener);
+    };
   }, []);
 
   useEffect(() => {
