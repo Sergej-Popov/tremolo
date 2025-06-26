@@ -29,6 +29,7 @@ https://sergej-popov.github.io/tremolo/
 - Change sticky note text alignment using the header buttons when a note is selected.
 - Set a fixed font size for a sticky note from the header dropdown or choose "Auto" for automatic sizing (6–48px in even steps).
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
+- When brush mode is active a dropdown also lets you pick a stroke colour from the sticky note palette.
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
 - Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image with 40 px padding around the visible area.
