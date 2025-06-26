@@ -105,6 +105,36 @@ const GuitarBoard: React.FC = () => {
   const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
 
+  const cursorScreenRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const updateCursor = (clientX: number, clientY: number) => {
+    if (!svgRef.current) return;
+    cursorScreenRef.current = { x: clientX, y: clientY };
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+    const [x, y] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
+    cursorRef.current = { x, y };
+    setCursorPos(cursorRef.current);
+  };
+
+  const getSpawnPosition = useCallback(() => {
+    if (!svgRef.current) return cursorRef.current;
+    const rect = svgRef.current.getBoundingClientRect();
+    const { x, y } = cursorScreenRef.current;
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+      return cursorRef.current;
+    }
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = rect.left + rect.width / 2;
+    pt.y = rect.top + rect.height / 2;
+    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+    const [cx, cy] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
+    return { x: cx, y: cy };
+  }, []);
+
+
   const updateNoteNameVisibility = useCallback(() => {
     if (boardRef.current) {
       d3.select(boardRef.current)
@@ -891,13 +921,13 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handler = () => addCodeBlock('', codeLanguage, codeTheme, cursorRef.current, codeFontSize);
+    const handler = () => addCodeBlock('', codeLanguage, codeTheme, getSpawnPosition(), codeFontSize);
     window.addEventListener('createcodeblock', handler as EventListener);
     return () => window.removeEventListener('createcodeblock', handler as EventListener);
   }, [addCodeBlock, codeLanguage, codeTheme, codeFontSize]);
 
   useEffect(() => {
-    const handler = () => addLine(cursorRef.current);
+    const handler = () => addLine(getSpawnPosition());
     window.addEventListener('createline', handler as EventListener);
     return () => window.removeEventListener('createline', handler as EventListener);
   }, [addLine]);
@@ -945,10 +975,30 @@ const GuitarBoard: React.FC = () => {
   }, [addLine]);
 
   useEffect(() => {
-    const handler = () => addSticky('', cursorRef.current);
+    const handler = () => addSticky('', getSpawnPosition());
     window.addEventListener('createsticky', handler as EventListener);
     return () => window.removeEventListener('createsticky', handler as EventListener);
   }, [addSticky]);
+
+  useEffect(() => {
+    const handler = () => {
+      const pos = getSpawnPosition();
+      const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
+      addBoard();
+      const apply = () => {
+        const workspace = d3.select(workspaceRef.current);
+        const g = workspace.select<SVGGElement>(`.guitar-board-${newId}`);
+        if (g.empty()) {
+          requestAnimationFrame(apply);
+          return;
+        }
+        applyTransform(g, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
+      };
+      apply();
+    };
+    window.addEventListener('createboard', handler as EventListener);
+    return () => window.removeEventListener('createboard', handler as EventListener);
+  }, [addBoard, getSpawnPosition]);
 
   useEffect(() => {
     const handler = () => {
@@ -1012,6 +1062,10 @@ const GuitarBoard: React.FC = () => {
         e.stopImmediatePropagation();
       } else if (e.key === 'l' && !e.ctrlKey) {
         window.dispatchEvent(new Event('createline'));
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      } else if (e.key === 'g' && !e.ctrlKey) {
+        window.dispatchEvent(new Event('createboard'));
         e.preventDefault();
         e.stopImmediatePropagation();
       }
@@ -1167,17 +1221,6 @@ const GuitarBoard: React.FC = () => {
       window.removeEventListener('keydown', handleKey);
     };
   }, []);
-
-  const updateCursor = (clientX: number, clientY: number) => {
-    if (!svgRef.current) return;
-    const pt = svgRef.current.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-    const [x, y] = zoomRef.current.invert([svgPoint.x, svgPoint.y]);
-    cursorRef.current = { x, y };
-    setCursorPos(cursorRef.current);
-  };
 
   const toWorkspace = (clientX: number, clientY: number) => {
     if (!svgRef.current) return { x: 0, y: 0 };
