@@ -19,6 +19,7 @@ https://sergej-popov.github.io/tremolo/
 - Pasting text always inserts plain text. When editing a sticky note the paste goes into the note instead of creating a new one.
 - Select a pasted object and press **Delete** to remove it.
 - Insert code blocks with syntax highlighting. When a code block is selected dropdowns in the header change its language, theme and font size. Only GitHub light and dark themes are available.
+- Toolbar buttons add items at the cursor unless the cursor is outside the workspace, in which case they appear in the centre of the screen.
 - Use the brush tool to draw very smooth strokes that get thicker as you draw slower. A dropdown lets you set a fixed stroke width instead of pressure. Drawings can be moved, resized and rotated.
 - Draw lines with straight, arched or cornered style. New lines start arched with triangle connectors and snap to subtle connectors at each element's side, remaining attached when those elements move.
 - Change a line's colour from the sticky note palette (now including black) and set the start and end connection style independently: circle, arrow, filled triangle or none. Lines default to black.
