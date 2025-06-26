@@ -15,6 +15,7 @@ import BrushIcon from '@mui/icons-material/Brush';
 import CodeIcon from '@mui/icons-material/Code';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
+import SaveIcon from '@mui/icons-material/Save';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 
@@ -90,23 +91,41 @@ const Menu: React.FC = () => {
   return (
     <AppBar position="static" style={{ marginBottom: "15px" }}>
       <Toolbar>
-        <IconButton size="large" color="inherit" onClick={addBoard} sx={{ mr: 1, ml: 1 }}>
-          <MusicNoteIcon />
-        </IconButton>
-        <Link to="/second">
-          <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
+        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+          <Link to="/second">
+            <IconButton
+              size="large"
+              edge="start"
+              color="inherit"
+              aria-label="menu"
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Link>
+          <Typography variant="h6" component="div" sx={{ mr: 2 }}>
+            Tremolo
+          </Typography>
+          <IconButton size="large" color="inherit" onClick={addBoard} sx={{ mr: 1 }}>
+            <MusicNoteIcon />
           </IconButton>
-        </Link>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Tremolo
-        </Typography>
+          <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
+            <BrushIcon />
+          </IconButton>
+          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createline'))} sx={{ mr: 1 }}>
+            <ShowChartIcon />
+          </IconButton>
+          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={{ mr: 1 }}>
+            <StickyNote2Icon />
+          </IconButton>
+          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
+            <CodeIcon />
+          </IconButton>
+          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('exportimage'))} sx={{ mr: 1 }}>
+            <SaveIcon />
+          </IconButton>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
         {stickySelected && (
           <>
             <Box id="sticky-color-select" sx={{ mr: 2 }}>
@@ -168,18 +187,6 @@ const Menu: React.FC = () => {
             </Box>
           </>
         )}
-        <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
-          <BrushIcon />
-        </IconButton>
-        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createline'))} sx={{ mr: 1 }}>
-          <ShowChartIcon />
-        </IconButton>
-        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={{ mr: 1 }}>
-          <StickyNote2Icon />
-        </IconButton>
-        <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
-          <CodeIcon />
-        </IconButton>
         {lineSelected && (
           <>
             <Box id="line-color-select" sx={{ mr: 2 }}>
@@ -315,8 +322,14 @@ const Menu: React.FC = () => {
             </Select>
           </Box>
         )}
-        <IconButton target='_blank' href='https://github.com/Sergej-Popov/tremolo' >
-          <GitHubIcon fontSize='large' />
+        </Box>
+        <IconButton
+          target="_blank"
+          href="https://github.com/Sergej-Popov/tremolo"
+          size="large"
+          sx={{ ml: 1 }}
+        >
+          <GitHubIcon fontSize="large" />
         </IconButton>
       </Toolbar>
     </AppBar>

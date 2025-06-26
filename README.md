@@ -9,6 +9,7 @@ https://sergej-popov.github.io/tremolo/
 ## Features
 - Drag and resize the guitar board.
 - Hold **Ctrl** while dragging to snap elements to a 10 px grid. A grid overlay appears while snapping or in debug mode. Hold **Shift** to constrain movement to one axis. Rotating with **Ctrl** snaps to 15° steps.
+- Hold **Ctrl** while resizing to snap dimensions to the grid, with the overlay visible while snapping.
 - Add multiple guitar boards in the same workspace.
 - Paste images that can be positioned and resized.
 - Paste YouTube links to embed videos while preserving aspect ratio.
@@ -28,6 +29,7 @@ https://sergej-popov.github.io/tremolo/
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
+- Click the **save icon** or press **Ctrl+S** to export the current board as a **PNG** image with 40 px padding around the visible area.
 
 ## Hotkeys
 
@@ -38,6 +40,7 @@ https://sergej-popov.github.io/tremolo/
 - **Ctrl+D** – duplicate the selected element at the cursor.
 - **r** – reset element rotation.
 - **/** or **?** – open the help dialog.
+- **Ctrl+S** – export the board as a PNG image.
 
 ### Tools
 - **b** – toggle the brush drawing mode.
@@ -58,8 +61,7 @@ https://sergej-popov.github.io/tremolo/
 
 ## TODO collaboration
 
-1. Export the current board as an image.
-2. Save and load board layouts from local storage.
+1. Save and load board layouts from local storage.
 
 ## TODO music
 
