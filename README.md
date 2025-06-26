@@ -33,7 +33,7 @@ https://sergej-popov.github.io/tremolo/
 - When brush mode is active a dropdown also lets you pick a stroke colour from the sticky note palette.
 - Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
-- Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image at four times the screen resolution with 40 px padding around the visible area.
+- Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image at eight times the screen resolution with 40 px padding around the visible area.
 - Board state, including lines, fret ranges, zoom level and sticky note settings, is saved automatically in the browser and restored on reload.
 - Use the side menu to save the board to a file or open a previously saved file.
 - Pasted images are stored as data URLs so saved boards load correctly from file.
@@ -48,7 +48,7 @@ https://sergej-popov.github.io/tremolo/
 - **Ctrl+D** – duplicate the selected element at the cursor.
 - **r** – reset element rotation.
 - **/** or **?** – open the help dialog.
-- **Ctrl+S** – export the board as a high-resolution PNG image.
+- **Ctrl+S** – export the board as an extra-high-resolution PNG image.
 
 ### Tools
 - **b** – toggle the brush drawing mode.

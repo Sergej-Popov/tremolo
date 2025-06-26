@@ -1,4 +1,4 @@
-const EXPORT_SCALE = 4;
+const EXPORT_SCALE = 8;
 
 export async function exportBoardPng(
   svg: SVGSVGElement,
@@ -67,7 +67,7 @@ export async function exportBoardPng(
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.scale(scale, scale);
     ctx.drawImage(img, 0, 0);
     const link = document.createElement('a');
