@@ -141,6 +141,12 @@ const GuitarBoard: React.FC = () => {
     if (selectedBoard == null) return;
     const range = Array.isArray(newValue) ? newValue : [newValue, newValue];
     fretRangesRef.current[selectedBoard] = range;
+    const workspace = d3.select(workspaceRef.current);
+    const g = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`);
+    if (!g.empty()) {
+      const d = g.datum() as any;
+      d.range = range;
+    }
     setFretRange(range);
   };
 
@@ -658,8 +664,27 @@ const GuitarBoard: React.FC = () => {
         if (Array.isArray(info.data.notes)) {
           info.data.notes.forEach((n: any) => addNoteToBoard(g, n.string, n.fret));
         }
+        if (Array.isArray(info.data.range)) {
+          fretRangesRef.current[newId] = info.data.range;
+          const d = g.datum() as any;
+          d.range = info.data.range;
+          drawBoard(g, info.data.range);
+        }
       };
       apply();
+    } else if (info.type === 'line') {
+      const g = addLine(
+        { x: info.data.x1, y: info.data.y1 },
+        { x: info.data.x2, y: info.data.y2 },
+        info.data.startConn,
+        info.data.endConn
+      );
+      const d = g.datum() as any;
+      d.style = info.data.style;
+      d.color = info.data.color;
+      d.startStyle = info.data.startStyle;
+      d.endStyle = info.data.endStyle;
+      applyLineAppearance(g as any);
     } else if (info.type === 'drawing') {
       const svg = d3.select(svgRef.current);
       const layer = svg.select<SVGGElement>('.drawings');
@@ -700,6 +725,14 @@ const GuitarBoard: React.FC = () => {
       const info: ElementCopy = { type: data.type, data: { ...data } };
       if (info.type === 'board') {
         info.data.notes = el.selectAll('.note').data().map((n: any) => ({ string: n.string, fret: n.fret }));
+        const cls = el.attr('class') || '';
+        const m = cls.match(/guitar-board-(\d+)/);
+        if (m) {
+          const id = parseInt(m[1], 10);
+          if (fretRangesRef.current[id]) {
+            info.data.range = fretRangesRef.current[id];
+          }
+        }
       }
       items.push(info);
     });
@@ -745,6 +778,9 @@ const GuitarBoard: React.FC = () => {
     range: number[] = fretRange
   ) => {
     if (!boardSel) return;
+
+    const d = boardSel.datum() as any;
+    if (d) d.range = range;
 
     boardSel.selectAll('.string').remove();
     boardSel.selectAll('.fret').remove();
@@ -806,6 +842,12 @@ const GuitarBoard: React.FC = () => {
     const range = [min, max];
     if (selectedBoard != null) {
       fretRangesRef.current[selectedBoard] = range;
+      const workspace = d3.select(workspaceRef.current);
+      const g = workspace.select<SVGGElement>(`.guitar-board-${selectedBoard}`);
+      if (!g.empty()) {
+        const d = g.datum() as any;
+        d.range = range;
+      }
     }
     setFretRange(range);
   }
@@ -1256,10 +1298,11 @@ const GuitarBoard: React.FC = () => {
         b = workspace
           .append('g')
           .attr('class', `guitar-board guitar-board-${id}`)
-          .datum<{ id: string; type: 'board'; transform: any }>({
+          .datum<{ id: string; type: 'board'; transform: any; range?: number[] }>({
             id: generateId(),
             type: 'board',
             transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+            range: fretRangesRef.current[id] ?? [1, fretCount],
           });
         b.call(makeDraggable);
         b.call(makeResizable, { rotatable: true });
