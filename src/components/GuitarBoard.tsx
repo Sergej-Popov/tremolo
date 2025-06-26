@@ -777,7 +777,7 @@ const GuitarBoard: React.FC = () => {
     boardSel: d3.Selection<SVGGElement, any, any, any> | null = d3.select(boardRef.current),
     range: number[] = fretRange
   ) => {
-    if (!boardSel) return;
+    if (!boardSel || boardSel.empty()) return;
 
     const d = boardSel.datum() as any;
     if (d) d.range = range;
