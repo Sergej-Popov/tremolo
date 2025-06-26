@@ -124,9 +124,6 @@ const Menu: React.FC = () => {
           <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('exportimage'))} sx={{ mr: 1 }}>
             <SaveIcon />
           </IconButton>
-          <IconButton target='_blank' href='https://github.com/Sergej-Popov/tremolo'>
-            <GitHubIcon />
-          </IconButton>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
         {stickySelected && (
@@ -326,6 +323,14 @@ const Menu: React.FC = () => {
           </Box>
         )}
         </Box>
+        <IconButton
+          target="_blank"
+          href="https://github.com/Sergej-Popov/tremolo"
+          size="large"
+          sx={{ ml: 1 }}
+        >
+          <GitHubIcon fontSize="large" />
+        </IconButton>
       </Toolbar>
     </AppBar>
   );
