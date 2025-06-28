@@ -394,6 +394,11 @@ const GuitarBoard: React.FC = () => {
     }, 0);
 
     group.on('dblclick', () => {
+      pendingRef.current = {
+        state: serializeWorkspace(),
+        type: 'sticky',
+        action: 'text',
+      };
       div
         .attr('contentEditable', 'true')
         .classed('view-mode', false)
@@ -425,7 +430,11 @@ const GuitarBoard: React.FC = () => {
         const data = group.datum() as any;
         adjustStickyFont(node, data.fontSize);
       }
-      pushHistory(serializeWorkspace(), 'sticky', 'text');
+      if (pendingRef.current) {
+        const { state, type, action } = pendingRef.current;
+        pushHistory(state, type, action);
+        pendingRef.current = null;
+      }
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
@@ -498,6 +507,11 @@ const GuitarBoard: React.FC = () => {
     });
 
     group.on('dblclick', () => {
+      pendingRef.current = {
+        state: serializeWorkspace(),
+        type: 'code',
+        action: 'text',
+      };
       pre
         .attr('contentEditable', 'true')
         .classed('edit-mode', true)
@@ -530,7 +544,11 @@ const GuitarBoard: React.FC = () => {
       });
       pre.style('color', null);
       window.getSelection()?.removeAllRanges();
-      pushHistory(serializeWorkspace(), 'code', 'text');
+      if (pendingRef.current) {
+        const { state, type, action } = pendingRef.current;
+        pushHistory(state, type, action);
+        pendingRef.current = null;
+      }
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
