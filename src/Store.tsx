@@ -3,6 +3,12 @@ import { setDebugMode } from './d3-ext';
 
 import { noteColors } from "./theme";
 
+export interface HistoryEntry {
+  state: string;
+  type?: string;
+  action?: string;
+}
+
 interface AppState {
   data: any[];
   setData: React.Dispatch<React.SetStateAction<any[]>>;
@@ -33,6 +39,15 @@ interface AppState {
   setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
   brushColor: string;
   setBrushColor: React.Dispatch<React.SetStateAction<string>>;
+  past: HistoryEntry[];
+  future: HistoryEntry[];
+  canUndo: boolean;
+  canRedo: boolean;
+  pushHistory: (state: any[], type?: string, action?: string) => void;
+  undo: () => void;
+  redo: () => void;
+  registerSerializer: (fn: () => any[]) => void;
+  getSnapshot: () => any[];
 }
 
 export const AppContext = createContext<AppState | undefined>(undefined);
@@ -55,14 +70,77 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
   const [brushColor, setBrushColor] = useState<string>(noteColors[noteColors.length - 1]);
 
+  const [past, setPast] = useState<HistoryEntry[]>([]);
+  const [future, setFuture] = useState<HistoryEntry[]>([]);
+  const serializerRef = React.useRef<() => any[]>(() => []);
+
+  const canUndo = past.length > 0;
+  const canRedo = future.length > 0;
+
+  const registerSerializer = (fn: () => any[]) => {
+    serializerRef.current = fn;
+  };
+
+  const getSnapshot = () => serializerRef.current();
+
+  const pushHistory = (state: any[], type?: string, action?: string) => {
+    const snapshot = JSON.stringify(state);
+    setPast((p) => {
+      if (p.length && p[p.length - 1].state === snapshot) return p;
+      return [...p, { state: snapshot, type, action }];
+    });
+    setFuture([]);
+  };
+
+  const undo = () => {
+    setPast((p) => {
+      if (!p.length) return p;
+      const prev = p[p.length - 1];
+      const newPast = p.slice(0, -1);
+      const current = JSON.stringify(serializerRef.current());
+      setFuture((f) => {
+        if (f.length && f[f.length - 1].state === current) return f;
+        return [...f, { state: current, type: prev.type, action: prev.action }];
+      });
+      window.dispatchEvent(new CustomEvent('loadboard', { detail: { items: JSON.parse(prev.state), fromHistory: true } }));
+      return newPast;
+    });
+  };
+
+  const redo = () => {
+    setFuture((f) => {
+      if (!f.length) return f;
+      const next = f[f.length - 1];
+      const newFuture = f.slice(0, -1);
+      const current = JSON.stringify(serializerRef.current());
+      setPast((p) => {
+        if (p.length && p[p.length - 1].state === current) return p;
+        return [...p, { state: current, type: next.type, action: next.action }];
+      });
+      window.dispatchEvent(new CustomEvent('loadboard', { detail: { items: JSON.parse(next.state), fromHistory: true } }));
+      return newFuture;
+    });
+  };
+
   const addBoard = () => {
     setBoards((ids) => [...ids, ids.length ? Math.max(...ids) + 1 : 0]);
   };
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'd') {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.getAttribute('contenteditable') === 'true')
+      ) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
         setDebug((prev) => !prev);
+        e.preventDefault();
+        return;
       }
       if (e.key === 'b') {
         setDrawingMode((prev) => !prev);
@@ -87,6 +165,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       window.removeEventListener('createline', disable as EventListener);
     };
   }, []);
+
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.getAttribute('contenteditable') === 'true')
+      ) {
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) {
+        redo();
+      } else {
+        undo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [undo, redo]);
 
   return (
     <AppContext.Provider value={{
@@ -119,6 +220,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setBrushWidth,
       brushColor,
       setBrushColor,
+      past,
+      future,
+      canUndo,
+      canRedo,
+      pushHistory,
+      undo,
+      redo,
+      registerSerializer,
+      getSnapshot,
     }}>
       {children}
     </AppContext.Provider>

@@ -382,6 +382,7 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
         transform: TransformValues;
         startX: number;
         startY: number;
+        moved?: boolean;
     };
 
     selection.call(
@@ -402,13 +403,13 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const dragOffsetY = startY - transform.translateY;
 
                 debugLog('drag start', transform.translateX, transform.translateY);
-                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY });
+                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY, moved: false });
                 setGridVisible(event.ctrlKey);
             })
             .on('drag', function (event: MouseEvent) {
                 const element = d3.select<any, DragDatum>(this);
                 const data = element.datum();
-                const { dragOffsetX, dragOffsetY, transform, startX, startY } = data;
+                const { dragOffsetX, dragOffsetY, transform, startX, startY, moved } = data;
 
                 const [mx, my] = toWorkspaceCoords(event);
                 let newX = mx - dragOffsetX;
@@ -430,6 +431,11 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                     translateX: newX,
                     translateY: newY,
                 };
+
+                if (!moved && (newX !== startX || newY !== startY)) {
+                    window.dispatchEvent(new CustomEvent('element-move-start', { detail: element.node() }));
+                    data.moved = true;
+                }
 
                 applyTransform(element, newTransform);
                 setGridVisible(!!ctrl);
@@ -682,6 +688,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     finishCrop(element);
                 }
 
+                window.dispatchEvent(new CustomEvent('element-resize-start', { detail: element.node() }));
+
                 const bbox = (element.node() as SVGGraphicsElement).getBBox();
                 const data = element.datum() as any;
                 const width = data.width ?? bbox.width;
@@ -768,6 +776,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 setGridVisible(!!ctrl);
             })
             .on('end', function () {
+                window.dispatchEvent(new CustomEvent('element-resize-end', { detail: element.node() }));
                 if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
@@ -808,6 +817,7 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     if (!overlay.empty() && overlay.style('display') !== 'none') {
                         finishCrop(element);
                     }
+                    window.dispatchEvent(new CustomEvent('element-rotate-start', { detail: element.node() }));
 
                     const data = element.datum() as any;
                     const transform: TransformValues = data.transform ?? defaultTransform();
@@ -1065,6 +1075,7 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
 }
 
 function startCrop(element: Selection<any, any, any, any>) {
+    window.dispatchEvent(new CustomEvent('element-crop-start', { detail: element.node() }));
     const data = element.datum() as any || {};
     let crop: CropValues = data.crop;
     if (!crop) {

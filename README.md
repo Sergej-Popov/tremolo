@@ -31,13 +31,15 @@ https://sergej-popov.github.io/tremolo/
 - Set a fixed font size for a sticky note from the header dropdown or choose "Auto" for automatic sizing (6–48px in even steps).
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - When brush mode is active a dropdown also lets you pick a stroke colour from the sticky note palette.
-- Toggle debug mode with **d** to show extra info, crosses over elements, and a debug panel with coordinates and rotation angles.
+- Toggle debug mode with **Ctrl+Shift+D** (**Cmd+Shift+D** on macOS) to show extra info, crosses over elements, and a debug panel with coordinates, rotation angles and undo history.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
 - Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image at eight times the screen resolution with 40 px padding around the visible area.
 - Board state, including lines, fret ranges, zoom level and sticky note settings, is saved automatically in the browser and restored on reload.
 - Use the side menu to save the board to a file or open a previously saved file.
 - Pasted images are stored as data URLs so saved boards load correctly from file.
 - Use **Clear Board** in the side menu to reset the workspace.
+- Undo and redo board changes with **Ctrl+Z** (**Cmd+Z** on macOS) and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) or the toolbar buttons.
+- Style tweaks like colour, alignment and font size are also undoable.
 
 ## Hotkeys
 
@@ -49,6 +51,8 @@ https://sergej-popov.github.io/tremolo/
 - **r** – reset element rotation.
 - **/** or **?** – open the help dialog.
 - **Ctrl+S** – export the board as an extra-high-resolution PNG image.
+- **Ctrl+Z** / **Cmd+Z** – undo the last change.
+- **Ctrl+Shift+Z** / **Cmd+Shift+Z** – redo the last undone change.
 
 ### Tools
 - **b** – toggle the brush drawing mode.
@@ -62,7 +66,6 @@ https://sergej-popov.github.io/tremolo/
 
 ## TODO general
 
-1. [Large] Provide undo and redo support for board changes.
 2. Add a dark and light theme toggle for the fretboard interface.
 3. Draw style themes
 4. Tool pannel

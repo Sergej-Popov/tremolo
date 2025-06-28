@@ -5,7 +5,7 @@ import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransfo
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
 import { noteColors, defaultLineColor } from '../theme';
-import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel } from '@mui/material';
+import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
@@ -68,6 +68,19 @@ function extractVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+const getElementType = (node: Element | null): string | undefined => {
+  if (!node) return undefined;
+  const sel = d3.select(node);
+  if (sel.classed('pasted-image')) return 'image';
+  if (sel.classed('embedded-video')) return 'video';
+  if (sel.classed('sticky-note')) return 'sticky';
+  if (sel.classed('code-block')) return 'code';
+  if (sel.classed('guitar-board')) return 'board';
+  if (sel.classed('drawing')) return 'drawing';
+  if (sel.classed('line-element')) return 'line';
+  return undefined;
+};
+
 const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
@@ -84,6 +97,10 @@ const GuitarBoard: React.FC = () => {
   const drawingMode = app?.drawingMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
   const brushColor = app?.brushColor ?? defaultLineColor;
+  const pushHistory = app?.pushHistory ?? (() => {});
+  const registerSerializer = app?.registerSerializer ?? (() => {});
+  const past = app?.past ?? [];
+  const future = app?.future ?? [];
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -104,6 +121,8 @@ const GuitarBoard: React.FC = () => {
   const lastPoint = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
+
+  const pendingRef = useRef<{ state: ElementCopy[]; type?: string; action?: string } | null>(null);
 
   const cursorScreenRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -375,6 +394,11 @@ const GuitarBoard: React.FC = () => {
     }, 0);
 
     group.on('dblclick', () => {
+      pendingRef.current = {
+        state: serializeWorkspace(),
+        type: 'sticky',
+        action: 'text',
+      };
       div
         .attr('contentEditable', 'true')
         .classed('view-mode', false)
@@ -405,6 +429,11 @@ const GuitarBoard: React.FC = () => {
       if (node) {
         const data = group.datum() as any;
         adjustStickyFont(node, data.fontSize);
+      }
+      if (pendingRef.current) {
+        const { state, type, action } = pendingRef.current;
+        pushHistory(state, type, action);
+        pendingRef.current = null;
       }
     });
 
@@ -478,6 +507,11 @@ const GuitarBoard: React.FC = () => {
     });
 
     group.on('dblclick', () => {
+      pendingRef.current = {
+        state: serializeWorkspace(),
+        type: 'code',
+        action: 'text',
+      };
       pre
         .attr('contentEditable', 'true')
         .classed('edit-mode', true)
@@ -510,6 +544,11 @@ const GuitarBoard: React.FC = () => {
       });
       pre.style('color', null);
       window.getSelection()?.removeAllRanges();
+      if (pendingRef.current) {
+        const { state, type, action } = pendingRef.current;
+        pushHistory(state, type, action);
+        pendingRef.current = null;
+      }
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
@@ -585,7 +624,10 @@ const GuitarBoard: React.FC = () => {
       .attr('cx', start.x)
       .attr('cy', start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
-        .on('start', showTempHandles)
+        .on('start', function () {
+          showTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-start', { detail: (this.parentNode as SVGGElement) }));
+        })
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
@@ -604,6 +646,7 @@ const GuitarBoard: React.FC = () => {
         })
         .on('end', function () {
           hideTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
         }));
     group.append('circle')
       .attr('class', 'line-handle end')
@@ -611,7 +654,10 @@ const GuitarBoard: React.FC = () => {
       .attr('cx', end ? end.x : start.x + 100)
       .attr('cy', end ? end.y : start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
-        .on('start', showTempHandles)
+        .on('start', function () {
+          showTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-start', { detail: (this.parentNode as SVGGElement) }));
+        })
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
@@ -630,6 +676,7 @@ const GuitarBoard: React.FC = () => {
         })
         .on('end', function () {
           hideTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
         }));
     group.call(makeResizable);
     group.dispatch('click');
@@ -638,6 +685,58 @@ const GuitarBoard: React.FC = () => {
     updateSelectedEndConnectionStyle('circle');
     return group;
   }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true')) return;
+      if (e.key === 'Delete' || e.key.toLowerCase() === 'r') {
+        const info = getSelectedElementData();
+        const action = e.key === 'Delete' ? 'delete' : 'rotate';
+        pushHistory(serializeWorkspace(), info?.type, action);
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [pushHistory]);
+
+  useEffect(() => {
+    const move = (e: CustomEvent<Element>) => {
+      pushHistory(serializeWorkspace(), getElementType(e.detail), 'move');
+    };
+    const resizeStart = (e: CustomEvent<Element>) => {
+      pendingRef.current = {
+        state: serializeWorkspace(),
+        type: getElementType(e.detail),
+        action: 'resize',
+      };
+    };
+    const resizeEnd = () => {
+      if (pendingRef.current) {
+        const { state, type, action } = pendingRef.current;
+        pushHistory(state, type, action);
+        pendingRef.current = null;
+      }
+    };
+    const rotate = (e: CustomEvent<Element>) => {
+      pushHistory(serializeWorkspace(), getElementType(e.detail), 'rotate');
+    };
+    const crop = (e: CustomEvent<Element>) => {
+      pushHistory(serializeWorkspace(), getElementType(e.detail), 'crop');
+    };
+    window.addEventListener('element-move-start', move as EventListener);
+    window.addEventListener('element-resize-start', resizeStart as EventListener);
+    window.addEventListener('element-resize-end', resizeEnd as EventListener);
+    window.addEventListener('element-rotate-start', rotate as EventListener);
+    window.addEventListener('element-crop-start', crop as EventListener);
+    return () => {
+      window.removeEventListener('element-move-start', move as EventListener);
+      window.removeEventListener('element-resize-start', resizeStart as EventListener);
+      window.removeEventListener('element-resize-end', resizeEnd as EventListener);
+      window.removeEventListener('element-rotate-start', rotate as EventListener);
+      window.removeEventListener('element-crop-start', crop as EventListener);
+    };
+  }, [pushHistory]);
 
   const duplicateElement = (info: ElementCopy) => {
     const pos = cursorRef.current;
@@ -679,6 +778,10 @@ const GuitarBoard: React.FC = () => {
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'code') {
       const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize);
+      const d = g.datum() as any;
+      d.id = info.data.id;
+      d.width = info.data.width;
+      d.height = info.data.height;
       const pre = g.select<HTMLPreElement>('foreignObject > pre').node();
       if (pre) {
         highlightCode(info.data.code, info.data.lang, info.data.theme).then(res => {
@@ -687,7 +790,8 @@ const GuitarBoard: React.FC = () => {
           pre.style.fontSize = `${info.data.fontSize}px`;
         });
       }
-      (g.datum() as any).id = info.data.id;
+      g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
+      g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
@@ -756,7 +860,7 @@ const GuitarBoard: React.FC = () => {
     }
   };
 
-  const serializeWorkspace = (): ElementCopy[] => {
+  const serializeWorkspace = (includeZoom: boolean = false): ElementCopy[] => {
     const svg = d3.select(svgRef.current);
     const workspace = svg.select<SVGGElement>('.workspace');
     const items: ElementCopy[] = [];
@@ -780,9 +884,15 @@ const GuitarBoard: React.FC = () => {
       }
       items.push(info);
     });
-    items.push({ type: 'meta', data: { zoom: { x: zoomRef.current.x, y: zoomRef.current.y, k: zoomRef.current.k } } });
+    if (includeZoom) {
+      items.push({ type: 'meta', data: { zoom: { x: zoomRef.current.x, y: zoomRef.current.y, k: zoomRef.current.k } } });
+    }
     return items;
   };
+
+  React.useEffect(() => {
+    registerSerializer(() => serializeWorkspace());
+  }, [registerSerializer]);
 
   const clearWorkspace = () => {
     const svg = d3.select(svgRef.current);
@@ -792,11 +902,30 @@ const GuitarBoard: React.FC = () => {
     setSelectedBoard(null);
   };
 
-  const loadWorkspace = (items: ElementCopy[]) => {
+  const loadWorkspace = (items: ElementCopy[], fromHistory: boolean = false) => {
     localStorage.setItem('tremoloBoard', JSON.stringify(items));
-    clearWorkspace();
-    ensureWorkspace();
+    const existingVideos: Map<string, d3.Selection<SVGGElement, any, any, any>> = new Map();
+    if (fromHistory) {
+      ensureWorkspace();
+      const workspace = d3.select(workspaceRef.current);
+      workspace.selectAll<SVGGElement>('.embedded-video').each(function () {
+        const sel = d3.select(this);
+        const d = sel.datum() as any;
+        if (d && d.id) {
+          existingVideos.set(d.id, sel);
+        }
+      });
+      workspace
+        .selectAll(
+          '.pasted-image, .sticky-note, .code-block, .line-element, .drawing, .guitar-board'
+        )
+        .remove();
+    } else {
+      clearWorkspace();
+      ensureWorkspace();
+    }
     let zoomItem: any = null;
+    const seenVideos: Set<string> = new Set();
     items.forEach((info) => {
       if (info.type === 'meta') {
         zoomItem = info.data.zoom;
@@ -806,8 +935,36 @@ const GuitarBoard: React.FC = () => {
         x: info.data.transform?.translateX ?? 0,
         y: info.data.transform?.translateY ?? 0,
       };
+      if (fromHistory && info.type === 'video') {
+        const existing = existingVideos.get(info.data.id);
+        if (existing) {
+          const d = existing.datum() as any;
+          Object.assign(d, info.data);
+          existing
+            .select('rect')
+            .attr('width', info.data.width)
+            .attr('height', info.data.height);
+          existing
+            .select('foreignObject')
+            .attr('width', info.data.width - videoPadding * 2)
+            .attr('height', info.data.height - videoPadding * 2);
+          applyTransform(existing as any, info.data.transform);
+          seenVideos.add(info.data.id);
+          return;
+        }
+      }
       duplicateElement(info);
+      if (fromHistory && info.type === 'video') {
+        seenVideos.add(info.data.id);
+      }
     });
+    if (fromHistory) {
+      existingVideos.forEach((sel, id) => {
+        if (!seenVideos.has(id)) {
+          sel.remove();
+        }
+      });
+    }
     if (zoomItem) {
       initialZoom.current = d3.zoomIdentity.translate(zoomItem.x, zoomItem.y).scale(zoomItem.k);
       if (zoomBehaviorRef.current && svgRef.current) {
@@ -815,6 +972,9 @@ const GuitarBoard: React.FC = () => {
         setZoomValue(zoomItem.k);
         initialZoom.current = null;
       }
+    } else if (zoomBehaviorRef.current && svgRef.current) {
+      // keep current zoom when history snapshots omit zoom metadata
+      d3.select(svgRef.current).call(zoomBehaviorRef.current.transform, zoomRef.current);
     }
   };
 
@@ -921,21 +1081,28 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handler = () => addCodeBlock('', codeLanguage, codeTheme, getSpawnPosition(), codeFontSize);
+    const handler = () => {
+      pushHistory(serializeWorkspace(), 'code', 'create');
+      addCodeBlock('', codeLanguage, codeTheme, getSpawnPosition(), codeFontSize);
+    };
     window.addEventListener('createcodeblock', handler as EventListener);
     return () => window.removeEventListener('createcodeblock', handler as EventListener);
   }, [addCodeBlock, codeLanguage, codeTheme, codeFontSize]);
 
   useEffect(() => {
-    const handler = () => addLine(getSpawnPosition());
+    const handler = () => {
+      pushHistory(serializeWorkspace(), 'line', 'create');
+      addLine(getSpawnPosition());
+    };
     window.addEventListener('createline', handler as EventListener);
     return () => window.removeEventListener('createline', handler as EventListener);
-  }, [addLine]);
+  }, [addLine, pushHistory]);
 
   const activeLine = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
 
   useEffect(() => {
     const start = (e: CustomEvent) => {
+      pushHistory(serializeWorkspace(), 'line', 'create');
       const { x, y, elementId, position } = e.detail;
       showTempHandles();
       activeLine.current = addLine({ x, y }, { x, y }, { elementId, position });
@@ -972,16 +1139,20 @@ const GuitarBoard: React.FC = () => {
       window.removeEventListener('lineconnectdrag', drag as EventListener);
       window.removeEventListener('lineconnectend', end as EventListener);
     };
-  }, [addLine]);
+  }, [addLine, pushHistory]);
 
   useEffect(() => {
-    const handler = () => addSticky('', getSpawnPosition());
+    const handler = () => {
+      pushHistory(serializeWorkspace(), 'sticky', 'create');
+      addSticky('', getSpawnPosition());
+    };
     window.addEventListener('createsticky', handler as EventListener);
     return () => window.removeEventListener('createsticky', handler as EventListener);
   }, [addSticky]);
 
   useEffect(() => {
     const handler = () => {
+      pushHistory(serializeWorkspace(), 'board', 'create');
       const pos = getSpawnPosition();
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
       addBoard();
@@ -1021,7 +1192,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handler = () => {
-      const data = serializeWorkspace();
+      const data = serializeWorkspace(true);
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1033,10 +1204,14 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const load = (e: CustomEvent<ElementCopy[]>) => {
-      loadWorkspace(e.detail);
+    const load = (e: CustomEvent<{ items: ElementCopy[]; fromHistory?: boolean }>) => {
+      if (!e.detail.fromHistory) {
+        pushHistory(serializeWorkspace(), 'meta', 'load');
+      }
+      loadWorkspace(e.detail.items, !!e.detail.fromHistory);
     };
     const clear = () => {
+      pushHistory(serializeWorkspace(), 'meta', 'clear');
       clearWorkspace();
       localStorage.removeItem('tremoloBoard');
     };
@@ -1142,12 +1317,14 @@ const GuitarBoard: React.FC = () => {
         }
         const id = extractVideoId(trimmed);
         if (id) {
+          pushHistory(serializeWorkspace(), 'video', 'create');
           addVideo(trimmed, cursorRef.current);
           event.preventDefault();
           return;
         }
 
         if (trimmed.length > 0) {
+          pushHistory(serializeWorkspace(), 'sticky', 'create');
           addSticky(trimmed, cursorRef.current);
           event.preventDefault();
           return;
@@ -1166,6 +1343,7 @@ const GuitarBoard: React.FC = () => {
             const src = reader.result as string;
             const img = new Image();
             img.onload = () => {
+              pushHistory(serializeWorkspace(), 'image', 'create');
               addImage(src, cursorRef.current, img.width, img.height);
             };
             img.src = src;
@@ -1202,6 +1380,7 @@ const GuitarBoard: React.FC = () => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key.toLowerCase() === 'd') {
         const info = getSelectedElementData();
+        pushHistory(serializeWorkspace(), info?.type, 'duplicate');
         if (info) {
           duplicateElement(info);
           e.preventDefault();
@@ -1239,6 +1418,7 @@ const GuitarBoard: React.FC = () => {
   const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!drawingMode) return;
     event.stopPropagation();
+    pushHistory(serializeWorkspace(), 'drawing', 'create');
     const { x, y } = toWorkspace(event.clientX, event.clientY);
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.drawings');
@@ -1368,7 +1548,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const workspace = ensureWorkspace();
-
+    
     boards.forEach((id) => {
       let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
       if (b.empty()) {
@@ -1404,6 +1584,7 @@ const GuitarBoard: React.FC = () => {
     } else {
       boardRef.current = null;
     }
+    return undefined;
   }, [boards, selectedBoard]);
 
   useEffect(() => {
@@ -1443,7 +1624,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const save = () => {
-      const data = serializeWorkspace();
+      const data = serializeWorkspace(true);
       localStorage.setItem('tremoloBoard', JSON.stringify(data));
     };
     const id = setInterval(save, 2000);
@@ -1533,6 +1714,32 @@ const GuitarBoard: React.FC = () => {
               {selectedBounds &&
                 ` | sel: x:${selectedBounds.x.toFixed(1)}, y:${selectedBounds.y.toFixed(1)}, w:${selectedBounds.width.toFixed(1)}, h:${selectedBounds.height.toFixed(1)}, a:${selectedBounds.rotate.toFixed(1)}`}
             </Typography>
+          </Box>
+        )}
+        {debug && (
+          <Box sx={{ position: 'absolute', bottom: 8, right: 8, maxHeight: '30vh', overflow: 'auto', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Past</TableCell>
+                  <TableCell>Future</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Array.from({ length: Math.max(past.length, future.length) }).map((_, i) => {
+                  const p = past[past.length - 1 - i];
+                  const f = future[future.length - 1 - i];
+                  const pf = p ? `type:${p.type}; action:${p.action}` : '';
+                  const ff = f ? `type:${f.type}; action:${f.action}` : '';
+                  return (
+                    <TableRow key={i}>
+                      <TableCell sx={{ fontSize: '0.6rem' }}>{pf}</TableCell>
+                      <TableCell sx={{ fontSize: '0.6rem' }}>{ff}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </Box>
         )}
         <Drawer
