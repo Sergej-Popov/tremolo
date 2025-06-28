@@ -760,6 +760,10 @@ const GuitarBoard: React.FC = () => {
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'code') {
       const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize);
+      const d = g.datum() as any;
+      d.id = info.data.id;
+      d.width = info.data.width;
+      d.height = info.data.height;
       const pre = g.select<HTMLPreElement>('foreignObject > pre').node();
       if (pre) {
         highlightCode(info.data.code, info.data.lang, info.data.theme).then(res => {
@@ -768,7 +772,8 @@ const GuitarBoard: React.FC = () => {
           pre.style.fontSize = `${info.data.fontSize}px`;
         });
       }
-      (g.datum() as any).id = info.data.id;
+      g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
+      g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'board') {
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
