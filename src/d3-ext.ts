@@ -776,6 +776,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 setGridVisible(!!ctrl);
             })
             .on('end', function () {
+                window.dispatchEvent(new CustomEvent('element-resize-end', { detail: element.node() }));
                 if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }

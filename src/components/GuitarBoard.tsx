@@ -122,6 +122,8 @@ const GuitarBoard: React.FC = () => {
   const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
 
+  const pendingRef = useRef<{ state: ElementCopy[]; type?: string; action?: string } | null>(null);
+
   const cursorScreenRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const updateCursor = (clientX: number, clientY: number) => {
@@ -626,6 +628,7 @@ const GuitarBoard: React.FC = () => {
         })
         .on('end', function () {
           hideTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
         }));
     group.append('circle')
       .attr('class', 'line-handle end')
@@ -655,6 +658,7 @@ const GuitarBoard: React.FC = () => {
         })
         .on('end', function () {
           hideTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
         }));
     group.call(makeResizable);
     group.dispatch('click');
@@ -682,8 +686,19 @@ const GuitarBoard: React.FC = () => {
     const move = (e: CustomEvent<Element>) => {
       pushHistory(serializeWorkspace(), getElementType(e.detail), 'move');
     };
-    const resize = (e: CustomEvent<Element>) => {
-      pushHistory(serializeWorkspace(), getElementType(e.detail), 'resize');
+    const resizeStart = (e: CustomEvent<Element>) => {
+      pendingRef.current = {
+        state: serializeWorkspace(),
+        type: getElementType(e.detail),
+        action: 'resize',
+      };
+    };
+    const resizeEnd = () => {
+      if (pendingRef.current) {
+        const { state, type, action } = pendingRef.current;
+        pushHistory(state, type, action);
+        pendingRef.current = null;
+      }
     };
     const rotate = (e: CustomEvent<Element>) => {
       pushHistory(serializeWorkspace(), getElementType(e.detail), 'rotate');
@@ -692,12 +707,14 @@ const GuitarBoard: React.FC = () => {
       pushHistory(serializeWorkspace(), getElementType(e.detail), 'crop');
     };
     window.addEventListener('element-move-start', move as EventListener);
-    window.addEventListener('element-resize-start', resize as EventListener);
+    window.addEventListener('element-resize-start', resizeStart as EventListener);
+    window.addEventListener('element-resize-end', resizeEnd as EventListener);
     window.addEventListener('element-rotate-start', rotate as EventListener);
     window.addEventListener('element-crop-start', crop as EventListener);
     return () => {
       window.removeEventListener('element-move-start', move as EventListener);
-      window.removeEventListener('element-resize-start', resize as EventListener);
+      window.removeEventListener('element-resize-start', resizeStart as EventListener);
+      window.removeEventListener('element-resize-end', resizeEnd as EventListener);
       window.removeEventListener('element-rotate-start', rotate as EventListener);
       window.removeEventListener('element-crop-start', crop as EventListener);
     };
