@@ -13,6 +13,7 @@ https://sergej-popov.github.io/tremolo/
 - Add multiple guitar boards in the same workspace.
 - Paste images that can be positioned and resized.
 - Paste YouTube links to embed videos while preserving aspect ratio.
+- Paste links to audio files to add playback controls.
 - Paste text to create sticky notes that can be dragged, resized and rotated. Double-click a sticky note to edit its text, or press **n** or use the toolbar button to insert an empty note.
 - Sticky note text wraps and shrinks automatically; if it still overflows at the minimum size, a thin scrollbar appears.
 - Scrollbars have a transparent track and respond to the mouse wheel when hovering over a sticky note.

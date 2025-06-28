@@ -47,6 +47,7 @@ interface NoteDatum { id: string; type: 'note'; string: noteString; fret: number
 interface PastedImageDatum { id: string; type: 'image'; src: string; width: number; height: number }
 
 interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: string }
+interface PastedAudioDatum { id: string; type: 'audio'; url: string }
 
 interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
@@ -61,6 +62,10 @@ const videoWidth = 480;
 const videoHeight = 270;
 const videoPadding = 10;
 
+const audioWidth = 300;
+const audioHeight = 56;
+const audioPadding = 10;
+
 const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
 
 function extractVideoId(url: string): string | null {
@@ -73,6 +78,7 @@ const getElementType = (node: Element | null): string | undefined => {
   const sel = d3.select(node);
   if (sel.classed('pasted-image')) return 'image';
   if (sel.classed('embedded-video')) return 'video';
+  if (sel.classed('embedded-audio')) return 'audio';
   if (sel.classed('sticky-note')) return 'sticky';
   if (sel.classed('code-block')) return 'code';
   if (sel.classed('guitar-board')) return 'board';
@@ -339,6 +345,53 @@ const GuitarBoard: React.FC = () => {
 
     return group;
   }
+
+  const addAudio = (url: string, pos: { x: number, y: number }) => {
+    const svg = d3.select(svgRef.current);
+    const layer = svg.select<SVGGElement>('.embedded-audios');
+
+    const group = layer.append('g')
+      .attr('class', 'embedded-audio')
+      .datum<PastedAudioDatum & { width: number; height: number; transform: any }>({
+        id: generateId(),
+        type: 'audio',
+        url,
+        width: audioWidth + audioPadding * 2,
+        height: audioHeight + audioPadding * 2,
+        transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+      });
+
+    group.append('rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', audioWidth + audioPadding * 2)
+      .attr('height', audioHeight + audioPadding * 2)
+      .attr('fill', 'transparent');
+
+    const fo = group.append('foreignObject')
+      .attr('x', audioPadding)
+      .attr('y', audioPadding)
+      .attr('width', audioWidth)
+      .attr('height', audioHeight);
+
+    fo.append('xhtml:audio')
+      .attr('controls', 'true')
+      .attr('src', url)
+      .style('width', '100%');
+
+    applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
+
+    group.call(makeDraggable);
+    group.call(makeResizable, { rotatable: true });
+
+    if (debug) {
+      addDebugCross(group);
+    }
+
+    group.dispatch('click');
+
+    return group;
+  };
 
 
   const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
@@ -759,6 +812,10 @@ const GuitarBoard: React.FC = () => {
         (g.datum() as any).id = info.data.id;
         applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       }
+    } else if (info.type === 'audio') {
+      const g = addAudio(info.data.url, pos);
+      (g.datum() as any).id = info.data.id;
+      applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'sticky') {
       const g = addSticky(info.data.text, pos, { fontSize: info.data.fontSize ?? null, color: info.data.color, align: info.data.align });
       const d = g.datum() as any;
@@ -864,12 +921,12 @@ const GuitarBoard: React.FC = () => {
     const svg = d3.select(svgRef.current);
     const workspace = svg.select<SVGGElement>('.workspace');
     const items: ElementCopy[] = [];
-    const selector = '.pasted-image, .embedded-video, .sticky-note, .code-block, .line-element, .drawing, .guitar-board';
+    const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board';
     workspace.selectAll<SVGGElement, any>(selector).each(function () {
       const el = d3.select(this);
       const data = { ...(el.datum() as any) };
       if (!data || !data.type) return;
-      if (!['image','video','sticky','board','drawing','code','line'].includes(data.type)) return;
+      if (!['image','video','audio','sticky','board','drawing','code','line'].includes(data.type)) return;
       const info: ElementCopy = { type: data.type, data: { ...data } };
       if (info.type === 'board') {
         info.data.notes = el.selectAll('.note').data().map((n: any) => ({ string: n.string, fret: n.fret }));
@@ -917,7 +974,7 @@ const GuitarBoard: React.FC = () => {
       });
       workspace
         .selectAll(
-          '.pasted-image, .sticky-note, .code-block, .line-element, .drawing, .guitar-board'
+          '.pasted-image, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board'
         )
         .remove();
     } else {
@@ -1323,6 +1380,13 @@ const GuitarBoard: React.FC = () => {
           return;
         }
 
+        if (/\.(mp3|wav|ogg|m4a)$/i.test(trimmed)) {
+          pushHistory(serializeWorkspace(), 'audio', 'create');
+          addAudio(trimmed, cursorRef.current);
+          event.preventDefault();
+          return;
+        }
+
         if (trimmed.length > 0) {
           pushHistory(serializeWorkspace(), 'sticky', 'create');
           addSticky(trimmed, cursorRef.current);
@@ -1347,6 +1411,17 @@ const GuitarBoard: React.FC = () => {
               addImage(src, cursorRef.current, img.width, img.height);
             };
             img.src = src;
+          };
+          reader.readAsDataURL(file);
+          event.preventDefault();
+        } else if (item.type.startsWith('audio/')) {
+          const file = item.getAsFile();
+          if (!file) continue;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const src = reader.result as string;
+            pushHistory(serializeWorkspace(), 'audio', 'create');
+            addAudio(src, cursorRef.current);
           };
           reader.readAsDataURL(file);
           event.preventDefault();
@@ -1524,6 +1599,7 @@ const GuitarBoard: React.FC = () => {
       workspace = svg.append('g').attr('class', 'workspace');
       workspace.append('g').attr('class', 'pasted-images');
       workspace.append('g').attr('class', 'embedded-videos');
+      workspace.append('g').attr('class', 'embedded-audios');
       workspace.append('g').attr('class', 'sticky-notes');
       workspace.append('g').attr('class', 'code-blocks');
       workspace.append('g').attr('class', 'lines');
