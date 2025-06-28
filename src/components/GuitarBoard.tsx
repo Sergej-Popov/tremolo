@@ -648,7 +648,9 @@ const GuitarBoard: React.FC = () => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true')) return;
       if (e.key === 'Delete' || e.key.toLowerCase() === 'r') {
-        pushHistory(serializeWorkspace());
+        const info = getSelectedElementData();
+        const action = e.key === 'Delete' ? 'delete' : 'rotate';
+        pushHistory(serializeWorkspace(), info?.type, action);
       }
     };
     window.addEventListener('keydown', handler, true);
@@ -942,7 +944,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handler = () => {
-      pushHistory(serializeWorkspace());
+      pushHistory(serializeWorkspace(), 'code', 'create');
       addCodeBlock('', codeLanguage, codeTheme, getSpawnPosition(), codeFontSize);
     };
     window.addEventListener('createcodeblock', handler as EventListener);
@@ -951,7 +953,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handler = () => {
-      pushHistory(serializeWorkspace());
+      pushHistory(serializeWorkspace(), 'line', 'create');
       addLine(getSpawnPosition());
     };
     window.addEventListener('createline', handler as EventListener);
@@ -1002,7 +1004,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handler = () => {
-      pushHistory(serializeWorkspace());
+      pushHistory(serializeWorkspace(), 'sticky', 'create');
       addSticky('', getSpawnPosition());
     };
     window.addEventListener('createsticky', handler as EventListener);
@@ -1011,7 +1013,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handler = () => {
-      pushHistory(serializeWorkspace());
+      pushHistory(serializeWorkspace(), 'board', 'create');
       const pos = getSpawnPosition();
       const newId = boardsRef.current.length ? Math.max(...boardsRef.current) + 1 : 0;
       addBoard();
@@ -1064,11 +1066,11 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const load = (e: CustomEvent<ElementCopy[]>) => {
-      pushHistory(serializeWorkspace());
+      pushHistory(serializeWorkspace(), 'meta', 'load');
       loadWorkspace(e.detail);
     };
     const clear = () => {
-      pushHistory(serializeWorkspace());
+      pushHistory(serializeWorkspace(), 'meta', 'clear');
       clearWorkspace();
       localStorage.removeItem('tremoloBoard');
     };
@@ -1174,14 +1176,14 @@ const GuitarBoard: React.FC = () => {
         }
         const id = extractVideoId(trimmed);
         if (id) {
-          pushHistory(serializeWorkspace());
+          pushHistory(serializeWorkspace(), 'video', 'create');
           addVideo(trimmed, cursorRef.current);
           event.preventDefault();
           return;
         }
 
         if (trimmed.length > 0) {
-          pushHistory(serializeWorkspace());
+          pushHistory(serializeWorkspace(), 'sticky', 'create');
           addSticky(trimmed, cursorRef.current);
           event.preventDefault();
           return;
@@ -1200,7 +1202,7 @@ const GuitarBoard: React.FC = () => {
             const src = reader.result as string;
             const img = new Image();
             img.onload = () => {
-              pushHistory(serializeWorkspace());
+              pushHistory(serializeWorkspace(), 'image', 'create');
               addImage(src, cursorRef.current, img.width, img.height);
             };
             img.src = src;
@@ -1236,8 +1238,8 @@ const GuitarBoard: React.FC = () => {
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key.toLowerCase() === 'd') {
-        pushHistory(serializeWorkspace());
         const info = getSelectedElementData();
+        pushHistory(serializeWorkspace(), info?.type, 'duplicate');
         if (info) {
           duplicateElement(info);
           e.preventDefault();
@@ -1404,7 +1406,10 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const workspace = ensureWorkspace();
-    const down = () => pushHistory(serializeWorkspace());
+    const down = () => {
+      const info = getSelectedElementData();
+      pushHistory(serializeWorkspace(), info?.type, 'move');
+    };
     const node = workspace.node();
     node?.addEventListener('pointerdown', down);
 
@@ -1587,12 +1592,18 @@ const GuitarBoard: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {Array.from({ length: Math.max(past.length, future.length) }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell sx={{ fontSize: '0.6rem' }}>{past[past.length - 1 - i] ?? ''}</TableCell>
-                    <TableCell sx={{ fontSize: '0.6rem' }}>{future[future.length - 1 - i] ?? ''}</TableCell>
-                  </TableRow>
-                ))}
+                {Array.from({ length: Math.max(past.length, future.length) }).map((_, i) => {
+                  const p = past[past.length - 1 - i];
+                  const f = future[future.length - 1 - i];
+                  const pf = p ? `type:${p.type}; action:${p.action}` : '';
+                  const ff = f ? `type:${f.type}; action:${f.action}` : '';
+                  return (
+                    <TableRow key={i}>
+                      <TableCell sx={{ fontSize: '0.6rem' }}>{pf}</TableCell>
+                      <TableCell sx={{ fontSize: '0.6rem' }}>{ff}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Box>

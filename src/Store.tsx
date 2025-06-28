@@ -3,6 +3,12 @@ import { setDebugMode } from './d3-ext';
 
 import { noteColors } from "./theme";
 
+export interface HistoryEntry {
+  state: string;
+  type?: string;
+  action?: string;
+}
+
 interface AppState {
   data: any[];
   setData: React.Dispatch<React.SetStateAction<any[]>>;
@@ -33,11 +39,11 @@ interface AppState {
   setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
   brushColor: string;
   setBrushColor: React.Dispatch<React.SetStateAction<string>>;
-  past: string[];
-  future: string[];
+  past: HistoryEntry[];
+  future: HistoryEntry[];
   canUndo: boolean;
   canRedo: boolean;
-  pushHistory: (state: any[]) => void;
+  pushHistory: (state: any[], type?: string, action?: string) => void;
   undo: () => void;
   redo: () => void;
   registerSerializer: (fn: () => any[]) => void;
@@ -63,8 +69,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
   const [brushColor, setBrushColor] = useState<string>(noteColors[noteColors.length - 1]);
 
-  const [past, setPast] = useState<string[]>([]);
-  const [future, setFuture] = useState<string[]>([]);
+  const [past, setPast] = useState<HistoryEntry[]>([]);
+  const [future, setFuture] = useState<HistoryEntry[]>([]);
   const serializerRef = React.useRef<() => any[]>(() => []);
 
   const canUndo = past.length > 0;
@@ -74,8 +80,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
     serializerRef.current = fn;
   };
 
-  const pushHistory = (state: any[]) => {
-    setPast((p) => [...p, JSON.stringify(state)]);
+  const pushHistory = (state: any[], type?: string, action?: string) => {
+    setPast((p) => [...p, { state: JSON.stringify(state), type, action }]);
     setFuture([]);
   };
 
@@ -84,8 +90,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       if (!p.length) return p;
       const prev = p[p.length - 1];
       const newPast = p.slice(0, -1);
-      setFuture((f) => [...f, JSON.stringify(serializerRef.current())]);
-      window.dispatchEvent(new CustomEvent('loadboard', { detail: JSON.parse(prev) }));
+      setFuture((f) => [...f, { state: JSON.stringify(serializerRef.current()), type: prev.type, action: prev.action }]);
+      window.dispatchEvent(new CustomEvent('loadboard', { detail: JSON.parse(prev.state) }));
       return newPast;
     });
   };
@@ -95,8 +101,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       if (!f.length) return f;
       const next = f[f.length - 1];
       const newFuture = f.slice(0, -1);
-      setPast((p) => [...p, JSON.stringify(serializerRef.current())]);
-      window.dispatchEvent(new CustomEvent('loadboard', { detail: JSON.parse(next) }));
+      setPast((p) => [...p, { state: JSON.stringify(serializerRef.current()), type: next.type, action: next.action }]);
+      window.dispatchEvent(new CustomEvent('loadboard', { detail: JSON.parse(next.state) }));
       return newFuture;
     });
   };
