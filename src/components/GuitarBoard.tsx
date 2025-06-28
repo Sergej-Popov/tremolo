@@ -1418,6 +1418,7 @@ const GuitarBoard: React.FC = () => {
   const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!drawingMode) return;
     event.stopPropagation();
+    pushHistory(serializeWorkspace(), 'drawing', 'create');
     const { x, y } = toWorkspace(event.clientX, event.clientY);
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.drawings');
