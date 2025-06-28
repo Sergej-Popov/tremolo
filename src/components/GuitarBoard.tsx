@@ -347,7 +347,7 @@ const GuitarBoard: React.FC = () => {
       if ((window as any).YT && (window as any).YT.Player) {
         const player = new (window as any).YT.Player(frameId);
         const d = group.datum() as any;
-        d.player = player;
+        Object.defineProperty(d, 'player', { value: player, enumerable: false });
       }
     };
     if ((window as any).YT && (window as any).YT.Player) {
