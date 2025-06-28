@@ -604,7 +604,10 @@ const GuitarBoard: React.FC = () => {
       .attr('cx', start.x)
       .attr('cy', start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
-        .on('start', showTempHandles)
+        .on('start', function () {
+          showTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-start', { detail: (this.parentNode as SVGGElement) }));
+        })
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
@@ -630,7 +633,10 @@ const GuitarBoard: React.FC = () => {
       .attr('cx', end ? end.x : start.x + 100)
       .attr('cy', end ? end.y : start.y)
       .call(d3.drag<SVGCircleElement, unknown>()
-        .on('start', showTempHandles)
+        .on('start', function () {
+          showTempHandles();
+          window.dispatchEvent(new CustomEvent('element-resize-start', { detail: (this.parentNode as SVGGElement) }));
+        })
         .on('drag', function (event) {
           const g = d3.select(this.parentNode as SVGGElement);
           const d = g.datum() as any;
@@ -1003,12 +1009,13 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('createline', handler as EventListener);
     return () => window.removeEventListener('createline', handler as EventListener);
-  }, [addLine]);
+  }, [addLine, pushHistory]);
 
   const activeLine = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
 
   useEffect(() => {
     const start = (e: CustomEvent) => {
+      pushHistory(serializeWorkspace(), 'line', 'create');
       const { x, y, elementId, position } = e.detail;
       showTempHandles();
       activeLine.current = addLine({ x, y }, { x, y }, { elementId, position });
@@ -1045,7 +1052,7 @@ const GuitarBoard: React.FC = () => {
       window.removeEventListener('lineconnectdrag', drag as EventListener);
       window.removeEventListener('lineconnectend', end as EventListener);
     };
-  }, [addLine]);
+  }, [addLine, pushHistory]);
 
   useEffect(() => {
     const handler = () => {
