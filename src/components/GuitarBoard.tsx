@@ -879,6 +879,9 @@ const GuitarBoard: React.FC = () => {
         setZoomValue(zoomItem.k);
         initialZoom.current = null;
       }
+    } else if (zoomBehaviorRef.current && svgRef.current) {
+      // keep current zoom when history snapshots omit zoom metadata
+      d3.select(svgRef.current).call(zoomBehaviorRef.current.transform, zoomRef.current);
     }
   };
 
