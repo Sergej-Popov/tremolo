@@ -113,8 +113,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'd') {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.getAttribute('contenteditable') === 'true')
+      ) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
         setDebug((prev) => !prev);
+        e.preventDefault();
+        return;
       }
       if (e.key === 'b') {
         setDrawingMode((prev) => !prev);

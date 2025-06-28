@@ -21,6 +21,7 @@ const shortcuts: ShortcutSection[] = [
       { key: 'Ctrl+S', action: 'Export board as extra-high-resolution PNG image (save icon)' },
       { key: 'Ctrl+drag', action: 'Snap movement to grid' },
       { key: 'Ctrl+resize', action: 'Snap size to grid' },
+      { key: 'Ctrl+Shift+D / Cmd+Shift+D', action: 'Toggle debug mode' },
     ],
   },
   {
