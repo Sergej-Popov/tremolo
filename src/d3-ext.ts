@@ -382,6 +382,7 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
         transform: TransformValues;
         startX: number;
         startY: number;
+        moved?: boolean;
     };
 
     selection.call(
@@ -394,7 +395,6 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 if (!overlay.empty() && overlay.style('display') !== 'none') {
                     finishCrop(element);
                 }
-                window.dispatchEvent(new CustomEvent('element-move-start', { detail: element.node() }));
                 const data: any = element.datum() || {};
                 const transform: TransformValues = data.transform ?? defaultTransform();
 
@@ -403,13 +403,13 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const dragOffsetY = startY - transform.translateY;
 
                 debugLog('drag start', transform.translateX, transform.translateY);
-                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY });
+                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY, moved: false });
                 setGridVisible(event.ctrlKey);
             })
             .on('drag', function (event: MouseEvent) {
                 const element = d3.select<any, DragDatum>(this);
                 const data = element.datum();
-                const { dragOffsetX, dragOffsetY, transform, startX, startY } = data;
+                const { dragOffsetX, dragOffsetY, transform, startX, startY, moved } = data;
 
                 const [mx, my] = toWorkspaceCoords(event);
                 let newX = mx - dragOffsetX;
@@ -431,6 +431,11 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                     translateX: newX,
                     translateY: newY,
                 };
+
+                if (!moved && (newX !== startX || newY !== startY)) {
+                    window.dispatchEvent(new CustomEvent('element-move-start', { detail: element.node() }));
+                    data.moved = true;
+                }
 
                 applyTransform(element, newTransform);
                 setGridVisible(!!ctrl);

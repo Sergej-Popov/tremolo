@@ -395,7 +395,7 @@ const Menu: React.FC = () => {
             reader.onload = () => {
               try {
                 const data = JSON.parse(reader.result as string);
-                window.dispatchEvent(new CustomEvent('loadboard', { detail: data }));
+                window.dispatchEvent(new CustomEvent('loadboard', { detail: { items: data } }));
               } catch {
                 /* ignore */
               }

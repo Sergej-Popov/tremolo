@@ -423,6 +423,7 @@ const GuitarBoard: React.FC = () => {
         const data = group.datum() as any;
         adjustStickyFont(node, data.fontSize);
       }
+      pushHistory(serializeWorkspace(), 'sticky', 'text');
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
@@ -527,6 +528,7 @@ const GuitarBoard: React.FC = () => {
       });
       pre.style('color', null);
       window.getSelection()?.removeAllRanges();
+      pushHistory(serializeWorkspace(), 'code', 'text');
     });
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
@@ -812,7 +814,7 @@ const GuitarBoard: React.FC = () => {
     }
   };
 
-  const serializeWorkspace = (): ElementCopy[] => {
+  const serializeWorkspace = (includeZoom: boolean = false): ElementCopy[] => {
     const svg = d3.select(svgRef.current);
     const workspace = svg.select<SVGGElement>('.workspace');
     const items: ElementCopy[] = [];
@@ -836,12 +838,14 @@ const GuitarBoard: React.FC = () => {
       }
       items.push(info);
     });
-    items.push({ type: 'meta', data: { zoom: { x: zoomRef.current.x, y: zoomRef.current.y, k: zoomRef.current.k } } });
+    if (includeZoom) {
+      items.push({ type: 'meta', data: { zoom: { x: zoomRef.current.x, y: zoomRef.current.y, k: zoomRef.current.k } } });
+    }
     return items;
   };
 
   React.useEffect(() => {
-    registerSerializer(serializeWorkspace);
+    registerSerializer(() => serializeWorkspace());
   }, [registerSerializer]);
 
   const clearWorkspace = () => {
@@ -1091,7 +1095,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const handler = () => {
-      const data = serializeWorkspace();
+      const data = serializeWorkspace(true);
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1103,9 +1107,11 @@ const GuitarBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const load = (e: CustomEvent<ElementCopy[]>) => {
-      pushHistory(serializeWorkspace(), 'meta', 'load');
-      loadWorkspace(e.detail);
+    const load = (e: CustomEvent<{ items: ElementCopy[]; fromHistory?: boolean }>) => {
+      if (!e.detail.fromHistory) {
+        pushHistory(serializeWorkspace(), 'meta', 'load');
+      }
+      loadWorkspace(e.detail.items);
     };
     const clear = () => {
       pushHistory(serializeWorkspace(), 'meta', 'clear');
@@ -1520,7 +1526,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const save = () => {
-      const data = serializeWorkspace();
+      const data = serializeWorkspace(true);
       localStorage.setItem('tremoloBoard', JSON.stringify(data));
     };
     const id = setInterval(save, 2000);
