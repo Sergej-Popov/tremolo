@@ -68,6 +68,19 @@ function extractVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+const getElementType = (node: Element | null): string | undefined => {
+  if (!node) return undefined;
+  const sel = d3.select(node);
+  if (sel.classed('pasted-image')) return 'image';
+  if (sel.classed('embedded-video')) return 'video';
+  if (sel.classed('sticky-note')) return 'sticky';
+  if (sel.classed('code-block')) return 'code';
+  if (sel.classed('guitar-board')) return 'board';
+  if (sel.classed('drawing')) return 'drawing';
+  if (sel.classed('line-element')) return 'line';
+  return undefined;
+};
+
 const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
@@ -655,6 +668,31 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
+  }, [pushHistory]);
+
+  useEffect(() => {
+    const move = (e: CustomEvent<Element>) => {
+      pushHistory(serializeWorkspace(), getElementType(e.detail), 'move');
+    };
+    const resize = (e: CustomEvent<Element>) => {
+      pushHistory(serializeWorkspace(), getElementType(e.detail), 'resize');
+    };
+    const rotate = (e: CustomEvent<Element>) => {
+      pushHistory(serializeWorkspace(), getElementType(e.detail), 'rotate');
+    };
+    const crop = (e: CustomEvent<Element>) => {
+      pushHistory(serializeWorkspace(), getElementType(e.detail), 'crop');
+    };
+    window.addEventListener('element-move-start', move as EventListener);
+    window.addEventListener('element-resize-start', resize as EventListener);
+    window.addEventListener('element-rotate-start', rotate as EventListener);
+    window.addEventListener('element-crop-start', crop as EventListener);
+    return () => {
+      window.removeEventListener('element-move-start', move as EventListener);
+      window.removeEventListener('element-resize-start', resize as EventListener);
+      window.removeEventListener('element-rotate-start', rotate as EventListener);
+      window.removeEventListener('element-crop-start', crop as EventListener);
+    };
   }, [pushHistory]);
 
   const duplicateElement = (info: ElementCopy) => {
@@ -1406,13 +1444,7 @@ const GuitarBoard: React.FC = () => {
 
   useEffect(() => {
     const workspace = ensureWorkspace();
-    const down = () => {
-      const info = getSelectedElementData();
-      pushHistory(serializeWorkspace(), info?.type, 'move');
-    };
-    const node = workspace.node();
-    node?.addEventListener('pointerdown', down);
-
+    
     boards.forEach((id) => {
       let b = workspace.select<SVGGElement>(`.guitar-board-${id}`);
       if (b.empty()) {
@@ -1448,9 +1480,7 @@ const GuitarBoard: React.FC = () => {
     } else {
       boardRef.current = null;
     }
-    return () => {
-      node?.removeEventListener('pointerdown', down);
-    };
+    return undefined;
   }, [boards, selectedBoard]);
 
   useEffect(() => {
