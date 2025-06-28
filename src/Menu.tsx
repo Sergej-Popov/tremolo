@@ -4,6 +4,7 @@ import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleB
 import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import { AppContext } from './Store';
 import { noteColors, defaultLineColor } from './theme';
 import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
@@ -411,6 +412,18 @@ const Menu: React.FC = () => {
               } catch {
                 /* ignore */
               }
+            };
+            reader.readAsText(file);
+          }} />
+        </Button>
+        <Button startIcon={<LibraryMusicIcon />} component="label" fullWidth sx={{ mb: 1 }}>
+          Open Lyrics
+          <input type="file" hidden accept=".lrc" onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              window.dispatchEvent(new CustomEvent('loadlyrics', { detail: reader.result as string }));
             };
             reader.readAsText(file);
           }} />

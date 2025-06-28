@@ -150,3 +150,12 @@
 #root > div {
     height: 100%;
 }
+
+.glow-line path {
+    stroke: #ff00ff;
+    filter: drop-shadow(0 0 4px #ff00ff);
+}
+
+.active-lyric {
+    font-weight: bold;
+}
