@@ -48,6 +48,8 @@ const Menu: React.FC = () => {
   const setBrushColor = app?.setBrushColor ?? (() => {});
   const undo = app?.undo ?? (() => {});
   const redo = app?.redo ?? (() => {});
+  const canUndo = app?.canUndo ?? false;
+  const canRedo = app?.canRedo ?? false;
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
   const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('arc');
@@ -133,10 +135,10 @@ const Menu: React.FC = () => {
           <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
             <CodeIcon />
           </IconButton>
-          <IconButton color="inherit" onClick={undo} sx={{ mr: 1 }}>
+          <IconButton color="inherit" onClick={undo} disabled={!canUndo} sx={{ mr: 1 }}>
             <UndoIcon />
           </IconButton>
-          <IconButton color="inherit" onClick={redo} sx={{ mr: 1 }}>
+          <IconButton color="inherit" onClick={redo} disabled={!canRedo} sx={{ mr: 1 }}>
             <RedoIcon />
           </IconButton>
         </Box>

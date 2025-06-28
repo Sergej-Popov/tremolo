@@ -33,6 +33,10 @@ interface AppState {
   setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
   brushColor: string;
   setBrushColor: React.Dispatch<React.SetStateAction<string>>;
+  past: string[];
+  future: string[];
+  canUndo: boolean;
+  canRedo: boolean;
   pushHistory: (state: any[]) => void;
   undo: () => void;
   redo: () => void;
@@ -62,6 +66,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [past, setPast] = useState<string[]>([]);
   const [future, setFuture] = useState<string[]>([]);
   const serializerRef = React.useRef<() => any[]>(() => []);
+
+  const canUndo = past.length > 0;
+  const canRedo = future.length > 0;
 
   const registerSerializer = (fn: () => any[]) => {
     serializerRef.current = fn;
@@ -129,7 +136,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!e.ctrlKey || e.key.toLowerCase() !== 'z') return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.getAttribute('contenteditable') === 'true')
+      ) {
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
       e.preventDefault();
       if (e.shiftKey) {
         redo();
@@ -172,6 +188,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setBrushWidth,
       brushColor,
       setBrushColor,
+      past,
+      future,
+      canUndo,
+      canRedo,
       pushHistory,
       undo,
       redo,

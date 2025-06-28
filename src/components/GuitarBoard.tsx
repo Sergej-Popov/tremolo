@@ -5,7 +5,7 @@ import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransfo
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
 import { noteColors, defaultLineColor } from '../theme';
-import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel } from '@mui/material';
+import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { AppContext } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
@@ -86,6 +86,8 @@ const GuitarBoard: React.FC = () => {
   const brushColor = app?.brushColor ?? defaultLineColor;
   const pushHistory = app?.pushHistory ?? (() => {});
   const registerSerializer = app?.registerSerializer ?? (() => {});
+  const past = app?.past ?? [];
+  const future = app?.future ?? [];
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -1573,6 +1575,26 @@ const GuitarBoard: React.FC = () => {
               {selectedBounds &&
                 ` | sel: x:${selectedBounds.x.toFixed(1)}, y:${selectedBounds.y.toFixed(1)}, w:${selectedBounds.width.toFixed(1)}, h:${selectedBounds.height.toFixed(1)}, a:${selectedBounds.rotate.toFixed(1)}`}
             </Typography>
+          </Box>
+        )}
+        {debug && (
+          <Box sx={{ position: 'absolute', bottom: 8, right: 8, maxHeight: '30vh', overflow: 'auto', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Past</TableCell>
+                  <TableCell>Future</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Array.from({ length: Math.max(past.length, future.length) }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell sx={{ fontSize: '0.6rem' }}>{past[past.length - 1 - i] ?? ''}</TableCell>
+                    <TableCell sx={{ fontSize: '0.6rem' }}>{future[future.length - 1 - i] ?? ''}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </Box>
         )}
         <Drawer
