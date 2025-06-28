@@ -39,6 +39,7 @@ https://sergej-popov.github.io/tremolo/
 - Pasted images are stored as data URLs so saved boards load correctly from file.
 - Use **Clear Board** in the side menu to reset the workspace.
 - Undo and redo board changes with **Ctrl+Z** (**Cmd+Z** on macOS) and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) or the toolbar buttons.
+- Style tweaks like colour, alignment and font size are also undoable.
 
 ## Hotkeys
 

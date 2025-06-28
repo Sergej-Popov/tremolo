@@ -46,6 +46,8 @@ const Menu: React.FC = () => {
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const brushColor = app?.brushColor ?? defaultLineColor;
   const setBrushColor = app?.setBrushColor ?? (() => {});
+  const pushHistory = app?.pushHistory ?? (() => {});
+  const getSnapshot = app?.getSnapshot ?? (() => []);
   const undo = app?.undo ?? (() => {});
   const redo = app?.redo ?? (() => {});
   const canUndo = app?.canUndo ?? false;
@@ -166,6 +168,7 @@ const Menu: React.FC = () => {
                   const color = e.target.value as string;
                   setStickyColor(color);
                   updateSelectedColor(color);
+                  pushHistory(getSnapshot(), 'sticky', 'style');
                 }}
               >
                 {noteColors.map((c) => (
@@ -184,6 +187,7 @@ const Menu: React.FC = () => {
                 if (val) {
                   setStickyAlign(val);
                   updateSelectedAlignment(val);
+                  pushHistory(getSnapshot(), 'sticky', 'style');
                 }
               }}
               sx={{ mr: 2 }}
@@ -207,6 +211,7 @@ const Menu: React.FC = () => {
                   const val = e.target.value as string;
                   setFontSize(val);
                   updateSelectedFontSize(val === 'auto' ? 'auto' : parseInt(val));
+                  pushHistory(getSnapshot(), 'sticky', 'style');
                 }}
               >
                 <MenuItem value="auto">Auto</MenuItem>
@@ -227,6 +232,7 @@ const Menu: React.FC = () => {
                   const c = e.target.value as string;
                   setLineColor(c);
                   updateSelectedLineColor(c);
+                  pushHistory(getSnapshot(), 'line', 'style');
                 }}
               >
                 {noteColors.map((c) => (
@@ -244,6 +250,7 @@ const Menu: React.FC = () => {
                   const s = e.target.value as 'circle' | 'arrow' | 'triangle' | 'none';
                   setLineStartConn(s);
                   updateSelectedStartConnectionStyle(s);
+                  pushHistory(getSnapshot(), 'line', 'style');
                 }}
               >
                 <MenuItem value="circle">Start Circle</MenuItem>
@@ -260,6 +267,7 @@ const Menu: React.FC = () => {
                   const s = e.target.value as 'circle' | 'arrow' | 'triangle' | 'none';
                   setLineEndConn(s);
                   updateSelectedEndConnectionStyle(s);
+                  pushHistory(getSnapshot(), 'line', 'style');
                 }}
               >
                 <MenuItem value="circle">End Circle</MenuItem>
@@ -276,6 +284,7 @@ const Menu: React.FC = () => {
                   const val = e.target.value as 'direct' | 'arc' | 'corner';
                   setLineStyle(val);
                   updateSelectedLineStyle(val);
+                  pushHistory(getSnapshot(), 'line', 'style');
                 }}
               >
                 <MenuItem value="direct">Direct</MenuItem>
@@ -295,6 +304,7 @@ const Menu: React.FC = () => {
                   const val = e.target.value as string;
                   setCodeLanguage(val);
                   updateSelectedCodeLang(val);
+                  pushHistory(getSnapshot(), 'code', 'style');
                 }}
               >
                 {codeLanguages.map((l) => (
@@ -310,6 +320,7 @@ const Menu: React.FC = () => {
                   const val = e.target.value as string;
                   setCodeTheme(val);
                   updateSelectedCodeTheme(val);
+                  pushHistory(getSnapshot(), 'code', 'style');
                 }}
               >
                 {codeThemes.map((t) => (
@@ -326,6 +337,7 @@ const Menu: React.FC = () => {
                   setCodeSize(val);
                   setCodeFontSize(val);
                   updateSelectedCodeFontSize(val);
+                  pushHistory(getSnapshot(), 'code', 'style');
                 }}
               >
                 {Array.from({ length: 22 }, (_, i) => 6 + i * 2).map((s) => (

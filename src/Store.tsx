@@ -47,6 +47,7 @@ interface AppState {
   undo: () => void;
   redo: () => void;
   registerSerializer: (fn: () => any[]) => void;
+  getSnapshot: () => any[];
 }
 
 export const AppContext = createContext<AppState | undefined>(undefined);
@@ -79,6 +80,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const registerSerializer = (fn: () => any[]) => {
     serializerRef.current = fn;
   };
+
+  const getSnapshot = () => serializerRef.current();
 
   const pushHistory = (state: any[], type?: string, action?: string) => {
     const snapshot = JSON.stringify(state);
@@ -225,6 +228,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       undo,
       redo,
       registerSerializer,
+      getSnapshot,
     }}>
       {children}
     </AppContext.Provider>
