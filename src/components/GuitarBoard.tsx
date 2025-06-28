@@ -884,11 +884,30 @@ const GuitarBoard: React.FC = () => {
     setSelectedBoard(null);
   };
 
-  const loadWorkspace = (items: ElementCopy[]) => {
+  const loadWorkspace = (items: ElementCopy[], fromHistory: boolean = false) => {
     localStorage.setItem('tremoloBoard', JSON.stringify(items));
-    clearWorkspace();
-    ensureWorkspace();
+    const existingVideos: Map<string, d3.Selection<SVGGElement, any, any, any>> = new Map();
+    if (fromHistory) {
+      ensureWorkspace();
+      const workspace = d3.select(workspaceRef.current);
+      workspace.selectAll<SVGGElement>('.embedded-video').each(function () {
+        const sel = d3.select(this);
+        const d = sel.datum() as any;
+        if (d && d.id) {
+          existingVideos.set(d.id, sel);
+        }
+      });
+      workspace
+        .selectAll(
+          '.pasted-image, .sticky-note, .code-block, .line-element, .drawing, .guitar-board'
+        )
+        .remove();
+    } else {
+      clearWorkspace();
+      ensureWorkspace();
+    }
     let zoomItem: any = null;
+    const seenVideos: Set<string> = new Set();
     items.forEach((info) => {
       if (info.type === 'meta') {
         zoomItem = info.data.zoom;
@@ -898,8 +917,36 @@ const GuitarBoard: React.FC = () => {
         x: info.data.transform?.translateX ?? 0,
         y: info.data.transform?.translateY ?? 0,
       };
+      if (fromHistory && info.type === 'video') {
+        const existing = existingVideos.get(info.data.id);
+        if (existing) {
+          const d = existing.datum() as any;
+          Object.assign(d, info.data);
+          existing
+            .select('rect')
+            .attr('width', info.data.width)
+            .attr('height', info.data.height);
+          existing
+            .select('foreignObject')
+            .attr('width', info.data.width - videoPadding * 2)
+            .attr('height', info.data.height - videoPadding * 2);
+          applyTransform(existing as any, info.data.transform);
+          seenVideos.add(info.data.id);
+          return;
+        }
+      }
       duplicateElement(info);
+      if (fromHistory && info.type === 'video') {
+        seenVideos.add(info.data.id);
+      }
     });
+    if (fromHistory) {
+      existingVideos.forEach((sel, id) => {
+        if (!seenVideos.has(id)) {
+          sel.remove();
+        }
+      });
+    }
     if (zoomItem) {
       initialZoom.current = d3.zoomIdentity.translate(zoomItem.x, zoomItem.y).scale(zoomItem.k);
       if (zoomBehaviorRef.current && svgRef.current) {
@@ -1143,7 +1190,7 @@ const GuitarBoard: React.FC = () => {
       if (!e.detail.fromHistory) {
         pushHistory(serializeWorkspace(), 'meta', 'load');
       }
-      loadWorkspace(e.detail.items);
+      loadWorkspace(e.detail.items, !!e.detail.fromHistory);
     };
     const clear = () => {
       pushHistory(serializeWorkspace(), 'meta', 'clear');
