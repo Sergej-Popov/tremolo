@@ -612,7 +612,7 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
 
 
 export interface ElementCopy {
-    type: 'image' | 'video' | 'sticky' | 'board' | 'drawing' | 'code' | 'line' | 'meta';
+    type: 'image' | 'video' | 'audio' | 'sticky' | 'board' | 'drawing' | 'code' | 'line' | 'meta';
     data: any;
 }
 
@@ -621,6 +621,7 @@ export function getSelectedElementData(): ElementCopy | null {
     let type: ElementCopy['type'] | null = null;
     if (selectedElement.classed('pasted-image')) type = 'image';
     else if (selectedElement.classed('embedded-video')) type = 'video';
+    else if (selectedElement.classed('embedded-audio')) type = 'audio';
     else if (selectedElement.classed('sticky-note')) type = 'sticky';
     else if (selectedElement.classed('code-block')) type = 'code';
     else if (selectedElement.classed('guitar-board')) type = 'board';
