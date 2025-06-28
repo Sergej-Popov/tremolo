@@ -81,7 +81,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const pushHistory = (state: any[], type?: string, action?: string) => {
-    setPast((p) => [...p, { state: JSON.stringify(state), type, action }]);
+    const snapshot = JSON.stringify(state);
+    setPast((p) => {
+      if (p.length && p[p.length - 1].state === snapshot) return p;
+      return [...p, { state: snapshot, type, action }];
+    });
     setFuture([]);
   };
 
@@ -90,7 +94,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       if (!p.length) return p;
       const prev = p[p.length - 1];
       const newPast = p.slice(0, -1);
-      setFuture((f) => [...f, { state: JSON.stringify(serializerRef.current()), type: prev.type, action: prev.action }]);
+      const current = JSON.stringify(serializerRef.current());
+      setFuture((f) => {
+        if (f.length && f[f.length - 1].state === current) return f;
+        return [...f, { state: current, type: prev.type, action: prev.action }];
+      });
       window.dispatchEvent(new CustomEvent('loadboard', { detail: { items: JSON.parse(prev.state), fromHistory: true } }));
       return newPast;
     });
@@ -101,7 +109,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       if (!f.length) return f;
       const next = f[f.length - 1];
       const newFuture = f.slice(0, -1);
-      setPast((p) => [...p, { state: JSON.stringify(serializerRef.current()), type: next.type, action: next.action }]);
+      const current = JSON.stringify(serializerRef.current());
+      setPast((p) => {
+        if (p.length && p[p.length - 1].state === current) return p;
+        return [...p, { state: current, type: next.type, action: next.action }];
+      });
       window.dispatchEvent(new CustomEvent('loadboard', { detail: { items: JSON.parse(next.state), fromHistory: true } }));
       return newFuture;
     });
