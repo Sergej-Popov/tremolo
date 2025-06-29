@@ -711,7 +711,7 @@ const GuitarBoard: React.FC = () => {
     const layer = svg.select<SVGGElement>('.lines');
     const group = layer.append('g')
       .attr('class', 'line-element')
-      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc' | 'corner'; color: string; startStyle: 'circle' | 'arrow' | 'triangle' | 'none'; endStyle: 'circle' | 'arrow' | 'triangle' | 'none'; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
+      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc' | 'corner'; color: string; startStyle: 'circle' | 'arrow' | 'triangle' | 'none'; endStyle: 'circle' | 'arrow' | 'triangle' | 'none'; text: string; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
         id: generateId(),
         type: 'line',
         x1: start.x,
@@ -722,6 +722,7 @@ const GuitarBoard: React.FC = () => {
         color: defaultLineColor,
         startStyle: 'triangle',
         endStyle: 'triangle',
+        text: '',
         startConn,
         endConn,
       });
@@ -730,7 +731,18 @@ const GuitarBoard: React.FC = () => {
       .attr('stroke', defaultLineColor)
       .attr('fill', 'none')
       .attr('stroke-width', 2);
+    const label = group.append('text')
+      .attr('class', 'line-label')
+      .text('');
+    const updateLabelPos = () => {
+      const p = path.node();
+      if (!p) return;
+      const mid = p.getPointAtLength(p.getTotalLength() / 2);
+      label.attr('x', mid.x).attr('y', mid.y);
+    };
+    updateLabelPos();
     applyLineAppearance(group as any);
+    updateLabelPos();
     group.append('circle')
       .attr('class', 'line-handle start')
       .attr('r', 4)
@@ -756,6 +768,7 @@ const GuitarBoard: React.FC = () => {
           }
           g.select('path').attr('d', linePath(d));
           d3.select(this).attr('cx', d.x1).attr('cy', d.y1);
+          updateLabelPos();
         })
         .on('end', function () {
           hideTempHandles();
@@ -786,11 +799,21 @@ const GuitarBoard: React.FC = () => {
           }
           g.select('path').attr('d', linePath(d));
           d3.select(this).attr('cx', d.x2).attr('cy', d.y2);
+          updateLabelPos();
         })
         .on('end', function () {
           hideTempHandles();
-          window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
-        }));
+      window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
+    }));
+    group.on('dblclick', () => {
+      const d = group.datum() as any;
+      const val = prompt('Line text', d.text || '');
+      if (val !== null) {
+        d.text = val;
+        label.text(val);
+        updateLabelPos();
+      }
+    });
     group.call(makeResizable);
     group.dispatch('click');
     updateSelectedLineColor(defaultLineColor);
@@ -957,7 +980,14 @@ const GuitarBoard: React.FC = () => {
       d.color = info.data.color;
       d.startStyle = info.data.startStyle;
       d.endStyle = info.data.endStyle;
+      d.text = info.data.text || '';
+      g.select('text.line-label').text(d.text);
       applyLineAppearance(g as any);
+      const p = g.select<SVGPathElement>('path').node();
+      if (p) {
+        const mid = p.getPointAtLength(p.getTotalLength() / 2);
+        g.select('text.line-label').attr('x', mid.x).attr('y', mid.y);
+      }
     } else if (info.type === 'drawing') {
       const svg = d3.select(svgRef.current);
       const layer = svg.select<SVGGElement>('.drawings');
@@ -1834,6 +1864,10 @@ const GuitarBoard: React.FC = () => {
       .select('path')
       .style('stroke', null)
       .style('filter', null);
+    workspace.selectAll<SVGGElement, any>('.line-element').each(function(d:any){
+      const g = d3.select(this);
+      g.select('text.line-label').text(d.text || '');
+    });
 
     const times: string[] = [];
 
@@ -1874,6 +1908,7 @@ const GuitarBoard: React.FC = () => {
         .select('path')
         .style('stroke', '#ff00ff')
         .style('filter', 'drop-shadow(0 0 4px #ff00ff)');
+      d3.select(this).select('text.line-label').text(t.toFixed(1));
     });
 
     setVideoDebug(times.join(' '));

@@ -24,6 +24,7 @@ https://sergej-popov.github.io/tremolo/
 - Toolbar buttons add items at the cursor unless the cursor is outside the workspace, in which case they appear in the centre of the screen.
 - Use the brush tool to draw very smooth strokes that get thicker as you draw slower. A dropdown lets you set a fixed stroke width instead of pressure. Drawings can be moved, resized and rotated.
 - Draw lines with straight, arched or cornered style. New lines start arched with triangle connectors and snap to subtle connectors at each element's side, remaining attached when those elements move.
+- Double-click a line to add a label that stays centred as the line moves. Lyric/video connectors show the current video time on the label.
 - Change a line's colour from the sticky note palette (now including black) and set the start and end connection style independently: circle, arrow, filled triangle or none. Lines default to black.
 - Quickly add predefined chords or scales or display all notes.
 - Click the **edit icon** when a board is selected to open its editor.

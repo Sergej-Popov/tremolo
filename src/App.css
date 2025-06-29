@@ -159,3 +159,15 @@
 .active-lyric {
     font-weight: bold;
 }
+
+.line-label {
+    font-family: Segoe UI, sans-serif;
+    font-size: 12px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
