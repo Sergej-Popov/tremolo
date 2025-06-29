@@ -1089,6 +1089,8 @@ const GuitarBoard: React.FC = () => {
       // keep current zoom when history snapshots omit zoom metadata
       d3.select(svgRef.current).call(zoomBehaviorRef.current.transform, zoomRef.current);
     }
+
+    updateLyricConnections();
   };
 
 
