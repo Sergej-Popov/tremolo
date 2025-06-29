@@ -82,6 +82,25 @@ function parseLrc(text: string): LyricLine[] {
   }).sort((a, b) => a.time - b.time);
 }
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}m:${s.toString().padStart(2, '0')}s`;
+}
+
+function slowScrollTo(el: HTMLElement, target: number) {
+  const start = el.scrollTop;
+  const diff = target - start;
+  const duration = 1500;
+  const startTime = performance.now();
+  const step = (now: number) => {
+    const progress = Math.min(1, (now - startTime) / duration);
+    el.scrollTop = start + diff * progress;
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 const getElementType = (node: Element | null): string | undefined => {
   if (!node) return undefined;
   const sel = d3.select(node);
@@ -1900,7 +1919,7 @@ const GuitarBoard: React.FC = () => {
       const t = typeof (player as any).playerInfo?.currentTime === 'number'
         ? (player as any).playerInfo.currentTime
         : 0;
-      times.push(t.toFixed(1));
+      times.push(formatTime(t));
       const lyrics = (blockSel.datum() as any).lyrics as LyricLine[];
       const idx = lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === lyrics.length - 1 || t < lyrics[i + 1].time));
       blockSel.selectAll<HTMLDivElement, unknown>('pre > div').each(function(_, i) {
@@ -1912,7 +1931,7 @@ const GuitarBoard: React.FC = () => {
           const pre = this.parentElement as HTMLElement;
           const mid = (this as HTMLElement).offsetTop + (this as HTMLElement).offsetHeight / 2;
           const target = mid - pre.clientHeight / 2;
-          pre.scrollTo({ top: target, behavior: 'smooth' });
+          slowScrollTo(pre, target);
         }
       });
       d3.select(this)
@@ -1920,7 +1939,7 @@ const GuitarBoard: React.FC = () => {
         .select('path')
         .style('stroke', '#ff00ff')
         .style('filter', 'drop-shadow(0 0 4px #ff00ff)');
-      d3.select(this).select('text.line-label').text(t.toFixed(1));
+      d3.select(this).select('text.line-label').text(formatTime(t));
     });
 
     setVideoDebug(times.join(' '));
