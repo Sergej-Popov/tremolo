@@ -150,3 +150,31 @@
 #root > div {
     height: 100%;
 }
+
+.glow-line path {
+    stroke: #ff00ff;
+    filter: drop-shadow(0 0 4px #ff00ff);
+}
+
+.active-lyric {
+    background-color: #168aad;
+    color: #fff;
+    padding: 0 2px;
+    border-radius: 3px;
+}
+
+.lyric-pre {
+    scroll-behavior: smooth;
+}
+
+.line-label {
+    font-family: Segoe UI, sans-serif;
+    font-size: 12px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    pointer-events: none;
+}

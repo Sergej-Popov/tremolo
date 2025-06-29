@@ -51,7 +51,8 @@ interface PastedAudioDatum { id: string; type: 'audio'; url: string }
 
 interface StickyNoteDatum { id: string; type: 'sticky'; text: string; align: 'left' | 'center' | 'right' }
 
-interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string; theme: string; fontSize: number }
+interface LyricLine { time: number; text: string }
+interface CodeBlockDatum { id: string; type: 'code'; code: string; lang: string; theme: string; fontSize: number; lyrics?: LyricLine[] }
 
 const stickyWidth = 225;
 const stickyHeight = 150;
@@ -71,6 +72,33 @@ const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu
 function extractVideoId(url: string): string | null {
   const match = url.match(youtubeRegex);
   return match ? match[1] : null;
+}
+
+function parseLrc(text: string): LyricLine[] {
+  return text.split(/\r?\n/).flatMap(line => {
+    const tags = [...line.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+    const lyric = line.replace(/\[[^\]]+\]/g, '').trim();
+    return tags.map(t => ({ time: parseInt(t[1]) * 60 + parseFloat(t[2]), text: lyric }));
+  }).sort((a, b) => a.time - b.time);
+}
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}m:${s.toString().padStart(2, '0')}s`;
+}
+
+function slowScrollTo(el: HTMLElement, target: number) {
+  const start = el.scrollTop;
+  const diff = target - start;
+  const duration = 1500;
+  const startTime = performance.now();
+  const step = (now: number) => {
+    const progress = Math.min(1, (now - startTime) / duration);
+    el.scrollTop = start + diff * progress;
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 const getElementType = (node: Element | null): string | undefined => {
@@ -121,6 +149,7 @@ const GuitarBoard: React.FC = () => {
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
   const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
   const [zoomValue, setZoomValue] = useState(1);
+  const [videoDebug, setVideoDebug] = useState('');
   const [croppableSelected, setCroppableSelected] = useState(false);
   const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const drawing = useRef(false);
@@ -324,13 +353,53 @@ const GuitarBoard: React.FC = () => {
       .attr('width', videoWidth)
       .attr('height', videoHeight);
 
+    const frameId = `yt-${generateId()}`;
     fo.append('xhtml:iframe')
+      .attr('id', frameId)
       .attr('width', '100%')
       .attr('height', '100%')
-      .attr('src', `https://www.youtube.com/embed/${videoId}`)
+      .attr('src', `https://www.youtube.com/embed/${videoId}?enablejsapi=1`)
       .attr('frameBorder', '0')
       .attr('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture')
       .attr('allowFullScreen', 'true');
+
+    const setupPlayer = () => {
+      if ((window as any).YT && (window as any).YT.Player) {
+        let interval: number | null = null;
+        const startPoll = () => {
+          if (interval == null) interval = window.setInterval(updateLyricConnections, 500);
+        };
+        const stopPoll = () => {
+          if (interval != null) {
+            clearInterval(interval);
+            interval = null;
+          }
+        };
+        const player = new (window as any).YT.Player(frameId, {
+          events: {
+            onStateChange: (ev: any) => {
+              if (ev.data === (window as any).YT.PlayerState.PLAYING) {
+                startPoll();
+              } else if (ev.data === (window as any).YT.PlayerState.PAUSED || ev.data === (window as any).YT.PlayerState.ENDED) {
+                stopPoll();
+              }
+            },
+          },
+        });
+        const d = group.datum() as any;
+        Object.defineProperty(d, 'player', { value: player, enumerable: false });
+        updateLyricConnections();
+      }
+    };
+    if ((window as any).YT && (window as any).YT.Player) {
+      setupPlayer();
+    } else {
+      const prev = (window as any).onYouTubeIframeAPIReady;
+      (window as any).onYouTubeIframeAPIReady = () => {
+        if (prev) prev();
+        setupPlayer();
+      };
+    }
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
 
@@ -513,10 +582,11 @@ const GuitarBoard: React.FC = () => {
     return group;
   }, [stickyColor]);
 
-  const addCodeBlock = useCallback((code: string, lang: string, theme: string, pos: { x: number, y: number }, size: number = codeFontSize) => {
+  const addCodeBlock = useCallback((code: string, lang: string, theme: string, pos: { x: number, y: number }, size: number = codeFontSize, lyrics?: LyricLine[]) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.code-blocks');
 
+    const width = lyrics && lyrics.length ? codeWidth * 2 : codeWidth;
     const group = layer.append('g')
       .attr('class', 'code-block')
       .datum<CodeBlockDatum & { width: number; height: number; transform: any }>({
@@ -526,7 +596,8 @@ const GuitarBoard: React.FC = () => {
         lang,
         theme,
         fontSize: size,
-        width: codeWidth,
+        lyrics,
+        width,
         height: codeHeight,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
       });
@@ -534,7 +605,7 @@ const GuitarBoard: React.FC = () => {
     group.append('rect')
       .attr('x', 0)
       .attr('y', 0)
-      .attr('width', codeWidth)
+      .attr('width', width)
       .attr('height', codeHeight)
       .attr('stroke', '#333')
       .attr('stroke-width', 1);
@@ -542,10 +613,11 @@ const GuitarBoard: React.FC = () => {
     const fo = group.append('foreignObject')
       .attr('x', 0)
       .attr('y', 0)
-      .attr('width', codeWidth)
+      .attr('width', width)
       .attr('height', codeHeight);
 
     const pre = fo.append('xhtml:pre')
+      .classed('lyric-pre', !!lyrics && lyrics.length > 0)
       .style('margin', '0')
       .style('padding', '8px')
       .style('height', '100%')
@@ -553,11 +625,19 @@ const GuitarBoard: React.FC = () => {
       .style('font-family', 'monospace')
       .style('font-size', `${size}px`);
 
-    highlightCode(code, lang, theme).then(res => {
-      pre.style('background-color', res.background)
-        .style('font-size', `${size}px`)
-        .html(res.html);
-    });
+    if (lyrics && lyrics.length) {
+      highlightCode('', 'markdown', theme).then(res => {
+        pre.style('background-color', res.background)
+          .style('color', theme === 'github-dark' ? '#fff' : '#000')
+          .html(lyrics.map((l, i) => `<div data-idx="${i}" data-lyric="${l.text.replace(/</g, '&lt;')}">${l.text.replace(/</g, '&lt;')}</div>`).join(''));
+      });
+    } else {
+      highlightCode(code, lang, theme).then(res => {
+        pre.style('background-color', res.background)
+          .style('font-size', `${size}px`)
+          .html(res.html);
+      });
+    }
 
     group.on('dblclick', () => {
       pendingRef.current = {
@@ -651,7 +731,7 @@ const GuitarBoard: React.FC = () => {
     const layer = svg.select<SVGGElement>('.lines');
     const group = layer.append('g')
       .attr('class', 'line-element')
-      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc' | 'corner'; color: string; startStyle: 'circle' | 'arrow' | 'triangle' | 'none'; endStyle: 'circle' | 'arrow' | 'triangle' | 'none'; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
+      .datum<{ id: string; type: 'line'; x1: number; y1: number; x2: number; y2: number; style: 'direct' | 'arc' | 'corner'; color: string; startStyle: 'circle' | 'arrow' | 'triangle' | 'none'; endStyle: 'circle' | 'arrow' | 'triangle' | 'none'; text: string; startConn?: ConnectionInfo; endConn?: ConnectionInfo }>({
         id: generateId(),
         type: 'line',
         x1: start.x,
@@ -662,6 +742,7 @@ const GuitarBoard: React.FC = () => {
         color: defaultLineColor,
         startStyle: 'triangle',
         endStyle: 'triangle',
+        text: '',
         startConn,
         endConn,
       });
@@ -670,7 +751,18 @@ const GuitarBoard: React.FC = () => {
       .attr('stroke', defaultLineColor)
       .attr('fill', 'none')
       .attr('stroke-width', 2);
+    const label = group.append('text')
+      .attr('class', 'line-label')
+      .text('');
+    const updateLabelPos = () => {
+      const p = path.node();
+      if (!p) return;
+      const mid = p.getPointAtLength(p.getTotalLength() / 2);
+      label.attr('x', mid.x).attr('y', mid.y);
+    };
+    updateLabelPos();
     applyLineAppearance(group as any);
+    updateLabelPos();
     group.append('circle')
       .attr('class', 'line-handle start')
       .attr('r', 4)
@@ -696,6 +788,7 @@ const GuitarBoard: React.FC = () => {
           }
           g.select('path').attr('d', linePath(d));
           d3.select(this).attr('cx', d.x1).attr('cy', d.y1);
+          updateLabelPos();
         })
         .on('end', function () {
           hideTempHandles();
@@ -726,11 +819,21 @@ const GuitarBoard: React.FC = () => {
           }
           g.select('path').attr('d', linePath(d));
           d3.select(this).attr('cx', d.x2).attr('cy', d.y2);
+          updateLabelPos();
         })
         .on('end', function () {
           hideTempHandles();
-          window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
-        }));
+      window.dispatchEvent(new CustomEvent('element-resize-end', { detail: (this.parentNode as SVGGElement) }));
+    }));
+    group.on('dblclick', () => {
+      const d = group.datum() as any;
+      const val = prompt('Line text', d.text || '');
+      if (val !== null) {
+        d.text = val;
+        label.text(val);
+        updateLabelPos();
+      }
+    });
     group.call(makeResizable);
     group.dispatch('click');
     updateSelectedLineColor(defaultLineColor);
@@ -770,6 +873,7 @@ const GuitarBoard: React.FC = () => {
         pushHistory(state, type, action);
         pendingRef.current = null;
       }
+      updateLyricConnections();
     };
     const rotate = (e: CustomEvent<Element>) => {
       pushHistory(serializeWorkspace(), getElementType(e.detail), 'rotate');
@@ -834,18 +938,28 @@ const GuitarBoard: React.FC = () => {
       if (div) adjustStickyFont(div, d.fontSize);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'code') {
-      const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize);
+      const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize, info.data.lyrics);
       const d = g.datum() as any;
       d.id = info.data.id;
       d.width = info.data.width;
       d.height = info.data.height;
+      d.lyrics = info.data.lyrics;
       const pre = g.select<HTMLPreElement>('foreignObject > pre').node();
       if (pre) {
-        highlightCode(info.data.code, info.data.lang, info.data.theme).then(res => {
-          pre.innerHTML = res.html;
-          pre.style.backgroundColor = res.background;
-          pre.style.fontSize = `${info.data.fontSize}px`;
-        });
+        if (info.data.lyrics && info.data.lyrics.length) {
+          highlightCode('', 'markdown', info.data.theme).then(res => {
+            pre.innerHTML = info.data.lyrics!.map((l: any, i: number) => `<div data-idx="${i}" data-lyric="${l.text.replace(/</g, '&lt;')}">${l.text.replace(/</g, '&lt;')}</div>`).join('');
+            pre.style.backgroundColor = res.background;
+            pre.style.color = info.data.theme === 'github-dark' ? '#fff' : '#000';
+            pre.style.fontSize = `${info.data.fontSize}px`;
+          });
+        } else {
+          highlightCode(info.data.code, info.data.lang, info.data.theme).then(res => {
+            pre.innerHTML = res.html;
+            pre.style.backgroundColor = res.background;
+            pre.style.fontSize = `${info.data.fontSize}px`;
+          });
+        }
       }
       g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
       g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
@@ -886,7 +1000,14 @@ const GuitarBoard: React.FC = () => {
       d.color = info.data.color;
       d.startStyle = info.data.startStyle;
       d.endStyle = info.data.endStyle;
+      d.text = info.data.text || '';
+      g.select('text.line-label').text(d.text);
       applyLineAppearance(g as any);
+      const p = g.select<SVGPathElement>('path').node();
+      if (p) {
+        const mid = p.getPointAtLength(p.getTotalLength() / 2);
+        g.select('text.line-label').attr('x', mid.x).attr('y', mid.y);
+      }
     } else if (info.type === 'drawing') {
       const svg = d3.select(svgRef.current);
       const layer = svg.select<SVGGElement>('.drawings');
@@ -1033,6 +1154,8 @@ const GuitarBoard: React.FC = () => {
       // keep current zoom when history snapshots omit zoom metadata
       d3.select(svgRef.current).call(zoomBehaviorRef.current.transform, zoomRef.current);
     }
+
+    updateLyricConnections();
   };
 
 
@@ -1187,6 +1310,7 @@ const GuitarBoard: React.FC = () => {
         activeLine.current = null;
       }
       hideTempHandles();
+      updateLyricConnections();
     };
     window.addEventListener('lineconnectstart', start as EventListener);
     window.addEventListener('lineconnectdrag', drag as EventListener);
@@ -1279,6 +1403,16 @@ const GuitarBoard: React.FC = () => {
       window.removeEventListener('clearboard', clear as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    const handler = (e: CustomEvent<string>) => {
+      pushHistory(serializeWorkspace(), 'code', 'create');
+      const lyrics = parseLrc(e.detail);
+      addCodeBlock(lyrics.map(l => l.text).join('\n'), 'markdown', codeTheme, getSpawnPosition(), codeFontSize, lyrics);
+    };
+    window.addEventListener('loadlyrics', handler as EventListener);
+    return () => window.removeEventListener('loadlyrics', handler as EventListener);
+  }, [addCodeBlock, codeTheme, codeFontSize, getSpawnPosition, pushHistory]);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -1742,6 +1876,75 @@ const GuitarBoard: React.FC = () => {
     }
   }, []);
 
+  const updateLyricConnections = useCallback(() => {
+    const workspace = d3.select(workspaceRef.current);
+    workspace
+      .selectAll<SVGGElement, any>('.line-element')
+      .classed('glow-line', false)
+      .select('path')
+      .style('stroke', null)
+      .style('filter', null);
+    workspace.selectAll<SVGGElement, any>('.line-element').each(function(d:any){
+      const g = d3.select(this);
+      g.select('text.line-label').text(d.text || '');
+    });
+
+    const times: string[] = [];
+
+    workspace.selectAll<SVGGElement, any>('.line-element').each(function (ld: any) {
+      if (!ld.startConn || !ld.endConn) return;
+      const start = ld.startConn.elementId;
+      const end = ld.endConn.elementId;
+
+      let blockSel: d3.Selection<SVGGElement, any, any, any> | null = null;
+      let videoSel: d3.Selection<SVGGElement, any, any, any> | null = null;
+
+      const startBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === start && d.lyrics);
+      const endBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === end && d.lyrics);
+      const startVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === start);
+      const endVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === end);
+
+      if (!startBlock.empty() && !endVid.empty()) {
+        blockSel = startBlock;
+        videoSel = endVid;
+      } else if (!endBlock.empty() && !startVid.empty()) {
+        blockSel = endBlock;
+        videoSel = startVid;
+      } else {
+        return;
+      }
+
+      const player = (videoSel.datum() as any).player;
+      if (!player) return;
+      const t = typeof (player as any).playerInfo?.currentTime === 'number'
+        ? (player as any).playerInfo.currentTime
+        : 0;
+      times.push(formatTime(t));
+      const lyrics = (blockSel.datum() as any).lyrics as LyricLine[];
+      const idx = lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === lyrics.length - 1 || t < lyrics[i + 1].time));
+      blockSel.selectAll<HTMLDivElement, unknown>('pre > div').each(function(_, i) {
+        const sel = d3.select(this);
+        const txt = sel.attr('data-lyric') || '';
+        sel.text(txt);
+        sel.classed('active-lyric', i === idx);
+        if (i === idx) {
+          const pre = this.parentElement as HTMLElement;
+          const mid = (this as HTMLElement).offsetTop + (this as HTMLElement).offsetHeight / 2;
+          const target = mid - pre.clientHeight / 2;
+          slowScrollTo(pre, target);
+        }
+      });
+      d3.select(this)
+        .classed('glow-line', true)
+        .select('path')
+        .style('stroke', '#ff00ff')
+        .style('filter', 'drop-shadow(0 0 4px #ff00ff)');
+      d3.select(this).select('text.line-label').text(formatTime(t));
+    });
+
+    setVideoDebug(times.join(' '));
+  }, []);
+
   useEffect(() => {
     const handle = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -1772,8 +1975,8 @@ const GuitarBoard: React.FC = () => {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
         ></svg>
-        <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, display: 'flex', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ px: 1 }}>{zoomValue.toFixed(2)}x</Typography>
+        <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, display: 'flex', alignItems: 'center', px: 1 }}>
+          <Typography variant="body2" sx={{ mr: 1 }}>{zoomValue.toFixed(2)}x</Typography>
           <IconButton size="small" onClick={() => {
             if (zoomBehaviorRef.current && svgRef.current) {
               d3.select(svgRef.current).transition().call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
@@ -1782,6 +1985,9 @@ const GuitarBoard: React.FC = () => {
           }}>
             <RestartAltIcon fontSize="small" />
           </IconButton>
+          {debug && (
+            <Typography variant="body2" sx={{ ml: 1 }}>{videoDebug}</Typography>
+          )}
         </Box>
         {debug && (
           <Box sx={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, px: 1 }}>

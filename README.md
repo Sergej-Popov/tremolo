@@ -14,6 +14,7 @@ https://sergej-popov.github.io/tremolo/
 - Paste images that can be positioned and resized.
 - Paste YouTube links to embed videos while preserving aspect ratio.
 - Paste links to audio files to add playback controls.
+- Load `.lrc` files from the side menu to display timestamped lyrics in a Markdown code block that can sync with connected videos. Lyric blocks use the current code theme immediately and start at double width for readability.
 - Paste text to create sticky notes that can be dragged, resized and rotated. Double-click a sticky note to edit its text, or press **n** or use the toolbar button to insert an empty note.
 - Sticky note text wraps and shrinks automatically; if it still overflows at the minimum size, a thin scrollbar appears.
 - Scrollbars have a transparent track and respond to the mouse wheel when hovering over a sticky note.
@@ -23,6 +24,7 @@ https://sergej-popov.github.io/tremolo/
 - Toolbar buttons add items at the cursor unless the cursor is outside the workspace, in which case they appear in the centre of the screen.
 - Use the brush tool to draw very smooth strokes that get thicker as you draw slower. A dropdown lets you set a fixed stroke width instead of pressure. Drawings can be moved, resized and rotated.
 - Draw lines with straight, arched or cornered style. New lines start arched with triangle connectors and snap to subtle connectors at each element's side, remaining attached when those elements move.
+- Double-click a line to add a label that stays centred as the line moves. Lyric/video connectors show the current video time in `m:ss` on the label.
 - Change a line's colour from the sticky note palette (now including black) and set the start and end connection style independently: circle, arrow, filled triangle or none. Lines default to black.
 - Quickly add predefined chords or scales or display all notes.
 - Click the **edit icon** when a board is selected to open its editor.
@@ -33,6 +35,7 @@ https://sergej-popov.github.io/tremolo/
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - When brush mode is active a dropdown also lets you pick a stroke colour from the sticky note palette.
 - Toggle debug mode with **Ctrl+Shift+D** (**Cmd+Shift+D** on macOS) to show extra info, crosses over elements, and a debug panel with coordinates, rotation angles and undo history.
+- Connected lyric blocks keep their connector lines glowing and poll the YouTube player every 500 ms while playing. The active lyric line autoscrolls slowly and smoothly to the centre of the block and is highlighted in teal. A debug readout of video time appears next to the zoom reset button.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
 - Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image at eight times the screen resolution with 40 px padding around the visible area.
 - Board state, including lines, fret ranges, zoom level and sticky note settings, is saved automatically in the browser and restored on reload.

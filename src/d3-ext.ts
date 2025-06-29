@@ -250,6 +250,13 @@ function updateConnectedLines(element: Selection<any, any, any, any>) {
             g.select('circle.end').attr('cx', ld.x2).attr('cy', ld.y2);
         }
         g.select('path').attr('d', linePath(ld));
+        const pth = g.select<SVGPathElement>('path').node();
+        if (pth) {
+            const mid = pth.getPointAtLength(pth.getTotalLength() / 2);
+            g.select<SVGTextElement>('text.line-label')
+                .attr('x', mid.x)
+                .attr('y', mid.y);
+        }
     });
 }
 
@@ -403,7 +410,8 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const dragOffsetY = startY - transform.translateY;
 
                 debugLog('drag start', transform.translateX, transform.translateY);
-                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY, moved: false });
+                Object.assign(data, { dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY, moved: false });
+                element.datum(data);
                 setGridVisible(event.ctrlKey);
             })
             .on('drag', function (event: MouseEvent) {
@@ -526,6 +534,13 @@ export function updateSelectedLineStyle(style: 'direct' | 'arc' | 'corner') {
         data.style = style;
         selectedElement.select('path').attr('d', linePath(data));
         applyLineAppearance(selectedElement as any);
+        const p = selectedElement.select<SVGPathElement>('path').node();
+        if (p) {
+            const mid = p.getPointAtLength(p.getTotalLength() / 2);
+            selectedElement.select<SVGTextElement>('text.line-label')
+                .attr('x', mid.x)
+                .attr('y', mid.y);
+        }
     }
 }
 
@@ -534,6 +549,13 @@ export function updateSelectedLineColor(color: string) {
         const data = selectedElement.datum() as any;
         data.color = color;
         applyLineAppearance(selectedElement as any);
+        const p = selectedElement.select<SVGPathElement>('path').node();
+        if (p) {
+            const mid = p.getPointAtLength(p.getTotalLength() / 2);
+            selectedElement.select<SVGTextElement>('text.line-label')
+                .attr('x', mid.x)
+                .attr('y', mid.y);
+        }
     }
 }
 
@@ -542,6 +564,13 @@ export function updateSelectedStartConnectionStyle(style: 'circle' | 'arrow' | '
         const data = selectedElement.datum() as any;
         data.startStyle = style;
         applyLineAppearance(selectedElement as any);
+        const p = selectedElement.select<SVGPathElement>('path').node();
+        if (p) {
+            const mid = p.getPointAtLength(p.getTotalLength() / 2);
+            selectedElement.select<SVGTextElement>('text.line-label')
+                .attr('x', mid.x)
+                .attr('y', mid.y);
+        }
     }
 }
 
@@ -550,6 +579,13 @@ export function updateSelectedEndConnectionStyle(style: 'circle' | 'arrow' | 'tr
         const data = selectedElement.datum() as any;
         data.endStyle = style;
         applyLineAppearance(selectedElement as any);
+        const p = selectedElement.select<SVGPathElement>('path').node();
+        if (p) {
+            const mid = p.getPointAtLength(p.getTotalLength() / 2);
+            selectedElement.select<SVGTextElement>('text.line-label')
+                .attr('x', mid.x)
+                .attr('y', mid.y);
+        }
     }
 }
 
@@ -607,6 +643,13 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
             .attr('marker-end', hasEnd ? `url(#${data.id}-end)` : null);
     } else {
         element.select('path').attr('marker-start', null).attr('marker-end', null);
+    }
+    const p = element.select<SVGPathElement>('path').node();
+    if (p) {
+        const mid = p.getPointAtLength(p.getTotalLength() / 2);
+        element.select<SVGTextElement>('text.line-label')
+            .attr('x', mid.x)
+            .attr('y', mid.y);
     }
 }
 
