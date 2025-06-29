@@ -609,7 +609,7 @@ const GuitarBoard: React.FC = () => {
       highlightCode('', 'markdown', theme).then(res => {
         pre.style('background-color', res.background)
           .style('color', theme === 'github-dark' ? '#fff' : '#000')
-          .html(lyrics.map((l, i) => `<div data-idx="${i}">${l.text.replace(/</g, '&lt;')}</div>`).join(''));
+          .html(lyrics.map((l, i) => `<div data-idx="${i}" data-lyric="${l.text.replace(/</g, '&lt;')}">${l.text.replace(/</g, '&lt;')}</div>`).join(''));
       });
     } else {
       highlightCode(code, lang, theme).then(res => {
@@ -928,7 +928,7 @@ const GuitarBoard: React.FC = () => {
       if (pre) {
         if (info.data.lyrics && info.data.lyrics.length) {
           highlightCode('', 'markdown', info.data.theme).then(res => {
-            pre.innerHTML = info.data.lyrics!.map((l: any, i: number) => `<div data-idx="${i}">${l.text.replace(/</g, '&lt;')}</div>`).join('');
+            pre.innerHTML = info.data.lyrics!.map((l: any, i: number) => `<div data-idx="${i}" data-lyric="${l.text.replace(/</g, '&lt;')}">${l.text.replace(/</g, '&lt;')}</div>`).join('');
             pre.style.backgroundColor = res.background;
             pre.style.color = info.data.theme === 'github-dark' ? '#fff' : '#000';
             pre.style.fontSize = `${info.data.fontSize}px`;
@@ -1902,7 +1902,12 @@ const GuitarBoard: React.FC = () => {
       times.push(t.toFixed(1));
       const lyrics = (blockSel.datum() as any).lyrics as LyricLine[];
       const idx = lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === lyrics.length - 1 || t < lyrics[i + 1].time));
-      blockSel.selectAll('pre > div').classed('active-lyric', (_, i) => i === idx);
+      blockSel.selectAll<HTMLDivElement, unknown>('pre > div').each(function(_, i) {
+        const sel = d3.select(this);
+        const txt = sel.attr('data-lyric') || '';
+        sel.html(i === idx ? `<code>${txt}</code>` : txt);
+        sel.classed('active-lyric', i === idx);
+      });
       d3.select(this)
         .classed('glow-line', true)
         .select('path')

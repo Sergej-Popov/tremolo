@@ -410,7 +410,8 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const dragOffsetY = startY - transform.translateY;
 
                 debugLog('drag start', transform.translateX, transform.translateY);
-                element.datum<DragDatum>({ ...data, dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY, moved: false });
+                Object.assign(data, { dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY, moved: false });
+                element.datum(data);
                 setGridVisible(event.ctrlKey);
             })
             .on('drag', function (event: MouseEvent) {
