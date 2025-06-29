@@ -1905,8 +1905,13 @@ const GuitarBoard: React.FC = () => {
       blockSel.selectAll<HTMLDivElement, unknown>('pre > div').each(function(_, i) {
         const sel = d3.select(this);
         const txt = sel.attr('data-lyric') || '';
-        sel.html(i === idx ? `<code>${txt}</code>` : txt);
+        sel.text(txt);
         sel.classed('active-lyric', i === idx);
+        if (i === idx) {
+          const pre = (this.parentElement as HTMLElement);
+          const mid = (this as HTMLElement).offsetTop + (this as HTMLElement).offsetHeight / 2;
+          pre.scrollTop = mid - pre.clientHeight / 2;
+        }
       });
       d3.select(this)
         .classed('glow-line', true)

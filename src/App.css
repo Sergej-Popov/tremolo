@@ -157,15 +157,10 @@
 }
 
 .active-lyric {
-    font-family: monospace;
-    background-color: rgba(0,0,0,0.1);
+    background-color: #ffff7b;
+    color: #000;
     padding: 0 2px;
     border-radius: 3px;
-    position: relative;
-}
-.active-lyric::before,
-.active-lyric::after {
-    content: '`';
 }
 
 .line-label {
