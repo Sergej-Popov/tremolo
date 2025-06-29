@@ -130,6 +130,7 @@ const GuitarBoard: React.FC = () => {
   const [cursorPos, setCursorPos] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
   const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
   const [zoomValue, setZoomValue] = useState(1);
+  const [videoDebug, setVideoDebug] = useState('');
   const [croppableSelected, setCroppableSelected] = useState(false);
   const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const drawing = useRef(false);
@@ -1789,6 +1790,13 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const id = setInterval(() => {
       const workspace = d3.select(workspaceRef.current);
+      workspace
+        .selectAll<SVGGElement, any>('.line-element')
+        .classed('glow-line', false)
+        .select('path')
+        .style('stroke', null)
+        .style('filter', null);
+      let dbg = '';
       workspace.selectAll<SVGGElement, any>('.code-block').each(function (bd: any) {
         if (!bd.lyrics) return;
         const blockSel = d3.select(this);
@@ -1811,10 +1819,16 @@ const GuitarBoard: React.FC = () => {
         const player = (vid.datum() as any).player;
         if (!player || typeof player.getCurrentTime !== 'function') return;
         const t = player.getCurrentTime();
+        dbg += `${t.toFixed(1)} `;
         const idx = bd.lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === bd.lyrics.length - 1 || t < bd.lyrics[i + 1].time));
         blockSel.selectAll('pre > div').classed('active-lyric', (_, i) => i === idx);
-        lineSel.classed('glow-line', true);
+        lineSel
+          .classed('glow-line', true)
+          .select('path')
+          .style('stroke', '#ff00ff')
+          .style('filter', 'drop-shadow(0 0 4px #ff00ff)');
       });
+      setVideoDebug(dbg.trim());
     }, 500);
     return () => clearInterval(id);
   }, []);
@@ -1849,8 +1863,8 @@ const GuitarBoard: React.FC = () => {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
         ></svg>
-        <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, display: 'flex', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ px: 1 }}>{zoomValue.toFixed(2)}x</Typography>
+        <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, display: 'flex', alignItems: 'center', px: 1 }}>
+          <Typography variant="body2" sx={{ mr: 1 }}>{zoomValue.toFixed(2)}x</Typography>
           <IconButton size="small" onClick={() => {
             if (zoomBehaviorRef.current && svgRef.current) {
               d3.select(svgRef.current).transition().call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
@@ -1859,6 +1873,9 @@ const GuitarBoard: React.FC = () => {
           }}>
             <RestartAltIcon fontSize="small" />
           </IconButton>
+          {debug && (
+            <Typography variant="body2" sx={{ ml: 1 }}>{videoDebug}</Typography>
+          )}
         </Box>
         {debug && (
           <Box sx={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, px: 1 }}>
