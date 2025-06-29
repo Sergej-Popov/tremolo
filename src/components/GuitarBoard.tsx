@@ -131,6 +131,7 @@ const GuitarBoard: React.FC = () => {
   const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
   const [zoomValue, setZoomValue] = useState(1);
   const [videoDebug, setVideoDebug] = useState('');
+  const [videoEvents, setVideoEvents] = useState<string[]>([]);
   const [croppableSelected, setCroppableSelected] = useState(false);
   const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const drawing = useRef(false);
@@ -346,7 +347,19 @@ const GuitarBoard: React.FC = () => {
 
     const setupPlayer = () => {
       if ((window as any).YT && (window as any).YT.Player) {
-        const player = new (window as any).YT.Player(frameId);
+        const player = new (window as any).YT.Player(frameId, {
+          events: {
+            onStateChange: (ev: any) => {
+              if (ev.data === (window as any).YT.PlayerState.PLAYING) {
+                const t = player.getCurrentTime();
+                setVideoEvents(v => [...v.slice(-4), `play ${t.toFixed(1)}`]);
+              } else if (ev.data === (window as any).YT.PlayerState.PAUSED) {
+                const t = player.getCurrentTime();
+                setVideoEvents(v => [...v.slice(-4), `pause ${t.toFixed(1)}`]);
+              }
+            },
+          },
+        });
         const d = group.datum() as any;
         Object.defineProperty(d, 'player', { value: player, enumerable: false });
       }
@@ -1796,39 +1809,47 @@ const GuitarBoard: React.FC = () => {
         .select('path')
         .style('stroke', null)
         .style('filter', null);
-      let dbg = '';
-      workspace.selectAll<SVGGElement, any>('.code-block').each(function (bd: any) {
-        if (!bd.lyrics) return;
-        const blockSel = d3.select(this);
-        let vid: d3.Selection<SVGGElement, any, any, any> | null = null;
-        let lineSel: d3.Selection<SVGGElement, any, any, any> | null = null;
-        workspace.selectAll<SVGGElement, any>('.line-element').each(function (ld: any) {
-          const start = ld.startConn?.elementId;
-          const end = ld.endConn?.elementId;
-          if ((start === bd.id || end === bd.id) && !vid) {
-            const other = start === bd.id ? end : start;
-            if (!other) return;
-            const v = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === other);
-            if (!v.empty()) {
-              vid = v;
-              lineSel = d3.select(this);
-            }
-          }
-        });
-        if (!vid || !lineSel) return;
-        const player = (vid.datum() as any).player;
+
+      const times: string[] = [];
+
+      workspace.selectAll<SVGGElement, any>('.line-element').each(function (ld: any) {
+        if (!ld.startConn || !ld.endConn) return;
+        const start = ld.startConn.elementId;
+        const end = ld.endConn.elementId;
+
+        let blockSel: d3.Selection<SVGGElement, any, any, any> | null = null;
+        let videoSel: d3.Selection<SVGGElement, any, any, any> | null = null;
+
+        const startBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === start && d.lyrics);
+        const endBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === end && d.lyrics);
+        const startVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === start);
+        const endVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === end);
+
+        if (!startBlock.empty() && !endVid.empty()) {
+          blockSel = startBlock;
+          videoSel = endVid;
+        } else if (!endBlock.empty() && !startVid.empty()) {
+          blockSel = endBlock;
+          videoSel = startVid;
+        } else {
+          return;
+        }
+
+        const player = (videoSel.datum() as any).player;
         if (!player || typeof player.getCurrentTime !== 'function') return;
         const t = player.getCurrentTime();
-        dbg += `${t.toFixed(1)} `;
-        const idx = bd.lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === bd.lyrics.length - 1 || t < bd.lyrics[i + 1].time));
+        times.push(t.toFixed(1));
+        const lyrics = (blockSel.datum() as any).lyrics as LyricLine[];
+        const idx = lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === lyrics.length - 1 || t < lyrics[i + 1].time));
         blockSel.selectAll('pre > div').classed('active-lyric', (_, i) => i === idx);
-        lineSel
+        d3.select(this)
           .classed('glow-line', true)
           .select('path')
           .style('stroke', '#ff00ff')
           .style('filter', 'drop-shadow(0 0 4px #ff00ff)');
       });
-      setVideoDebug(dbg.trim());
+
+      setVideoDebug(times.join(' '));
     }, 500);
     return () => clearInterval(id);
   }, []);
@@ -1883,6 +1904,7 @@ const GuitarBoard: React.FC = () => {
               Debugging: {`x:${cursorPos.x.toFixed(1)} y:${cursorPos.y.toFixed(1)}`}
               {selectedBounds &&
                 ` | sel: x:${selectedBounds.x.toFixed(1)}, y:${selectedBounds.y.toFixed(1)}, w:${selectedBounds.width.toFixed(1)}, h:${selectedBounds.height.toFixed(1)}, a:${selectedBounds.rotate.toFixed(1)}`}
+              {videoEvents.length ? ` | ${videoEvents.join(' | ')}` : ''}
             </Typography>
           </Box>
         )}

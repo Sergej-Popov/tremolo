@@ -34,7 +34,7 @@ https://sergej-popov.github.io/tremolo/
 - When brush mode is active a dropdown sets stroke thickness, or choose "Auto" for pressure-based width.
 - When brush mode is active a dropdown also lets you pick a stroke colour from the sticky note palette.
 - Toggle debug mode with **Ctrl+Shift+D** (**Cmd+Shift+D** on macOS) to show extra info, crosses over elements, and a debug panel with coordinates, rotation angles and undo history.
-- Connected lyric blocks show a debug readout of video time next to the zoom reset button.
+- Connected lyric blocks keep their connector lines glowing and show a debug readout of video time next to the zoom reset button. The debug panel also logs YouTube play and pause events with timestamps.
 - Press **/** or **?** or use the floating question icon to see a help dialog with all shortcuts.
 - Click the **export icon** or press **Ctrl+S** to export the current board as a **PNG** image at eight times the screen resolution with 40 px padding around the visible area.
 - Board state, including lines, fret ranges, zoom level and sticky note settings, is saved automatically in the browser and restored on reload.
