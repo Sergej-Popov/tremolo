@@ -157,10 +157,14 @@
 }
 
 .active-lyric {
-    background-color: #ffff7b;
-    color: #000;
+    background-color: #168aad;
+    color: #fff;
     padding: 0 2px;
     border-radius: 3px;
+}
+
+.lyric-pre {
+    scroll-behavior: smooth;
 }
 
 .line-label {

@@ -598,6 +598,7 @@ const GuitarBoard: React.FC = () => {
       .attr('height', codeHeight);
 
     const pre = fo.append('xhtml:pre')
+      .classed('lyric-pre', !!lyrics && lyrics.length > 0)
       .style('margin', '0')
       .style('padding', '8px')
       .style('height', '100%')
@@ -1908,9 +1909,10 @@ const GuitarBoard: React.FC = () => {
         sel.text(txt);
         sel.classed('active-lyric', i === idx);
         if (i === idx) {
-          const pre = (this.parentElement as HTMLElement);
+          const pre = this.parentElement as HTMLElement;
           const mid = (this as HTMLElement).offsetTop + (this as HTMLElement).offsetHeight / 2;
-          pre.scrollTop = mid - pre.clientHeight / 2;
+          const target = mid - pre.clientHeight / 2;
+          pre.scrollTo({ top: target, behavior: 'smooth' });
         }
       });
       d3.select(this)
