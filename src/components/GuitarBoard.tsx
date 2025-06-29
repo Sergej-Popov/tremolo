@@ -347,14 +347,28 @@ const GuitarBoard: React.FC = () => {
 
     const setupPlayer = () => {
       if ((window as any).YT && (window as any).YT.Player) {
+        let interval: number | null = null;
+        const startPoll = () => {
+          if (interval == null) interval = window.setInterval(updateLyricConnections, 500);
+        };
+        const stopPoll = () => {
+          if (interval != null) {
+            clearInterval(interval);
+            interval = null;
+          }
+        };
         const player = new (window as any).YT.Player(frameId, {
           events: {
             onStateChange: (ev: any) => {
               if (ev.data === (window as any).YT.PlayerState.PLAYING) {
-                const t = player.getCurrentTime();
+                startPoll();
+                const ct = (player as any).playerInfo?.currentTime;
+                const t = typeof ct === 'number' ? ct : player.getCurrentTime();
                 setVideoEvents(v => [...v.slice(-4), `play ${t.toFixed(1)}`]);
-              } else if (ev.data === (window as any).YT.PlayerState.PAUSED) {
-                const t = player.getCurrentTime();
+              } else if (ev.data === (window as any).YT.PlayerState.PAUSED || ev.data === (window as any).YT.PlayerState.ENDED) {
+                stopPoll();
+                const ct = (player as any).playerInfo?.currentTime;
+                const t = typeof ct === 'number' ? ct : player.getCurrentTime();
                 setVideoEvents(v => [...v.slice(-4), `pause ${t.toFixed(1)}`]);
               }
             },
@@ -362,6 +376,7 @@ const GuitarBoard: React.FC = () => {
         });
         const d = group.datum() as any;
         Object.defineProperty(d, 'player', { value: player, enumerable: false });
+        updateLyricConnections();
       }
     };
     if ((window as any).YT && (window as any).YT.Player) {
@@ -1800,58 +1815,56 @@ const GuitarBoard: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      const workspace = d3.select(workspaceRef.current);
-      workspace
-        .selectAll<SVGGElement, any>('.line-element')
-        .classed('glow-line', false)
+  const updateLyricConnections = useCallback(() => {
+    const workspace = d3.select(workspaceRef.current);
+    workspace
+      .selectAll<SVGGElement, any>('.line-element')
+      .classed('glow-line', false)
+      .select('path')
+      .style('stroke', null)
+      .style('filter', null);
+
+    const times: string[] = [];
+
+    workspace.selectAll<SVGGElement, any>('.line-element').each(function (ld: any) {
+      if (!ld.startConn || !ld.endConn) return;
+      const start = ld.startConn.elementId;
+      const end = ld.endConn.elementId;
+
+      let blockSel: d3.Selection<SVGGElement, any, any, any> | null = null;
+      let videoSel: d3.Selection<SVGGElement, any, any, any> | null = null;
+
+      const startBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === start && d.lyrics);
+      const endBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === end && d.lyrics);
+      const startVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === start);
+      const endVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === end);
+
+      if (!startBlock.empty() && !endVid.empty()) {
+        blockSel = startBlock;
+        videoSel = endVid;
+      } else if (!endBlock.empty() && !startVid.empty()) {
+        blockSel = endBlock;
+        videoSel = startVid;
+      } else {
+        return;
+      }
+
+      const player = (videoSel.datum() as any).player;
+      if (!player) return;
+      const ct = (player as any).playerInfo?.currentTime;
+      const t = typeof ct === 'number' ? ct : (typeof player.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
+      times.push(t.toFixed(1));
+      const lyrics = (blockSel.datum() as any).lyrics as LyricLine[];
+      const idx = lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === lyrics.length - 1 || t < lyrics[i + 1].time));
+      blockSel.selectAll('pre > div').classed('active-lyric', (_, i) => i === idx);
+      d3.select(this)
+        .classed('glow-line', true)
         .select('path')
-        .style('stroke', null)
-        .style('filter', null);
+        .style('stroke', '#ff00ff')
+        .style('filter', 'drop-shadow(0 0 4px #ff00ff)');
+    });
 
-      const times: string[] = [];
-
-      workspace.selectAll<SVGGElement, any>('.line-element').each(function (ld: any) {
-        if (!ld.startConn || !ld.endConn) return;
-        const start = ld.startConn.elementId;
-        const end = ld.endConn.elementId;
-
-        let blockSel: d3.Selection<SVGGElement, any, any, any> | null = null;
-        let videoSel: d3.Selection<SVGGElement, any, any, any> | null = null;
-
-        const startBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === start && d.lyrics);
-        const endBlock = workspace.selectAll<SVGGElement, any>('.code-block').filter(d => d.id === end && d.lyrics);
-        const startVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === start);
-        const endVid = workspace.selectAll<SVGGElement, any>('.embedded-video').filter(d => d.id === end);
-
-        if (!startBlock.empty() && !endVid.empty()) {
-          blockSel = startBlock;
-          videoSel = endVid;
-        } else if (!endBlock.empty() && !startVid.empty()) {
-          blockSel = endBlock;
-          videoSel = startVid;
-        } else {
-          return;
-        }
-
-        const player = (videoSel.datum() as any).player;
-        if (!player || typeof player.getCurrentTime !== 'function') return;
-        const t = player.getCurrentTime();
-        times.push(t.toFixed(1));
-        const lyrics = (blockSel.datum() as any).lyrics as LyricLine[];
-        const idx = lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === lyrics.length - 1 || t < lyrics[i + 1].time));
-        blockSel.selectAll('pre > div').classed('active-lyric', (_, i) => i === idx);
-        d3.select(this)
-          .classed('glow-line', true)
-          .select('path')
-          .style('stroke', '#ff00ff')
-          .style('filter', 'drop-shadow(0 0 4px #ff00ff)');
-      });
-
-      setVideoDebug(times.join(' '));
-    }, 500);
-    return () => clearInterval(id);
+    setVideoDebug(times.join(' '));
   }, []);
 
   useEffect(() => {
