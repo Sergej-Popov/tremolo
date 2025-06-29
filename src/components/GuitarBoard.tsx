@@ -567,6 +567,7 @@ const GuitarBoard: React.FC = () => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.code-blocks');
 
+    const width = lyrics && lyrics.length ? codeWidth * 2 : codeWidth;
     const group = layer.append('g')
       .attr('class', 'code-block')
       .datum<CodeBlockDatum & { width: number; height: number; transform: any }>({
@@ -577,7 +578,7 @@ const GuitarBoard: React.FC = () => {
         theme,
         fontSize: size,
         lyrics,
-        width: codeWidth,
+        width,
         height: codeHeight,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
       });
@@ -585,7 +586,7 @@ const GuitarBoard: React.FC = () => {
     group.append('rect')
       .attr('x', 0)
       .attr('y', 0)
-      .attr('width', codeWidth)
+      .attr('width', width)
       .attr('height', codeHeight)
       .attr('stroke', '#333')
       .attr('stroke-width', 1);
@@ -593,7 +594,7 @@ const GuitarBoard: React.FC = () => {
     const fo = group.append('foreignObject')
       .attr('x', 0)
       .attr('y', 0)
-      .attr('width', codeWidth)
+      .attr('width', width)
       .attr('height', codeHeight);
 
     const pre = fo.append('xhtml:pre')
@@ -605,8 +606,11 @@ const GuitarBoard: React.FC = () => {
       .style('font-size', `${size}px`);
 
     if (lyrics && lyrics.length) {
-      pre.style('background-color', '#f5f5f5')
-        .html(lyrics.map((l, i) => `<div data-idx="${i}">${l.text.replace(/</g, '&lt;')}</div>`).join(''));
+      highlightCode('', 'markdown', theme).then(res => {
+        pre.style('background-color', res.background)
+          .style('color', theme === 'github-dark' ? '#fff' : '#000')
+          .html(lyrics.map((l, i) => `<div data-idx="${i}">${l.text.replace(/</g, '&lt;')}</div>`).join(''));
+      });
     } else {
       highlightCode(code, lang, theme).then(res => {
         pre.style('background-color', res.background)
@@ -826,6 +830,7 @@ const GuitarBoard: React.FC = () => {
         pushHistory(state, type, action);
         pendingRef.current = null;
       }
+      updateLyricConnections();
     };
     const rotate = (e: CustomEvent<Element>) => {
       pushHistory(serializeWorkspace(), getElementType(e.detail), 'rotate');
@@ -890,18 +895,28 @@ const GuitarBoard: React.FC = () => {
       if (div) adjustStickyFont(div, d.fontSize);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
     } else if (info.type === 'code') {
-      const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize);
+      const g = addCodeBlock(info.data.code, info.data.lang, info.data.theme, pos, info.data.fontSize, info.data.lyrics);
       const d = g.datum() as any;
       d.id = info.data.id;
       d.width = info.data.width;
       d.height = info.data.height;
+      d.lyrics = info.data.lyrics;
       const pre = g.select<HTMLPreElement>('foreignObject > pre').node();
       if (pre) {
-        highlightCode(info.data.code, info.data.lang, info.data.theme).then(res => {
-          pre.innerHTML = res.html;
-          pre.style.backgroundColor = res.background;
-          pre.style.fontSize = `${info.data.fontSize}px`;
-        });
+        if (info.data.lyrics && info.data.lyrics.length) {
+          highlightCode('', 'markdown', info.data.theme).then(res => {
+            pre.innerHTML = info.data.lyrics!.map((l: any, i: number) => `<div data-idx="${i}">${l.text.replace(/</g, '&lt;')}</div>`).join('');
+            pre.style.backgroundColor = res.background;
+            pre.style.color = info.data.theme === 'github-dark' ? '#fff' : '#000';
+            pre.style.fontSize = `${info.data.fontSize}px`;
+          });
+        } else {
+          highlightCode(info.data.code, info.data.lang, info.data.theme).then(res => {
+            pre.innerHTML = res.html;
+            pre.style.backgroundColor = res.background;
+            pre.style.fontSize = `${info.data.fontSize}px`;
+          });
+        }
       }
       g.select('rect').attr('width', info.data.width).attr('height', info.data.height);
       g.select('foreignObject').attr('width', info.data.width).attr('height', info.data.height);
@@ -1245,6 +1260,7 @@ const GuitarBoard: React.FC = () => {
         activeLine.current = null;
       }
       hideTempHandles();
+      updateLyricConnections();
     };
     window.addEventListener('lineconnectstart', start as EventListener);
     window.addEventListener('lineconnectdrag', drag as EventListener);
