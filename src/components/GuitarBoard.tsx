@@ -131,7 +131,6 @@ const GuitarBoard: React.FC = () => {
   const [selectedBounds, setSelectedBounds] = useState<{ x: number, y: number, width: number, height: number, rotate: number } | null>(null);
   const [zoomValue, setZoomValue] = useState(1);
   const [videoDebug, setVideoDebug] = useState('');
-  const [videoEvents, setVideoEvents] = useState<string[]>([]);
   const [croppableSelected, setCroppableSelected] = useState(false);
   const drawingSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const drawing = useRef(false);
@@ -362,14 +361,8 @@ const GuitarBoard: React.FC = () => {
             onStateChange: (ev: any) => {
               if (ev.data === (window as any).YT.PlayerState.PLAYING) {
                 startPoll();
-                const ct = (player as any).playerInfo?.currentTime;
-                const t = typeof ct === 'number' ? ct : player.getCurrentTime();
-                setVideoEvents(v => [...v.slice(-4), `play ${t.toFixed(1)}`]);
               } else if (ev.data === (window as any).YT.PlayerState.PAUSED || ev.data === (window as any).YT.PlayerState.ENDED) {
                 stopPoll();
-                const ct = (player as any).playerInfo?.currentTime;
-                const t = typeof ct === 'number' ? ct : player.getCurrentTime();
-                setVideoEvents(v => [...v.slice(-4), `pause ${t.toFixed(1)}`]);
               }
             },
           },
@@ -1851,8 +1844,9 @@ const GuitarBoard: React.FC = () => {
 
       const player = (videoSel.datum() as any).player;
       if (!player) return;
-      const ct = (player as any).playerInfo?.currentTime;
-      const t = typeof ct === 'number' ? ct : (typeof player.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
+      const t = typeof (player as any).playerInfo?.currentTime === 'number'
+        ? (player as any).playerInfo.currentTime
+        : 0;
       times.push(t.toFixed(1));
       const lyrics = (blockSel.datum() as any).lyrics as LyricLine[];
       const idx = lyrics.findIndex((l: LyricLine, i: number) => t >= l.time && (i === lyrics.length - 1 || t < lyrics[i + 1].time));
@@ -1917,7 +1911,6 @@ const GuitarBoard: React.FC = () => {
               Debugging: {`x:${cursorPos.x.toFixed(1)} y:${cursorPos.y.toFixed(1)}`}
               {selectedBounds &&
                 ` | sel: x:${selectedBounds.x.toFixed(1)}, y:${selectedBounds.y.toFixed(1)}, w:${selectedBounds.width.toFixed(1)}, h:${selectedBounds.height.toFixed(1)}, a:${selectedBounds.rotate.toFixed(1)}`}
-              {videoEvents.length ? ` | ${videoEvents.join(' | ')}` : ''}
             </Typography>
           </Box>
         )}
