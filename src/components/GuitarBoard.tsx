@@ -2007,12 +2007,12 @@ const GuitarBoard: React.FC = () => {
     let workspace = svg.select<SVGGElement>('.workspace');
     if (workspace.empty()) {
       workspace = svg.append('g').attr('class', 'workspace');
+      workspace.append('g').attr('class', 'frames');
       workspace.append('g').attr('class', 'pasted-images');
       workspace.append('g').attr('class', 'embedded-videos');
       workspace.append('g').attr('class', 'embedded-audios');
       workspace.append('g').attr('class', 'sticky-notes');
       workspace.append('g').attr('class', 'code-blocks');
-      workspace.append('g').attr('class', 'frames');
       workspace.append('g').attr('class', 'lines');
       workspace.append('g').attr('class', 'drawings');
       if (debug) {
@@ -2027,6 +2027,10 @@ const GuitarBoard: React.FC = () => {
           .style('pointer-events', 'none')
           .text('+');
       }
+    }
+    const framesLayer = workspace.select<SVGGElement>('.frames');
+    if (!framesLayer.empty()) {
+      framesLayer.lower();
     }
     workspaceRef.current = workspace.node();
     setSvgRoot(svgRef.current, workspaceRef.current);
