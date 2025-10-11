@@ -366,6 +366,55 @@ function buildTransform(transform: TransformValues, size: { width: number; heigh
     return `translate(${translateX}, ${translateY}) rotate(${rotate}, ${cx}, ${cy}) scale(${scaleX}, ${scaleY})`;
 }
 
+const intrinsicResizeClasses = new Set([
+    'sticky-note',
+    'code-block',
+    'pasted-image',
+    'embedded-video',
+    'embedded-audio',
+    'frame-element',
+]);
+
+function supportsIntrinsicResize(element: Selection<any, any, any, any>): boolean {
+    return Array.from(intrinsicResizeClasses).some(cls => element.classed(cls));
+}
+
+function applyElementSize(element: Selection<any, any, any, any>, width: number, height: number) {
+    const data = element.datum() as any || {};
+    data.width = width;
+    data.height = height;
+    element.datum(data);
+
+    if (element.classed('sticky-note')) {
+        element.select('rect').attr('width', width).attr('height', height);
+        element.select('foreignObject').attr('width', width).attr('height', height);
+    } else if (element.classed('code-block')) {
+        element.select('rect').attr('width', width).attr('height', height);
+        element.select('foreignObject').attr('width', width).attr('height', height);
+    } else if (element.classed('pasted-image')) {
+        element.select('image').attr('width', width).attr('height', height);
+    } else if (element.classed('embedded-video') || element.classed('embedded-audio')) {
+        element.select('rect').attr('width', width).attr('height', height);
+        const fo = element.select<SVGForeignObjectElement>('foreignObject');
+        if (!fo.empty()) {
+            const padX = parseFloat(fo.attr('x') ?? '0');
+            const padY = parseFloat(fo.attr('y') ?? '0');
+            const innerWidth = Math.max(0, width - padX * 2);
+            const innerHeight = Math.max(0, height - padY * 2);
+            fo.attr('width', innerWidth).attr('height', innerHeight);
+        }
+    } else if (element.classed('frame-element')) {
+        element.select<SVGRectElement>('rect.frame-rect')
+            .attr('width', width)
+            .attr('height', height);
+    }
+
+    const overlay = element.select('.crop-controls');
+    if (!overlay.empty() && overlay.style('display') !== 'none') {
+        updateCropOverlay(element);
+    }
+}
+
 export function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
     const data: any = element.datum() || {};
     data.transform = transform;
@@ -385,6 +434,8 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     const connectRadius = 4;
 
     element.selectAll<SVGRectElement, any>('.selection-outline')
+        .attr('width', width)
+        .attr('height', height)
         .attr('stroke-width', 1 / combinedScale)
         .attr('vector-effect', 'non-scaling-stroke');
 
@@ -1016,15 +1067,15 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     .datum({ startX, startY, transform, width, height, origWidth: width, origHeight: height });
             })
             .on('drag', function (event: MouseEvent) {
-                const data = d3.select<any, any>(this).datum();
-                const { transform } = data;
+                const dragData = d3.select<any, any>(this).datum();
+                const { transform, width, height } = dragData;
 
                 const [mx, my] = toWorkspaceCoords(event);
-                const dx = mx - data.startX;
-                const dy = my - data.startY;
+                const dx = mx - dragData.startX;
+                const dy = my - dragData.startY;
 
-                let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
-                let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
+                let newScaleX = Math.max(0.1, (width * transform.scaleX + dx) / Math.max(width, 1e-6));
+                let newScaleY = Math.max(0.1, (height * transform.scaleY + dy) / Math.max(height, 1e-6));
 
                 const source = (event as any).sourceEvent as MouseEvent | undefined;
                 const shift = source?.shiftKey;
@@ -1036,69 +1087,35 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 }
 
                 if (ctrl) {
-                    const snapWidth = Math.round((data.width * newScaleX) / 10) * 10;
-                    const snapHeight = Math.round((data.height * newScaleY) / 10) * 10;
-                    newScaleX = snapWidth / data.width;
-                    newScaleY = snapHeight / data.height;
+                    const snapWidth = Math.round((width * newScaleX) / 10) * 10;
+                    const snapHeight = Math.round((height * newScaleY) / 10) * 10;
+                    newScaleX = snapWidth / Math.max(width, 1e-6);
+                    newScaleY = snapHeight / Math.max(height, 1e-6);
                 }
 
-                const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+                const elementData = element.datum() as any;
 
-                if (element.classed('sticky-note') || element.classed('code-block')) {
-                    const stickyData = element.datum() as any;
-                    const width = data.origWidth * newScaleX;
-                    const height = data.origHeight * newScaleY;
-                    stickyData.width = width;
-                    stickyData.height = height;
-                    element.select('rect').attr('width', width).attr('height', height);
-                    element.select('foreignObject').attr('width', width).attr('height', height);
-                    element.select('.selection-outline').attr('width', width).attr('height', height);
-                    element.select('.rotate-handle')
-                        .attr('x', width + handleSize / zoomScale)
-                        .attr('y', -handleSize / zoomScale)
-                        .attr('font-size', handleSize / zoomScale);
+                if (supportsIntrinsicResize(element)) {
+                    const actualWidth = width * newScaleX;
+                    const actualHeight = height * newScaleY;
+                    applyElementSize(element, actualWidth, actualHeight);
                     const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
+                    elementData.transform = newTransform;
                     applyTransform(element, newTransform);
-                    d3.select(this)
-                        .attr('x', width + handleSize / zoomScale)
-                        .attr('y', height + handleSize / zoomScale)
-                        .attr('font-size', handleSize / zoomScale);
-                    updateDebugCross(element);
-                    debugLog('resize drag', width, height);
+                    debugLog('resize drag', actualWidth, actualHeight);
                 } else {
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
+                    elementData.transform = newTransform;
                     applyTransform(element, newTransform);
-
-                    const scaledWidth = data.width * newScaleX;
-                    const scaledHeight = data.height * newScaleY;
-
-                    const safeScaleX = newScaleX === 0 ? (newScaleX >= 0 ? 1e-6 : -1e-6) : newScaleX;
-                    const safeScaleY = newScaleY === 0 ? (newScaleY >= 0 ? 1e-6 : -1e-6) : newScaleY;
-                    const combinedScale = Math.max(Math.max(Math.abs(newScaleX), Math.abs(newScaleY)) * zoomScale, 1e-6);
-                    const offsetScaleX = safeScaleX * zoomScale;
-                    const offsetScaleY = safeScaleY * zoomScale;
-
-                    d3.select(this)
-                        .attr('x', data.width + handleSize / offsetScaleX)
-                        .attr('y', data.height + handleSize / offsetScaleY)
-                        .attr('font-size', handleSize / combinedScale);
-
-                    const rotateHandle = element.select('.rotate-handle');
-                    if (!rotateHandle.empty()) {
-                        rotateHandle
-                            .attr('x', data.width + handleSize / offsetScaleX)
-                            .attr('y', -handleSize / offsetScaleY)
-                            .attr('font-size', handleSize / combinedScale);
-                    }
-
-                    updateDebugCross(element);
                     debugLog('resize drag', newScaleX, newScaleY);
                 }
+
+                updateDebugCross(element);
                 setGridVisible(!!ctrl);
             })
             .on('end', function () {
                 window.dispatchEvent(new CustomEvent('element-resize-end', { detail: element.node() }));
-                if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
+                if (supportsIntrinsicResize(element) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
                 updateDebugCross(element);
