@@ -500,7 +500,7 @@ const GuitarBoard: React.FC = () => {
       .attr('stroke', frameStrokeColor)
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', '8 4')
-      .style('pointer-events', 'visibleStroke');
+      .style('cursor', 'move');
 
     applyTransform(group, transform);
     group.call(makeDraggable);
@@ -1733,7 +1733,7 @@ const GuitarBoard: React.FC = () => {
         .attr('stroke', frameStrokeColor)
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', '8 4')
-        .style('pointer-events', 'visibleStroke');
+        .style('cursor', 'move');
       frameSel.current = group;
       frameStart.current = { x, y };
       event.currentTarget.setPointerCapture(event.pointerId);
