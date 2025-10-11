@@ -668,6 +668,14 @@ export function updateSelectedColor(color: string) {
     }
 }
 
+export function updateSelectedFrameColor(color: string) {
+    if (selectedElement && selectedElement.classed('frame-element')) {
+        selectedElement.select<SVGRectElement>('rect.frame-rect').attr('fill', color);
+        const data = selectedElement.datum() as any;
+        data.color = color;
+    }
+}
+
 export function updateSelectedAlignment(align: 'left' | 'center' | 'right') {
     if (selectedElement && selectedElement.classed('sticky-note')) {
         selectedElement.select<HTMLElement>('foreignObject > .sticky-text')
@@ -1202,6 +1210,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
         d3.select(window).on('click.makeResizable', (event: MouseEvent) => {
             const controls = document.getElementById('board-controls');
             const colorSelect = document.getElementById('sticky-color-select');
+            const frameColorSelect = document.getElementById('frame-color-select');
             const alignControls = document.getElementById('sticky-align-controls');
             const target = event.target as Node;
             const isSvg = target instanceof SVGElement;
@@ -1211,6 +1220,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
                 !selectedElement.node()?.contains(target) &&
                 !(controls && controls.contains(target)) &&
                 !(colorSelect && colorSelect.contains(target)) &&
+                !(frameColorSelect && frameColorSelect.contains(target)) &&
                 !(alignControls && alignControls.contains(target))
             ) {
                 clearSelection();

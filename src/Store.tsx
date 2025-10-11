@@ -14,10 +14,14 @@ interface AppState {
   setData: React.Dispatch<React.SetStateAction<any[]>>;
   stickyColor: string;
   setStickyColor: React.Dispatch<React.SetStateAction<string>>;
+  frameColor: string;
+  setFrameColor: React.Dispatch<React.SetStateAction<string>>;
   stickyAlign: 'left' | 'center' | 'right';
   setStickyAlign: React.Dispatch<React.SetStateAction<'left' | 'center' | 'right'>>;
   stickySelected: boolean;
   setStickySelected: React.Dispatch<React.SetStateAction<boolean>>;
+  frameSelected: boolean;
+  setFrameSelected: React.Dispatch<React.SetStateAction<boolean>>;
   codeSelected: boolean;
   setCodeSelected: React.Dispatch<React.SetStateAction<boolean>>;
   codeLanguage: string;
@@ -59,8 +63,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [stickyColor, setStickyColor] = useState<string>(noteColors[0]);
+  const [frameColor, setFrameColor] = useState<string>('#ffffff');
   const [stickyAlign, setStickyAlign] = useState<'left' | 'center' | 'right'>('center');
   const [stickySelected, setStickySelected] = useState<boolean>(false);
+  const [frameSelected, setFrameSelected] = useState<boolean>(false);
   const [codeSelected, setCodeSelected] = useState<boolean>(false);
   const [codeLanguage, setCodeLanguage] = useState<string>('typescript');
   const [codeTheme, setCodeTheme] = useState<string>('github-dark');
@@ -217,10 +223,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setData,
       stickyColor,
       setStickyColor,
+      frameColor,
+      setFrameColor,
       stickyAlign,
       setStickyAlign,
       stickySelected,
       setStickySelected,
+      frameSelected,
+      setFrameSelected,
       codeSelected,
       setCodeSelected,
       codeLanguage,

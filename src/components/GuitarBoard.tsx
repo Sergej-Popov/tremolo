@@ -70,6 +70,7 @@ const audioPadding = 10;
 const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
 
 const frameStrokeColor = '#4a90e2';
+const frameFillOpacity = 0.12;
 
 function extractVideoId(url: string): string | null {
   const match = url.match(youtubeRegex);
@@ -121,12 +122,15 @@ const getElementType = (node: Element | null): string | undefined => {
 const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
+  const frameColor = app?.frameColor ?? '#ffffff';
   const stickyAlign = app?.stickyAlign ?? 'center';
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
   const setBoards = app?.setBoards ?? (() => {});
   const setBoardSelected = app?.setBoardSelected ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
+  const setFrameSelected = app?.setFrameSelected ?? (() => {});
+  const setFrameColor = app?.setFrameColor ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const codeTheme = app?.codeTheme ?? 'github-dark';
@@ -470,18 +474,19 @@ const GuitarBoard: React.FC = () => {
     return group;
   };
 
-  const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; autoSelect?: boolean }) => {
+  const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; color?: string; autoSelect?: boolean }) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.frames');
     const transform = { ...opts.transform };
     const group = layer.append('g')
       .attr('class', 'frame-element')
-      .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues }>({
+      .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string }>({
         id: opts.id ?? generateId(),
         type: 'frame',
         width: opts.width,
         height: opts.height,
         transform,
+        color: opts.color ?? frameColor,
       });
 
     group.append('rect')
@@ -490,7 +495,8 @@ const GuitarBoard: React.FC = () => {
       .attr('y', 0)
       .attr('width', opts.width)
       .attr('height', opts.height)
-      .attr('fill', 'transparent')
+      .attr('fill', opts.color ?? frameColor)
+      .attr('fill-opacity', frameFillOpacity)
       .attr('stroke', frameStrokeColor)
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', '8 4')
@@ -509,7 +515,7 @@ const GuitarBoard: React.FC = () => {
     }
 
     return group;
-  }, [debug]);
+  }, [debug, frameColor]);
 
 
   const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
@@ -1040,14 +1046,18 @@ const GuitarBoard: React.FC = () => {
       const width = info.data.width ?? 0;
       const height = info.data.height ?? 0;
       const baseTransform: TransformValues = info.data.transform ?? { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 };
+      const color = info.data.color ?? '#ffffff';
       const frame = createFrameGroup({
         id: info.data.id,
         width,
         height,
         transform: { ...baseTransform, translateX: pos.x, translateY: pos.y },
+        color,
       });
       const d = frame.datum() as any;
       d.id = info.data.id;
+      d.color = color;
+      frame.select('rect.frame-rect').attr('fill', color).attr('fill-opacity', frameFillOpacity);
     } else if (info.type === 'line') {
       const g = addLine(
         { x: info.data.x1, y: info.data.y1 },
@@ -1520,6 +1530,7 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     setStickySelected(false);
     setCodeSelected(false);
+    setFrameSelected(false);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
@@ -1527,10 +1538,19 @@ const GuitarBoard: React.FC = () => {
         setCodeSelected(false);
         setCroppableSelected(false);
         setSelectedBounds(null);
+        setFrameSelected(false);
       } else {
         const sel = d3.select(node);
-        setStickySelected(sel.classed('sticky-note'));
-        setCodeSelected(sel.classed('code-block'));
+        const isSticky = sel.classed('sticky-note');
+        const isCode = sel.classed('code-block');
+        const isFrame = sel.classed('frame-element');
+        setStickySelected(isSticky);
+        setCodeSelected(isCode);
+        setFrameSelected(isFrame);
+        if (isFrame) {
+          const data = sel.datum() as any;
+          setFrameColor((data && data.color) ? data.color : '#ffffff');
+        }
         setCroppableSelected(sel.classed('croppable'));
         const bbox = (node as SVGGraphicsElement).getBBox();
         const data: any = sel.datum() || {};
@@ -1542,7 +1562,7 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler);
     return () => window.removeEventListener('stickyselectionchange', handler);
-  }, [setStickySelected, setCodeSelected]);
+  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -1694,12 +1714,13 @@ const GuitarBoard: React.FC = () => {
       const layer = svg.select<SVGGElement>('.frames');
       const group = layer.append('g')
         .attr('class', 'frame-element')
-        .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues }>({
+        .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string }>({
           id: generateId(),
           type: 'frame',
           width: 0,
           height: 0,
           transform: { translateX: x, translateY: y, scaleX: 1, scaleY: 1, rotate: 0 },
+          color: frameColor,
         });
       group.append('rect')
         .attr('class', 'frame-rect')
@@ -1707,7 +1728,8 @@ const GuitarBoard: React.FC = () => {
         .attr('y', 0)
         .attr('width', 0)
         .attr('height', 0)
-        .attr('fill', 'transparent')
+        .attr('fill', frameColor)
+        .attr('fill-opacity', frameFillOpacity)
         .attr('stroke', frameStrokeColor)
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', '8 4')

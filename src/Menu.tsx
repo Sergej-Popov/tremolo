@@ -7,7 +7,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import { AppContext } from './Store';
 import { noteColors, defaultLineColor } from './theme';
-import { updateSelectedColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
+import { updateSelectedColor, updateSelectedFrameColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -25,14 +25,18 @@ import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
+const frameColors = ['#ffffff', ...noteColors.filter((c) => c.toLowerCase() !== '#ffffff')];
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? noteColors[0];
   const setStickyColor = app?.setStickyColor ?? (() => {});
+  const frameColor = app?.frameColor ?? '#ffffff';
+  const setFrameColor = app?.setFrameColor ?? (() => {});
   const stickyAlign = app?.stickyAlign ?? 'center';
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
+  const frameSelected = app?.frameSelected ?? false;
   const codeSelected = app?.codeSelected ?? false;
   const boardSelected = app?.boardSelected ?? false;
   const codeLanguage = app?.codeLanguage ?? 'typescript';
@@ -184,6 +188,26 @@ const Menu: React.FC = () => {
           >
             <EditNoteIcon />
           </IconButton>
+        )}
+        {frameSelected && (
+          <Box id="frame-color-select" sx={{ mr: 2 }}>
+            <Select
+              size="small"
+              value={frameColor}
+              onChange={(e) => {
+                const color = e.target.value as string;
+                setFrameColor(color);
+                updateSelectedFrameColor(color);
+                pushHistory(getSnapshot(), 'frame', 'style');
+              }}
+            >
+              {frameColors.map((c) => (
+                <MenuItem value={c} key={c}>
+                  <Box sx={{ width: 20, height: 20, backgroundColor: c, border: '1px solid rgba(0,0,0,0.2)' }} />
+                </MenuItem>
+              ))}
+            </Select>
+          </Box>
         )}
         {stickySelected && (
           <>
