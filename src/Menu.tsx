@@ -6,8 +6,9 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import { AppContext } from './Store';
+import type { FrameLineStyle } from './Store';
 import { noteColors, defaultLineColor } from './theme';
-import { updateSelectedColor, updateSelectedFrameColor, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
+import { updateSelectedColor, updateSelectedFrameColor, updateSelectedFrameLineStyle, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -33,6 +34,8 @@ const Menu: React.FC = () => {
   const setStickyColor = app?.setStickyColor ?? (() => {});
   const frameColor = app?.frameColor ?? '#ffffff';
   const setFrameColor = app?.setFrameColor ?? (() => {});
+  const frameLineStyle = app?.frameLineStyle ?? 'solid';
+  const setFrameLineStyle = app?.setFrameLineStyle ?? (() => {});
   const stickyAlign = app?.stickyAlign ?? 'center';
   const setStickyAlign = app?.setStickyAlign ?? (() => {});
   const stickySelected = app?.stickySelected ?? false;
@@ -206,6 +209,25 @@ const Menu: React.FC = () => {
                   <Box sx={{ width: 20, height: 20, backgroundColor: c, border: '1px solid rgba(0,0,0,0.2)' }} />
                 </MenuItem>
               ))}
+            </Select>
+          </Box>
+        )}
+        {frameSelected && (
+          <Box id="frame-line-style-select" sx={{ mr: 2 }}>
+            <Select
+              size="small"
+              value={frameLineStyle}
+              onChange={(e) => {
+                const style = e.target.value as FrameLineStyle;
+                if (style === frameLineStyle) return;
+                setFrameLineStyle(style);
+                updateSelectedFrameLineStyle(style);
+                pushHistory(getSnapshot(), 'frame', 'style');
+              }}
+            >
+              <MenuItem value="solid">Solid</MenuItem>
+              <MenuItem value="dashed">Dashed</MenuItem>
+              <MenuItem value="dotted">Dotted</MenuItem>
             </Select>
           </Box>
         )}

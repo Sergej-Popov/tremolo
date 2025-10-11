@@ -7,6 +7,7 @@ import { chords, scales } from '../repertoire';
 import { noteColors, defaultLineColor } from '../theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { AppContext } from '../Store';
+import type { FrameLineStyle } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
 
@@ -71,6 +72,17 @@ const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu
 
 const frameStrokeColor = '#4a90e2';
 const frameFillOpacity = 0.12;
+const frameStrokeStyles: Record<FrameLineStyle, { dash: string | null; linecap: 'butt' | 'round' }> = {
+  solid: { dash: null, linecap: 'butt' },
+  dashed: { dash: '8 4', linecap: 'butt' },
+  dotted: { dash: '2 4', linecap: 'round' },
+};
+const applyFrameStrokeStyle = (rect: d3.Selection<SVGRectElement, any, any, any>, style: FrameLineStyle) => {
+  const config = frameStrokeStyles[style] ?? frameStrokeStyles.solid;
+  rect
+    .attr('stroke-dasharray', config.dash ?? null)
+    .attr('stroke-linecap', config.linecap);
+};
 const interactiveElementSelector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
 
 function extractVideoId(url: string): string | null {
@@ -124,6 +136,7 @@ const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
   const frameColor = app?.frameColor ?? '#ffffff';
+  const frameLineStyle = app?.frameLineStyle ?? 'solid';
   const stickyAlign = app?.stickyAlign ?? 'center';
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
@@ -132,6 +145,7 @@ const GuitarBoard: React.FC = () => {
   const setStickySelected = app?.setStickySelected ?? (() => {});
   const setFrameSelected = app?.setFrameSelected ?? (() => {});
   const setFrameColor = app?.setFrameColor ?? (() => {});
+  const setFrameLineStyle = app?.setFrameLineStyle ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const codeTheme = app?.codeTheme ?? 'github-dark';
@@ -585,22 +599,24 @@ const GuitarBoard: React.FC = () => {
     event.stopPropagation();
   }, [finishRedirectedPointer]);
 
-  const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; color?: string; autoSelect?: boolean }) => {
+  const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; color?: string; lineStyle?: FrameLineStyle; autoSelect?: boolean }) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.frames');
     const transform = { ...opts.transform };
+    const lineStyle = opts.lineStyle ?? frameLineStyle;
     const group = layer.append('g')
       .attr('class', 'frame-element')
-      .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string }>({
+      .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string; lineStyle: FrameLineStyle }>({
         id: opts.id ?? generateId(),
         type: 'frame',
         width: opts.width,
         height: opts.height,
         transform,
         color: opts.color ?? frameColor,
+        lineStyle,
       });
 
-    group.append('rect')
+    const rect = group.append('rect')
       .attr('class', 'frame-rect')
       .attr('x', 0)
       .attr('y', 0)
@@ -610,12 +626,13 @@ const GuitarBoard: React.FC = () => {
       .attr('fill-opacity', frameFillOpacity)
       .attr('stroke', frameStrokeColor)
       .attr('stroke-width', 2)
-      .attr('stroke-dasharray', '8 4')
       .style('cursor', 'move')
       .on('pointerdown.frame-block', handleFramePointerDown)
       .on('pointermove.frame-block', handleFramePointerMove)
       .on('pointerup.frame-block', handleFramePointerUp)
       .on('pointercancel.frame-block', handleFramePointerCancel);
+
+    applyFrameStrokeStyle(rect, lineStyle);
 
     applyTransform(group, transform);
     group.call(makeDraggable);
@@ -633,6 +650,7 @@ const GuitarBoard: React.FC = () => {
   }, [
     debug,
     frameColor,
+    frameLineStyle,
     handleFramePointerCancel,
     handleFramePointerDown,
     handleFramePointerMove,
@@ -1169,17 +1187,22 @@ const GuitarBoard: React.FC = () => {
       const height = info.data.height ?? 0;
       const baseTransform: TransformValues = info.data.transform ?? { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 };
       const color = info.data.color ?? '#ffffff';
+      const lineStyle: FrameLineStyle = info.data.lineStyle ?? 'solid';
       const frame = createFrameGroup({
         id: info.data.id,
         width,
         height,
         transform: { ...baseTransform, translateX: pos.x, translateY: pos.y },
         color,
+        lineStyle,
       });
       const d = frame.datum() as any;
       d.id = info.data.id;
       d.color = color;
-      frame.select('rect.frame-rect').attr('fill', color).attr('fill-opacity', frameFillOpacity);
+      d.lineStyle = lineStyle;
+      const rect = frame.select<SVGRectElement>('rect.frame-rect');
+      rect.attr('fill', color).attr('fill-opacity', frameFillOpacity);
+      applyFrameStrokeStyle(rect, lineStyle);
     } else if (info.type === 'line') {
       const g = addLine(
         { x: info.data.x1, y: info.data.y1 },
@@ -1672,6 +1695,7 @@ const GuitarBoard: React.FC = () => {
         if (isFrame) {
           const data = sel.datum() as any;
           setFrameColor((data && data.color) ? data.color : '#ffffff');
+          setFrameLineStyle((data && data.lineStyle) ? data.lineStyle : 'solid');
         }
         setCroppableSelected(sel.classed('croppable'));
         const bbox = (node as SVGGraphicsElement).getBBox();
@@ -1684,7 +1708,7 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler);
     return () => window.removeEventListener('stickyselectionchange', handler);
-  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor]);
+  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -1836,15 +1860,16 @@ const GuitarBoard: React.FC = () => {
       const layer = svg.select<SVGGElement>('.frames');
       const group = layer.append('g')
         .attr('class', 'frame-element')
-        .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string }>({
+        .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string; lineStyle: FrameLineStyle }>({
           id: generateId(),
           type: 'frame',
           width: 0,
           height: 0,
           transform: { translateX: x, translateY: y, scaleX: 1, scaleY: 1, rotate: 0 },
           color: frameColor,
+          lineStyle: frameLineStyle,
         });
-      group.append('rect')
+      const rect = group.append('rect')
         .attr('class', 'frame-rect')
         .attr('x', 0)
         .attr('y', 0)
@@ -1854,12 +1879,12 @@ const GuitarBoard: React.FC = () => {
         .attr('fill-opacity', frameFillOpacity)
         .attr('stroke', frameStrokeColor)
         .attr('stroke-width', 2)
-        .attr('stroke-dasharray', '8 4')
         .style('cursor', 'move')
         .on('pointerdown.frame-block', handleFramePointerDown)
         .on('pointermove.frame-block', handleFramePointerMove)
         .on('pointerup.frame-block', handleFramePointerUp)
         .on('pointercancel.frame-block', handleFramePointerCancel);
+      applyFrameStrokeStyle(rect, frameLineStyle);
       frameSel.current = group;
       frameStart.current = { x, y };
       event.currentTarget.setPointerCapture(event.pointerId);

@@ -3,6 +3,8 @@ import { setDebugMode } from './d3-ext';
 
 import { noteColors } from "./theme";
 
+export type FrameLineStyle = 'solid' | 'dashed' | 'dotted';
+
 export interface HistoryEntry {
   state: string;
   type?: string;
@@ -16,6 +18,8 @@ interface AppState {
   setStickyColor: React.Dispatch<React.SetStateAction<string>>;
   frameColor: string;
   setFrameColor: React.Dispatch<React.SetStateAction<string>>;
+  frameLineStyle: FrameLineStyle;
+  setFrameLineStyle: React.Dispatch<React.SetStateAction<FrameLineStyle>>;
   stickyAlign: 'left' | 'center' | 'right';
   setStickyAlign: React.Dispatch<React.SetStateAction<'left' | 'center' | 'right'>>;
   stickySelected: boolean;
@@ -64,6 +68,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [data, setData] = useState<any[]>([]);
   const [stickyColor, setStickyColor] = useState<string>(noteColors[0]);
   const [frameColor, setFrameColor] = useState<string>('#ffffff');
+  const [frameLineStyle, setFrameLineStyle] = useState<FrameLineStyle>('solid');
   const [stickyAlign, setStickyAlign] = useState<'left' | 'center' | 'right'>('center');
   const [stickySelected, setStickySelected] = useState<boolean>(false);
   const [frameSelected, setFrameSelected] = useState<boolean>(false);
@@ -225,6 +230,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setStickyColor,
       frameColor,
       setFrameColor,
+      frameLineStyle,
+      setFrameLineStyle,
       stickyAlign,
       setStickyAlign,
       stickySelected,

@@ -399,6 +399,16 @@ interface HiddenElementState {
 }
 
 const DECORATION_SELECTOR = '.resize-handle, .rotate-handle, .connect-handle, .selection-outline, .component-debug-cross, .crop-controls';
+const frameStrokePatterns: Record<'solid' | 'dashed' | 'dotted', { dash: string | null; linecap: 'butt' | 'round' }> = {
+    solid: { dash: null, linecap: 'butt' },
+    dashed: { dash: '8 4', linecap: 'butt' },
+    dotted: { dash: '2 4', linecap: 'round' },
+};
+
+function applyFrameStrokeAttributes(rect: Selection<SVGRectElement, any, any, any>, style: 'solid' | 'dashed' | 'dotted') {
+    const config = frameStrokePatterns[style] ?? frameStrokePatterns.solid;
+    rect.attr('stroke-dasharray', config.dash ?? null).attr('stroke-linecap', config.linecap);
+}
 
 interface BoundingBox {
     x: number;
@@ -673,6 +683,15 @@ export function updateSelectedFrameColor(color: string) {
         selectedElement.select<SVGRectElement>('rect.frame-rect').attr('fill', color);
         const data = selectedElement.datum() as any;
         data.color = color;
+    }
+}
+
+export function updateSelectedFrameLineStyle(style: 'solid' | 'dashed' | 'dotted') {
+    if (selectedElement && selectedElement.classed('frame-element')) {
+        const rect = selectedElement.select<SVGRectElement>('rect.frame-rect');
+        applyFrameStrokeAttributes(rect, style);
+        const data = selectedElement.datum() as any;
+        data.lineStyle = style;
     }
 }
 

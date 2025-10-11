@@ -23,7 +23,7 @@ https://sergej-popov.github.io/tremolo/
 - Insert code blocks with syntax highlighting. When a code block is selected dropdowns in the header change its language, theme and font size. Only GitHub light and dark themes are available.
 - Toolbar buttons add items at the cursor unless the cursor is outside the workspace, in which case they appear in the centre of the screen.
 - Use the brush tool to draw very smooth strokes that get thicker as you draw slower. A dropdown lets you set a fixed stroke width instead of pressure. Drawings can be moved, resized and rotated.
-- Toggle the frame tool to draw resizable frames with customizable background colors that move every element contained inside when repositioned, making it easy to group layouts on the board.
+- Toggle the frame tool to draw resizable frames with customizable background colors and border styles (solid, dashed, or dotted) that move every element contained inside when repositioned, making it easy to group layouts on the board.
 - Draw lines with straight, arched or cornered style. New lines start arched with triangle connectors and snap to subtle connectors at each element's side, remaining attached when those elements move.
 - Double-click a line to add a label that stays centred as the line moves. Lyric/video connectors show the current video time in `m:ss` on the label.
 - Change a line's colour from the sticky note palette (now including black) and set the start and end connection style independently: circle, arrow, filled triangle or none. Lines default to black.
