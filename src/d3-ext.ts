@@ -845,7 +845,7 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
                 .attr('orient', 'auto');
         }
 
-        const drawShape = (m: Selection<SVGMarkerElement, unknown, any, any> | null, style: string, start: boolean) => {
+        const drawShape = (m: Selection<SVGMarkerElement, unknown, any, any> | null, style: string) => {
             if (!m) return;
             if (style === 'circle') {
                 m.attr('refX', 5)
@@ -858,8 +858,8 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
                     .append('path').attr('d', 'M0,1 L9,5 L0,9 Z').attr('fill', color);
             }
         };
-        drawShape(startMarker, data.startStyle, true);
-        drawShape(endMarker, data.endStyle, false);
+        drawShape(startMarker, data.startStyle);
+        drawShape(endMarker, data.endStyle);
         element.select('path')
             .attr('marker-start', hasStart ? `url(#${data.id}-start)` : null)
             .attr('marker-end', hasEnd ? `url(#${data.id}-end)` : null);
@@ -1021,9 +1021,6 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
                     applyTransform(element, newTransform);
 
-                    const scaledWidth = data.width * newScaleX;
-                    const scaledHeight = data.height * newScaleY;
-
                     d3.select(this)
                         .attr('x', data.width + handleSize / newScaleX)
                         .attr('y', data.height + handleSize / newScaleY)
@@ -1062,7 +1059,6 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const data: any = element.datum();
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
-    const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
     element.append('text')

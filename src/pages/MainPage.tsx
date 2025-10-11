@@ -1,8 +1,8 @@
-import React from "react";
+import type { FC } from "react";
 
 import GuitarBoard from "../components/GuitarBoard";
 
-const MainPage: React.FC = () => {
+const MainPage: FC = () => {
   return <GuitarBoard />;
 };
 

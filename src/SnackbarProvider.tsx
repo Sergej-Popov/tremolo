@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import { createContext, useState, useContext, type ReactNode, type FC } from 'react';
 import { Alert, Snackbar } from "@mui/material";
 
 export type SnackSeverity = "error" | "info" | "success" | "warning";
@@ -12,7 +12,7 @@ const SnackbarContext = createContext<{
 });
 
 
-export const SnackbarProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const SnackbarProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const [snackbar, setSnackbar] = useState<{ message: string; open: boolean, severity: SnackSeverity }>({
         message: '',
         open: false,

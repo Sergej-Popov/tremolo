@@ -6,7 +6,7 @@
   "scripts": {
     "start": "vite --open",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "node scripts/lint.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

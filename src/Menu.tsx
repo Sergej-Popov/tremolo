@@ -48,7 +48,6 @@ const Menu: React.FC = () => {
   const setCodeTheme = app?.setCodeTheme ?? (() => {});
   const codeFontSize = app?.codeFontSize ?? 14;
   const setCodeFontSize = app?.setCodeFontSize ?? (() => {});
-  const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
   const frameMode = app?.frameMode ?? false;
