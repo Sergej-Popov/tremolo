@@ -133,6 +133,7 @@ const GuitarBoard: React.FC = () => {
   const codeFontSize = app?.codeFontSize ?? 14;
   const drawingMode = app?.drawingMode ?? false;
   const frameMode = app?.frameMode ?? false;
+  const setFrameMode = app?.setFrameMode ?? (() => {});
   const brushWidth = app?.brushWidth ?? 'auto';
   const brushColor = app?.brushColor ?? defaultLineColor;
   const pushHistory = app?.pushHistory ?? (() => {});
@@ -1844,6 +1845,7 @@ const GuitarBoard: React.FC = () => {
       }
       frameSel.current = null;
       frameStart.current = null;
+      setFrameMode(false);
       event.currentTarget.releasePointerCapture(event.pointerId);
       return;
     }

@@ -392,6 +392,42 @@ interface FrameAttachment {
     lineBaseTransform?: TransformValues;
 }
 
+interface HiddenElementState {
+    node: SVGGraphicsElement;
+    displayAttr: string | null;
+    styleDisplay: string;
+}
+
+const DECORATION_SELECTOR = '.resize-handle, .rotate-handle, .connect-handle, .selection-outline, .component-debug-cross, .crop-controls';
+
+function getTightBoundingBox(node: SVGGraphicsElement): DOMRect | null {
+    const element = d3.select(node);
+    const hidden: HiddenElementState[] = [];
+    element.selectAll<SVGGraphicsElement, unknown>(DECORATION_SELECTOR).each(function () {
+        const child = this as SVGGraphicsElement;
+        hidden.push({
+            node: child,
+            displayAttr: child.getAttribute('display'),
+            styleDisplay: child.style.display,
+        });
+        child.style.display = 'none';
+    });
+    try {
+        return node.getBBox();
+    } catch {
+        return null;
+    } finally {
+        hidden.forEach(({ node: child, displayAttr, styleDisplay }) => {
+            if (displayAttr !== null) {
+                child.setAttribute('display', displayAttr);
+            } else {
+                child.removeAttribute('display');
+            }
+            child.style.display = styleDisplay;
+        });
+    }
+}
+
 export function makeDraggable(selection: Selection<any, any, any, any>) {
     interface DragDatum {
         dragOffsetX: number;
@@ -424,59 +460,63 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 let attachments: FrameAttachment[] | null = null;
                 if (element.classed('frame-element') && workspaceRoot) {
                     const frameNode = element.node() as SVGGraphicsElement;
-                    const frameBox = frameNode.getBBox();
-                    const workspace = d3.select(workspaceRoot);
-                    const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
-                    const collected: FrameAttachment[] = [];
-                    const attachedIds: Set<string> = new Set();
-                    workspace.selectAll<SVGGElement, any>(selector).each(function (ld: any) {
-                        if (this === frameNode) return;
-                        const el = d3.select(this);
-                        const box = (this as SVGGraphicsElement).getBBox();
-                        if (
-                            box.x >= frameBox.x &&
-                            box.y >= frameBox.y &&
-                            box.x + box.width <= frameBox.x + frameBox.width &&
-                            box.y + box.height <= frameBox.y + frameBox.height
-                        ) {
-                            if (ld?.type === 'line') {
-                                const base: TransformValues = ld?.transform ? { ...ld.transform } : { ...defaultTransform() };
-                                collected.push({
-                                    selection: el,
-                                    kind: 'line',
-                                    line: {
-                                        x1: (ld?.x1 ?? 0) + base.translateX,
-                                        y1: (ld?.y1 ?? 0) + base.translateY,
-                                        x2: (ld?.x2 ?? 0) + base.translateX,
-                                        y2: (ld?.y2 ?? 0) + base.translateY,
-                                    },
-                                    elementId: ld?.id,
-                                    lineBaseTransform: base,
-                                });
-                            } else {
-                                const base: TransformValues = ld?.transform ? { ...ld.transform } : { ...defaultTransform() };
-                                const attachment: FrameAttachment = {
-                                    selection: el,
-                                    kind: 'transform',
-                                    transform: base,
-                                    elementId: ld?.id,
-                                };
-                                collected.push(attachment);
-                                if (attachment.elementId) attachedIds.add(attachment.elementId);
+                    const frameBox = getTightBoundingBox(frameNode);
+                    if (frameBox) {
+                        const workspace = d3.select(workspaceRoot);
+                        const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
+                        const collected: FrameAttachment[] = [];
+                        const attachedIds: Set<string> = new Set();
+                        const epsilon = 0.5;
+                        workspace.selectAll<SVGGElement, any>(selector).each(function (ld: any) {
+                            if (this === frameNode) return;
+                            const el = d3.select(this);
+                            const box = getTightBoundingBox(this as SVGGraphicsElement);
+                            if (!box) return;
+                            if (
+                                box.x >= frameBox.x - epsilon &&
+                                box.y >= frameBox.y - epsilon &&
+                                box.x + box.width <= frameBox.x + frameBox.width + epsilon &&
+                                box.y + box.height <= frameBox.y + frameBox.height + epsilon
+                            ) {
+                                if (ld?.type === 'line') {
+                                    const base: TransformValues = ld?.transform ? { ...ld.transform } : { ...defaultTransform() };
+                                    collected.push({
+                                        selection: el,
+                                        kind: 'line',
+                                        line: {
+                                            x1: (ld?.x1 ?? 0) + base.translateX,
+                                            y1: (ld?.y1 ?? 0) + base.translateY,
+                                            x2: (ld?.x2 ?? 0) + base.translateX,
+                                            y2: (ld?.y2 ?? 0) + base.translateY,
+                                        },
+                                        elementId: ld?.id,
+                                        lineBaseTransform: base,
+                                    });
+                                } else {
+                                    const base: TransformValues = ld?.transform ? { ...ld.transform } : { ...defaultTransform() };
+                                    const attachment: FrameAttachment = {
+                                        selection: el,
+                                        kind: 'transform',
+                                        transform: base,
+                                        elementId: ld?.id,
+                                    };
+                                    collected.push(attachment);
+                                    if (attachment.elementId) attachedIds.add(attachment.elementId);
+                                }
                             }
-                        }
-                    });
-                    collected.forEach(att => {
-                        if (att.kind === 'line') {
-                            const data = att.selection.datum() as any;
-                            const startFollow = data?.startConn && attachedIds.has(data.startConn.elementId);
-                            const endFollow = data?.endConn && attachedIds.has(data.endConn.elementId);
-                            if (startFollow && endFollow) {
-                                att.followConnections = true;
+                        });
+                        collected.forEach(att => {
+                            if (att.kind === 'line') {
+                                const data = att.selection.datum() as any;
+                                const startFollow = data?.startConn && attachedIds.has(data.startConn.elementId);
+                                const endFollow = data?.endConn && attachedIds.has(data.endConn.elementId);
+                                if (startFollow && endFollow) {
+                                    att.followConnections = true;
+                                }
                             }
-                        }
-                    });
-                    attachments = collected.length ? collected : null;
+                        });
+                        attachments = collected.length ? collected : null;
+                    }
                 }
 
                 Object.assign(data, {
