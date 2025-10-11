@@ -363,6 +363,30 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
     const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
     element.attr('transform', buildTransform(transform, { width, height }));
+
+    const { scaleX, scaleY } = transform;
+    const dominantScale = Math.max(Math.abs(scaleX), Math.abs(scaleY), 1e-6);
+    const safeScaleX = scaleX === 0 ? (scaleX >= 0 ? 1e-6 : -1e-6) : scaleX;
+    const safeScaleY = scaleY === 0 ? (scaleY >= 0 ? 1e-6 : -1e-6) : scaleY;
+    const handleSize = 16;
+    const connectRadius = 4;
+
+    element.selectAll<SVGRectElement, any>('.selection-outline')
+        .attr('stroke-width', 1 / dominantScale)
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    element.selectAll<SVGTextElement, any>('.resize-handle')
+        .attr('x', width + handleSize / safeScaleX)
+        .attr('y', height + handleSize / safeScaleY)
+        .attr('font-size', handleSize / dominantScale)
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    element.selectAll<SVGTextElement, any>('.rotate-handle')
+        .attr('x', width + handleSize / safeScaleX)
+        .attr('y', -handleSize / safeScaleY)
+        .attr('font-size', handleSize / dominantScale)
+        .attr('vector-effect', 'non-scaling-stroke');
+
     const handles = element.selectAll<SVGCircleElement, any>('.connect-handle');
     handles.each(function () {
         const h = d3.select(this);
@@ -373,6 +397,7 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
         if (pos === 's') { x = width / 2; y = height; }
         if (pos === 'w') { x = 0; y = height / 2; }
         h.attr('cx', x).attr('cy', y);
+        h.attr('r', connectRadius / dominantScale);
         const p = transformPoint(x, y, transform, { width, height });
         h.attr('data-abs-x', p.x).attr('data-abs-y', p.y);
     });
@@ -936,7 +961,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
         .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'nwse-resize')
         .style('user-select', 'none')
-        .style('vector-effect', 'non-scaling-stroke');
+        .attr('vector-effect', 'non-scaling-stroke');
 
     if (!element.select('.component-debug-cross').empty()) {
         updateDebugCross(element);
@@ -1073,7 +1098,7 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
         .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'grab')
         .style('user-select', 'none')
-        .style('vector-effect', 'non-scaling-stroke')
+        .attr('vector-effect', 'non-scaling-stroke')
         .call(
             d3.drag<SVGTextElement, unknown>()
                 .on('start', function (event: MouseEvent) {
@@ -1191,10 +1216,10 @@ function addOutline(element: Selection<any, any, any, any>) {
         .attr('width', width)
         .attr('height', height)
         .attr('fill', 'none')
-    .attr('stroke', '#7fbbf7')
+        .attr('stroke', '#7fbbf7')
         .attr('stroke-width', 1 / Math.max(scaleX, scaleY))
         .style('pointer-events', 'none')
-        .style('vector-effect', 'non-scaling-stroke');
+        .attr('vector-effect', 'non-scaling-stroke');
 }
 
 function clearSelection() {
@@ -1457,7 +1482,7 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                     .attr('text-anchor', 'middle')
                     .attr('dominant-baseline', 'middle')
                     .style('user-select', 'none')
-                    .style('vector-effect', 'non-scaling-stroke');
+                    .attr('vector-effect', 'non-scaling-stroke');
             }
 
             overlay.append('rect').attr('class', 'crop-shade-top');
