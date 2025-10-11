@@ -35,6 +35,8 @@ interface AppState {
   setDebug: React.Dispatch<React.SetStateAction<boolean>>;
   drawingMode: boolean;
   setDrawingMode: React.Dispatch<React.SetStateAction<boolean>>;
+  frameMode: boolean;
+  setFrameMode: React.Dispatch<React.SetStateAction<boolean>>;
   brushWidth: number | 'auto';
   setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
   brushColor: string;
@@ -67,6 +69,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [boardSelected, setBoardSelected] = useState<boolean>(false);
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
+  const [frameMode, setFrameMode] = useState<boolean>(false);
   const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
   const [brushColor, setBrushColor] = useState<string>(noteColors[noteColors.length - 1]);
 
@@ -143,7 +146,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
         return;
       }
       if (e.key === 'b') {
+        setFrameMode(false);
         setDrawingMode((prev) => !prev);
+      }
+      if (e.key === 'f') {
+        setDrawingMode(false);
+        setFrameMode((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handler);
@@ -163,6 +171,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       window.removeEventListener('createsticky', disable as EventListener);
       window.removeEventListener('createcodeblock', disable as EventListener);
       window.removeEventListener('createline', disable as EventListener);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const disable = () => setFrameMode(false);
+    window.addEventListener('createsticky', disable as EventListener);
+    window.addEventListener('createcodeblock', disable as EventListener);
+    window.addEventListener('createline', disable as EventListener);
+    window.addEventListener('createboard', disable as EventListener);
+    return () => {
+      window.removeEventListener('createsticky', disable as EventListener);
+      window.removeEventListener('createcodeblock', disable as EventListener);
+      window.removeEventListener('createline', disable as EventListener);
+      window.removeEventListener('createboard', disable as EventListener);
     };
   }, []);
 
@@ -216,6 +238,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setDebug,
       drawingMode,
       setDrawingMode,
+      frameMode,
+      setFrameMode,
       brushWidth,
       setBrushWidth,
       brushColor,

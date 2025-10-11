@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -69,6 +69,8 @@ const audioPadding = 10;
 
 const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
 
+const frameStrokeColor = '#4a90e2';
+
 function extractVideoId(url: string): string | null {
   const match = url.match(youtubeRegex);
   return match ? match[1] : null;
@@ -112,6 +114,7 @@ const getElementType = (node: Element | null): string | undefined => {
   if (sel.classed('guitar-board')) return 'board';
   if (sel.classed('drawing')) return 'drawing';
   if (sel.classed('line-element')) return 'line';
+  if (sel.classed('frame-element')) return 'frame';
   return undefined;
 };
 
@@ -129,6 +132,7 @@ const GuitarBoard: React.FC = () => {
   const codeTheme = app?.codeTheme ?? 'github-dark';
   const codeFontSize = app?.codeFontSize ?? 14;
   const drawingMode = app?.drawingMode ?? false;
+  const frameMode = app?.frameMode ?? false;
   const brushWidth = app?.brushWidth ?? 'auto';
   const brushColor = app?.brushColor ?? defaultLineColor;
   const pushHistory = app?.pushHistory ?? (() => {});
@@ -156,6 +160,9 @@ const GuitarBoard: React.FC = () => {
   const lastPoint = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
+
+  const frameSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
+  const frameStart = useRef<{ x: number; y: number } | null>(null);
 
   const pendingRef = useRef<{ state: ElementCopy[]; type?: string; action?: string } | null>(null);
 
@@ -461,6 +468,47 @@ const GuitarBoard: React.FC = () => {
 
     return group;
   };
+
+  const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; autoSelect?: boolean }) => {
+    const svg = d3.select(svgRef.current);
+    const layer = svg.select<SVGGElement>('.frames');
+    const transform = { ...opts.transform };
+    const group = layer.append('g')
+      .attr('class', 'frame-element')
+      .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues }>({
+        id: opts.id ?? generateId(),
+        type: 'frame',
+        width: opts.width,
+        height: opts.height,
+        transform,
+      });
+
+    group.append('rect')
+      .attr('class', 'frame-rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', opts.width)
+      .attr('height', opts.height)
+      .attr('fill', 'transparent')
+      .attr('stroke', frameStrokeColor)
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', '8 4')
+      .style('pointer-events', 'visibleStroke');
+
+    applyTransform(group, transform);
+    group.call(makeDraggable);
+    group.call(makeResizable, { lockAspectRatio: false });
+
+    if (debug) {
+      addDebugCross(group);
+    }
+
+    if (opts.autoSelect !== false) {
+      group.dispatch('click');
+    }
+
+    return group;
+  }, [debug]);
 
 
   const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
@@ -987,6 +1035,18 @@ const GuitarBoard: React.FC = () => {
         }
       };
       apply();
+    } else if (info.type === 'frame') {
+      const width = info.data.width ?? 0;
+      const height = info.data.height ?? 0;
+      const baseTransform: TransformValues = info.data.transform ?? { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 };
+      const frame = createFrameGroup({
+        id: info.data.id,
+        width,
+        height,
+        transform: { ...baseTransform, translateX: pos.x, translateY: pos.y },
+      });
+      const d = frame.datum() as any;
+      d.id = info.data.id;
     } else if (info.type === 'line') {
       const g = addLine(
         { x: info.data.x1, y: info.data.y1 },
@@ -1042,12 +1102,12 @@ const GuitarBoard: React.FC = () => {
     const svg = d3.select(svgRef.current);
     const workspace = svg.select<SVGGElement>('.workspace');
     const items: ElementCopy[] = [];
-    const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board';
+    const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
     workspace.selectAll<SVGGElement, any>(selector).each(function () {
       const el = d3.select(this);
       const data = { ...(el.datum() as any) };
       if (!data || !data.type) return;
-      if (!['image','video','audio','sticky','board','drawing','code','line'].includes(data.type)) return;
+      if (!['image','video','audio','sticky','board','drawing','code','line','frame'].includes(data.type)) return;
       const info: ElementCopy = { type: data.type, data: { ...data } };
       if (info.type === 'board') {
         info.data.notes = el.selectAll('.note').data().map((n: any) => ({ string: n.string, fret: n.fret }));
@@ -1095,7 +1155,7 @@ const GuitarBoard: React.FC = () => {
       });
       workspace
         .selectAll(
-          '.pasted-image, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board'
+          '.pasted-image, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element'
         )
         .remove();
     } else {
@@ -1446,15 +1506,15 @@ const GuitarBoard: React.FC = () => {
         if (event.type === 'dblclick') return false;
         const e = event as any;
         if (e.ctrlKey) return false;
-        if (drawingMode) return false;
+        if (drawingMode || frameMode) return false;
         const target = e.target as Element;
         return target === svgRef.current || target === workspaceRef.current;
       });
     }
     if (workspaceRef.current) {
-      d3.select(workspaceRef.current).style('pointer-events', drawingMode ? 'none' : 'all');
+      d3.select(workspaceRef.current).style('pointer-events', drawingMode || frameMode ? 'none' : 'all');
     }
-  }, [drawingMode]);
+  }, [drawingMode, frameMode]);
 
   useEffect(() => {
     setStickySelected(false);
@@ -1625,6 +1685,37 @@ const GuitarBoard: React.FC = () => {
   };
 
   const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (frameMode) {
+      event.stopPropagation();
+      pushHistory(serializeWorkspace(), 'frame', 'create');
+      const { x, y } = toWorkspace(event.clientX, event.clientY);
+      const svg = d3.select(svgRef.current);
+      const layer = svg.select<SVGGElement>('.frames');
+      const group = layer.append('g')
+        .attr('class', 'frame-element')
+        .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues }>({
+          id: generateId(),
+          type: 'frame',
+          width: 0,
+          height: 0,
+          transform: { translateX: x, translateY: y, scaleX: 1, scaleY: 1, rotate: 0 },
+        });
+      group.append('rect')
+        .attr('class', 'frame-rect')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', 0)
+        .attr('height', 0)
+        .attr('fill', 'transparent')
+        .attr('stroke', frameStrokeColor)
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '8 4')
+        .style('pointer-events', 'visibleStroke');
+      frameSel.current = group;
+      frameStart.current = { x, y };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
     if (!drawingMode) return;
     event.stopPropagation();
     pushHistory(serializeWorkspace(), 'drawing', 'create');
@@ -1651,6 +1742,25 @@ const GuitarBoard: React.FC = () => {
   };
 
   const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (frameSel.current && frameStart.current) {
+      const { x, y } = toWorkspace(event.clientX, event.clientY);
+      const start = frameStart.current;
+      const left = Math.min(start.x, x);
+      const top = Math.min(start.y, y);
+      const width = Math.max(0, Math.abs(x - start.x));
+      const height = Math.max(0, Math.abs(y - start.y));
+      const group = frameSel.current;
+      const data: any = group.datum();
+      data.width = width;
+      data.height = height;
+      const transform: TransformValues = { translateX: left, translateY: top, scaleX: 1, scaleY: 1, rotate: 0 };
+      data.transform = transform;
+      group.select<SVGRectElement>('rect.frame-rect')
+        .attr('width', width)
+        .attr('height', height);
+      applyTransform(group as any, transform);
+      return;
+    }
     if (!drawing.current || !drawingSel.current) return;
     const prev = lastPoint.current;
     const midPrev = lastMid.current;
@@ -1721,6 +1831,22 @@ const GuitarBoard: React.FC = () => {
   };
 
   const handlePointerUp = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (frameSel.current) {
+      const group = frameSel.current;
+      const data: any = group.datum();
+      if (!data || data.width < 5 || data.height < 5) {
+        group.remove();
+      } else {
+        group.call(makeDraggable);
+        group.call(makeResizable, { lockAspectRatio: false });
+        if (debug) addDebugCross(group);
+        group.dispatch('click');
+      }
+      frameSel.current = null;
+      frameStart.current = null;
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (!drawing.current) return;
     finishDrawing();
     event.currentTarget.releasePointerCapture(event.pointerId);
@@ -1736,6 +1862,7 @@ const GuitarBoard: React.FC = () => {
       workspace.append('g').attr('class', 'embedded-audios');
       workspace.append('g').attr('class', 'sticky-notes');
       workspace.append('g').attr('class', 'code-blocks');
+      workspace.append('g').attr('class', 'frames');
       workspace.append('g').attr('class', 'lines');
       workspace.append('g').attr('class', 'drawings');
       if (debug) {

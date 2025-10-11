@@ -15,6 +15,7 @@ import BrushIcon from '@mui/icons-material/Brush';
 import CodeIcon from '@mui/icons-material/Code';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
+import CropSquareIcon from '@mui/icons-material/CropSquare';
 import SaveIcon from '@mui/icons-material/Save';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
@@ -43,6 +44,8 @@ const Menu: React.FC = () => {
   const addBoard = app?.addBoard ?? (() => {});
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
+  const frameMode = app?.frameMode ?? false;
+  const setFrameMode = app?.setFrameMode ?? (() => {});
   const brushWidth = app?.brushWidth ?? 'auto';
   const setBrushWidth = app?.setBrushWidth ?? (() => {});
   const brushColor = app?.brushColor ?? defaultLineColor;
@@ -123,10 +126,33 @@ const Menu: React.FC = () => {
           <Typography variant="h6" component="div" sx={{ mr: 2 }}>
             Tremolo
           </Typography>
+          <IconButton
+            color={frameMode ? 'secondary' : 'inherit'}
+            onClick={() => {
+              const next = !frameMode;
+              setFrameMode(next);
+              if (next) {
+                setDrawingMode(false);
+              }
+            }}
+            sx={{ mr: 1 }}
+          >
+            <CropSquareIcon />
+          </IconButton>
           <IconButton size="large" color="inherit" onClick={() => window.dispatchEvent(new Event('createboard'))} sx={{ mr: 1 }}>
             <MusicNoteIcon />
           </IconButton>
-          <IconButton color={drawingMode ? 'secondary' : 'inherit'} onClick={() => setDrawingMode(!drawingMode)} sx={{ mr: 1 }}>
+          <IconButton
+            color={drawingMode ? 'secondary' : 'inherit'}
+            onClick={() => {
+              const next = !drawingMode;
+              setDrawingMode(next);
+              if (next) {
+                setFrameMode(false);
+              }
+            }}
+            sx={{ mr: 1 }}
+          >
             <BrushIcon />
           </IconButton>
           <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createline'))} sx={{ mr: 1 }}>
