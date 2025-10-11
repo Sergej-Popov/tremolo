@@ -45,7 +45,15 @@ const theme = {
 
 interface NoteDatum { id: string; type: 'note'; string: noteString; fret: number }
 
-interface PastedImageDatum { id: string; type: 'image'; src: string; width: number; height: number }
+interface PastedImageDatum {
+  id: string;
+  type: 'image';
+  src: string;
+  width: number;
+  height: number;
+  originalSrc?: string | null;
+  backgroundRemoved?: boolean;
+}
 
 interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: string }
 interface PastedAudioDatum { id: string; type: 'audio'; url: string }
@@ -147,6 +155,8 @@ const GuitarBoard: React.FC = () => {
   const setFrameColor = app?.setFrameColor ?? (() => {});
   const setFrameLineStyle = app?.setFrameLineStyle ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
+  const setImageSelected = app?.setImageSelected ?? (() => {});
+  const setImageBackgroundRemoved = app?.setImageBackgroundRemoved ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const codeTheme = app?.codeTheme ?? 'github-dark';
   const codeFontSize = app?.codeFontSize ?? 14;
@@ -319,13 +329,28 @@ const GuitarBoard: React.FC = () => {
     fitFretBoard();
   }
 
-  const addImage = (src: string, pos: { x: number, y: number }, width: number, height: number) => {
+  const addImage = (
+    src: string,
+    pos: { x: number, y: number },
+    width: number,
+    height: number,
+    options: { originalSrc?: string | null; backgroundRemoved?: boolean } = {}
+  ) => {
     const svg = d3.select(svgRef.current);
     const imagesLayer = svg.select<SVGGElement>('.pasted-images');
 
     const group = imagesLayer.append('g')
       .attr('class', 'pasted-image')
-      .datum<PastedImageDatum & { transform: any }>({ id: generateId(), type: 'image', src, width, height, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+      .datum<PastedImageDatum & { transform: any }>({
+        id: generateId(),
+        type: 'image',
+        src,
+        width,
+        height,
+        originalSrc: options.originalSrc ?? null,
+        backgroundRemoved: options.backgroundRemoved ?? false,
+        transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+      });
 
     group.append('image')
       .attr('href', src)
@@ -333,6 +358,10 @@ const GuitarBoard: React.FC = () => {
       .attr('y', 0)
       .attr('width', width)
       .attr('height', height);
+
+    if (options.backgroundRemoved) {
+      group.classed('background-removed', true);
+    }
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
 
@@ -1093,9 +1122,15 @@ const GuitarBoard: React.FC = () => {
   const duplicateElement = (info: ElementCopy) => {
     const pos = cursorRef.current;
     if (info.type === 'image') {
-      const g = addImage(info.data.src, pos, info.data.width, info.data.height);
+      const g = addImage(info.data.src, pos, info.data.width, info.data.height, {
+        originalSrc: info.data.originalSrc ?? null,
+        backgroundRemoved: info.data.backgroundRemoved ?? false,
+      });
       const d = g.datum() as any;
       d.id = info.data.id;
+      d.originalSrc = info.data.originalSrc ?? d.originalSrc ?? null;
+      d.backgroundRemoved = info.data.backgroundRemoved ?? d.backgroundRemoved;
+      g.classed('background-removed', !!d.backgroundRemoved);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       if (info.data.crop) {
         d.crop = { ...info.data.crop };
@@ -1676,6 +1711,8 @@ const GuitarBoard: React.FC = () => {
     setStickySelected(false);
     setCodeSelected(false);
     setFrameSelected(false);
+    setImageSelected(false);
+    setImageBackgroundRemoved(false);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
@@ -1684,14 +1721,24 @@ const GuitarBoard: React.FC = () => {
         setCroppableSelected(false);
         setSelectedBounds(null);
         setFrameSelected(false);
+        setImageSelected(false);
+        setImageBackgroundRemoved(false);
       } else {
         const sel = d3.select(node);
         const isSticky = sel.classed('sticky-note');
         const isCode = sel.classed('code-block');
         const isFrame = sel.classed('frame-element');
+        const isImage = sel.classed('pasted-image');
         setStickySelected(isSticky);
         setCodeSelected(isCode);
         setFrameSelected(isFrame);
+        setImageSelected(isImage);
+        if (isImage) {
+          const data = sel.datum() as PastedImageDatum & { backgroundRemoved?: boolean };
+          setImageBackgroundRemoved(!!data.backgroundRemoved);
+        } else {
+          setImageBackgroundRemoved(false);
+        }
         if (isFrame) {
           const data = sel.datum() as any;
           setFrameColor((data && data.color) ? data.color : '#ffffff');
@@ -1708,7 +1755,7 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler);
     return () => window.removeEventListener('stickyselectionchange', handler);
-  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle]);
+  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle, setImageSelected, setImageBackgroundRemoved]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {

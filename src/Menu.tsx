@@ -8,7 +8,7 @@ import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import { AppContext } from './Store';
 import type { FrameLineStyle } from './Store';
 import { noteColors, defaultLineColor } from './theme';
-import { updateSelectedColor, updateSelectedFrameColor, updateSelectedFrameLineStyle, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes } from './d3-ext';
+import { updateSelectedColor, updateSelectedFrameColor, updateSelectedFrameLineStyle, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes, removeBackgroundFromSelectedImage, restoreSelectedImageBackground } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -46,6 +46,9 @@ const Menu: React.FC = () => {
   const stickySelected = app?.stickySelected ?? false;
   const frameSelected = app?.frameSelected ?? false;
   const codeSelected = app?.codeSelected ?? false;
+  const imageSelected = app?.imageSelected ?? false;
+  const imageBackgroundRemoved = app?.imageBackgroundRemoved ?? false;
+  const setImageBackgroundRemoved = app?.setImageBackgroundRemoved ?? (() => {});
   const boardSelected = app?.boardSelected ?? false;
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const setCodeLanguage = app?.setCodeLanguage ?? noopStrDispatch;
@@ -75,6 +78,7 @@ const Menu: React.FC = () => {
   const [lineEndConn, setLineEndConn] = React.useState<'circle' | 'arrow' | 'triangle' | 'none'>('triangle');
   const [lineSelected, setLineSelected] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [imageProcessing, setImageProcessing] = React.useState<'remove' | 'restore' | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -118,6 +122,12 @@ const Menu: React.FC = () => {
     window.addEventListener('lineselectionchange', handler as EventListener);
     return () => window.removeEventListener('lineselectionchange', handler as EventListener);
   }, []);
+
+  React.useEffect(() => {
+    if (!imageSelected && imageProcessing !== null) {
+      setImageProcessing(null);
+    }
+  }, [imageProcessing, imageSelected]);
 
   return (
     <>
@@ -423,6 +433,48 @@ const Menu: React.FC = () => {
               </Select>
             </Box>
           </>
+        )}
+        {imageSelected && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2, gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              disabled={imageProcessing !== null}
+              onClick={async () => {
+                setImageProcessing('remove');
+                try {
+                  const changed = await removeBackgroundFromSelectedImage();
+                  if (changed) {
+                    setImageBackgroundRemoved(true);
+                    pushHistory(getSnapshot(), 'image', 'background-remove');
+                  }
+                } finally {
+                  setImageProcessing(null);
+                }
+              }}
+            >
+              {imageProcessing === 'remove' ? 'Removing…' : 'Remove Background'}
+            </Button>
+            <Button
+              variant="text"
+              size="small"
+              disabled={!imageBackgroundRemoved || imageProcessing !== null}
+              onClick={async () => {
+                setImageProcessing('restore');
+                try {
+                  const restored = restoreSelectedImageBackground();
+                  if (restored) {
+                    setImageBackgroundRemoved(false);
+                    pushHistory(getSnapshot(), 'image', 'background-restore');
+                  }
+                } finally {
+                  setImageProcessing(null);
+                }
+              }}
+            >
+              {imageProcessing === 'restore' ? 'Restoring…' : 'Restore Background'}
+            </Button>
+          </Box>
         )}
         {drawingMode && (
           <Box id="brush-width-select" sx={{ mr: 2 }}>

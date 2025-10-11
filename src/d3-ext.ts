@@ -983,6 +983,202 @@ export function updateSelectedEndConnectionStyle(style: 'circle' | 'arrow' | 'tr
     }
 }
 
+export interface BackgroundRemovalOptions {
+    tolerance?: number;
+    feather?: number;
+}
+
+function sampleEdgeStatistics(data: Uint8ClampedArray, width: number, height: number, overrideTolerance?: number) {
+    const sampleColors: number[] = [];
+    let sumR = 0;
+    let sumG = 0;
+    let sumB = 0;
+    let samples = 0;
+    const stepX = Math.max(1, Math.floor(width / 50));
+    const stepY = Math.max(1, Math.floor(height / 50));
+    const record = (x: number, y: number) => {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        sampleColors.push(r, g, b);
+        sumR += r;
+        sumG += g;
+        sumB += b;
+        samples += 1;
+    };
+    for (let x = 0; x < width; x += stepX) {
+        record(x, 0);
+        if (height > 1) record(x, height - 1);
+    }
+    for (let y = 0; y < height; y += stepY) {
+        record(0, y);
+        if (width > 1) record(width - 1, y);
+    }
+    if (samples === 0) {
+        const tol = overrideTolerance ?? 45;
+        return { avgR: 255, avgG: 255, avgB: 255, toleranceSq: tol * tol };
+    }
+    const avgR = sumR / samples;
+    const avgG = sumG / samples;
+    const avgB = sumB / samples;
+    let variance = 0;
+    for (let i = 0; i < sampleColors.length; i += 3) {
+        const dr = sampleColors[i] - avgR;
+        const dg = sampleColors[i + 1] - avgG;
+        const db = sampleColors[i + 2] - avgB;
+        variance += (dr * dr + dg * dg + db * db) / 3;
+    }
+    variance /= samples;
+    const baseTol = overrideTolerance ?? Math.max(25, Math.min(85, Math.sqrt(variance) * 3 + 18));
+    return { avgR, avgG, avgB, toleranceSq: baseTol * baseTol };
+}
+
+async function loadImageElement(src: string): Promise<HTMLImageElement> {
+    return await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('image load failed'));
+        img.src = src;
+    });
+}
+
+async function generateTransparentImage(src: string, options: BackgroundRemovalOptions = {}) {
+    const image = await loadImageElement(src);
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    if (!width || !height) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(image, 0, 0);
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    const { avgR, avgG, avgB, toleranceSq } = sampleEdgeStatistics(data, width, height, options.tolerance);
+    const limit = (options.tolerance != null ? options.tolerance * options.tolerance : toleranceSq);
+    const visited = new Uint8Array(width * height);
+    const queue = new Uint32Array(width * height);
+    let head = 0;
+    let tail = 0;
+    const tryVisit = (x: number, y: number) => {
+        if (x < 0 || x >= width || y < 0 || y >= height) return;
+        const idx = y * width + x;
+        if (visited[idx]) return;
+        const p = idx * 4;
+        const dr = data[p] - avgR;
+        const dg = data[p + 1] - avgG;
+        const db = data[p + 2] - avgB;
+        if ((dr * dr + dg * dg + db * db) <= limit) {
+            visited[idx] = 1;
+            queue[tail++] = idx;
+        }
+    };
+    for (let x = 0; x < width; x++) {
+        tryVisit(x, 0);
+        tryVisit(x, height - 1);
+    }
+    for (let y = 0; y < height; y++) {
+        tryVisit(0, y);
+        tryVisit(width - 1, y);
+    }
+    const directions = [
+        { dx: -1, dy: 0 },
+        { dx: 1, dy: 0 },
+        { dx: 0, dy: -1 },
+        { dx: 0, dy: 1 },
+    ];
+    while (head < tail) {
+        const idx = queue[head++];
+        const x = idx % width;
+        const y = Math.floor(idx / width);
+        for (const dir of directions) {
+            tryVisit(x + dir.dx, y + dir.dy);
+        }
+    }
+    for (let i = 0; i < width * height; i++) {
+        if (visited[i]) {
+            data[i * 4 + 3] = 0;
+        }
+    }
+    const feather = options.feather ?? 0.35;
+    if (feather > 0) {
+        const clampFeather = Math.min(Math.max(feather, 0), 1);
+        const neighborOffsets = [
+            { dx: -1, dy: 0 },
+            { dx: 1, dy: 0 },
+            { dx: 0, dy: -1 },
+            { dx: 0, dy: 1 },
+            { dx: -1, dy: -1 },
+            { dx: 1, dy: -1 },
+            { dx: -1, dy: 1 },
+            { dx: 1, dy: 1 },
+        ];
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                if (visited[idx]) continue;
+                let touching = false;
+                for (const off of neighborOffsets) {
+                    const nx = x + off.dx;
+                    const ny = y + off.dy;
+                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+                    if (visited[ny * width + nx]) {
+                        touching = true;
+                        break;
+                    }
+                }
+                if (touching) {
+                    const alphaIndex = idx * 4 + 3;
+                    data[alphaIndex] = Math.round(data[alphaIndex] * (1 - clampFeather));
+                }
+            }
+        }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL('image/png');
+}
+
+export async function removeBackgroundFromSelectedImage(options: BackgroundRemovalOptions = {}) {
+    if (!selectedElement || !selectedElement.classed('pasted-image')) return false;
+    const image = selectedElement.select<SVGImageElement>('image');
+    if (image.empty()) return false;
+    const data = selectedElement.datum() as any;
+    const href = image.attr('href');
+    if (!href) return false;
+    const baseSrc = data.originalSrc ?? href;
+    try {
+        const processed = await generateTransparentImage(baseSrc, options);
+        if (!processed) return false;
+        if (!data.originalSrc) {
+            data.originalSrc = href;
+        }
+        data.src = processed;
+        data.backgroundRemoved = true;
+        image.attr('href', processed);
+        selectedElement.classed('background-removed', true);
+        return true;
+    } catch (err) {
+        console.error('Failed to remove background', err);
+        return false;
+    }
+}
+
+export function restoreSelectedImageBackground() {
+    if (!selectedElement || !selectedElement.classed('pasted-image')) return false;
+    const data = selectedElement.datum() as any;
+    if (!data.originalSrc) return false;
+    const image = selectedElement.select<SVGImageElement>('image');
+    if (image.empty()) return false;
+    image.attr('href', data.originalSrc);
+    data.src = data.originalSrc;
+    data.backgroundRemoved = false;
+    selectedElement.classed('background-removed', false);
+    return true;
+}
+
 export function applyLineAppearance(element: Selection<SVGGElement, any, any, any>) {
     const data = element.datum() as any;
     const color = data.color ?? 'black';
