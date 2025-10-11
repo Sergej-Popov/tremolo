@@ -71,6 +71,7 @@ const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu
 
 const frameStrokeColor = '#4a90e2';
 const frameFillOpacity = 0.12;
+const interactiveElementSelector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
 
 function extractVideoId(url: string): string | null {
   const match = url.match(youtubeRegex);
@@ -474,6 +475,48 @@ const GuitarBoard: React.FC = () => {
     return group;
   };
 
+  const handleFramePointerDown = useCallback((event: PointerEvent) => {
+    const target = event.currentTarget as SVGRectElement | null;
+    if (!target) return;
+    const frameGroup = target.closest<SVGGElement>('.frame-element');
+    if (!frameGroup) return;
+    const previousPointerEvents = target.style.pointerEvents;
+    target.style.pointerEvents = 'none';
+    const underlying = document.elementFromPoint(event.clientX, event.clientY);
+    target.style.pointerEvents = previousPointerEvents;
+    if (!underlying) return;
+    const redirectTarget = underlying.closest(interactiveElementSelector) as Element | null;
+    if (!redirectTarget || redirectTarget === frameGroup) return;
+
+    const pointerInit: PointerEventInit = {
+      bubbles: true,
+      cancelable: true,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      button: event.button,
+      buttons: event.buttons,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+      pressure: event.pressure,
+      tangentialPressure: event.tangentialPressure,
+      width: event.width,
+      height: event.height,
+      tiltX: event.tiltX,
+      tiltY: event.tiltY,
+      twist: event.twist,
+      isPrimary: event.isPrimary,
+    };
+
+    redirectTarget.dispatchEvent(new PointerEvent(event.type, pointerInit));
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, []);
+
   const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; color?: string; autoSelect?: boolean }) => {
     const svg = d3.select(svgRef.current);
     const layer = svg.select<SVGGElement>('.frames');
@@ -500,7 +543,8 @@ const GuitarBoard: React.FC = () => {
       .attr('stroke', frameStrokeColor)
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', '8 4')
-      .style('cursor', 'move');
+      .style('cursor', 'move')
+      .on('pointerdown.frame-block', handleFramePointerDown);
 
     applyTransform(group, transform);
     group.call(makeDraggable);
@@ -515,7 +559,7 @@ const GuitarBoard: React.FC = () => {
     }
 
     return group;
-  }, [debug, frameColor]);
+  }, [debug, frameColor, handleFramePointerDown]);
 
 
   const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
@@ -1733,7 +1777,8 @@ const GuitarBoard: React.FC = () => {
         .attr('stroke', frameStrokeColor)
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', '8 4')
-        .style('cursor', 'move');
+        .style('cursor', 'move')
+        .on('pointerdown.frame-block', handleFramePointerDown);
       frameSel.current = group;
       frameStart.current = { x, y };
       event.currentTarget.setPointerCapture(event.pointerId);
