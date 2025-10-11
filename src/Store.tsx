@@ -3,6 +3,8 @@ import { setDebugMode } from './d3-ext';
 
 import { noteColors } from "./theme";
 
+export type FrameLineStyle = 'solid' | 'dashed' | 'dotted';
+
 export interface HistoryEntry {
   state: string;
   type?: string;
@@ -14,10 +16,16 @@ interface AppState {
   setData: React.Dispatch<React.SetStateAction<any[]>>;
   stickyColor: string;
   setStickyColor: React.Dispatch<React.SetStateAction<string>>;
+  frameColor: string;
+  setFrameColor: React.Dispatch<React.SetStateAction<string>>;
+  frameLineStyle: FrameLineStyle;
+  setFrameLineStyle: React.Dispatch<React.SetStateAction<FrameLineStyle>>;
   stickyAlign: 'left' | 'center' | 'right';
   setStickyAlign: React.Dispatch<React.SetStateAction<'left' | 'center' | 'right'>>;
   stickySelected: boolean;
   setStickySelected: React.Dispatch<React.SetStateAction<boolean>>;
+  frameSelected: boolean;
+  setFrameSelected: React.Dispatch<React.SetStateAction<boolean>>;
   codeSelected: boolean;
   setCodeSelected: React.Dispatch<React.SetStateAction<boolean>>;
   codeLanguage: string;
@@ -35,6 +43,8 @@ interface AppState {
   setDebug: React.Dispatch<React.SetStateAction<boolean>>;
   drawingMode: boolean;
   setDrawingMode: React.Dispatch<React.SetStateAction<boolean>>;
+  frameMode: boolean;
+  setFrameMode: React.Dispatch<React.SetStateAction<boolean>>;
   brushWidth: number | 'auto';
   setBrushWidth: React.Dispatch<React.SetStateAction<number | 'auto'>>;
   brushColor: string;
@@ -57,8 +67,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [stickyColor, setStickyColor] = useState<string>(noteColors[0]);
+  const [frameColor, setFrameColor] = useState<string>('#ffffff');
+  const [frameLineStyle, setFrameLineStyle] = useState<FrameLineStyle>('solid');
   const [stickyAlign, setStickyAlign] = useState<'left' | 'center' | 'right'>('center');
   const [stickySelected, setStickySelected] = useState<boolean>(false);
+  const [frameSelected, setFrameSelected] = useState<boolean>(false);
   const [codeSelected, setCodeSelected] = useState<boolean>(false);
   const [codeLanguage, setCodeLanguage] = useState<string>('typescript');
   const [codeTheme, setCodeTheme] = useState<string>('github-dark');
@@ -67,6 +80,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [boardSelected, setBoardSelected] = useState<boolean>(false);
   const [debug, setDebug] = useState<boolean>(false);
   const [drawingMode, setDrawingMode] = useState<boolean>(false);
+  const [frameMode, setFrameMode] = useState<boolean>(false);
   const [brushWidth, setBrushWidth] = useState<number | 'auto'>('auto');
   const [brushColor, setBrushColor] = useState<string>(noteColors[noteColors.length - 1]);
 
@@ -143,7 +157,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
         return;
       }
       if (e.key === 'b') {
+        setFrameMode(false);
         setDrawingMode((prev) => !prev);
+      }
+      if (e.key === 'f') {
+        setDrawingMode(false);
+        setFrameMode((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handler);
@@ -163,6 +182,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       window.removeEventListener('createsticky', disable as EventListener);
       window.removeEventListener('createcodeblock', disable as EventListener);
       window.removeEventListener('createline', disable as EventListener);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const disable = () => setFrameMode(false);
+    window.addEventListener('createsticky', disable as EventListener);
+    window.addEventListener('createcodeblock', disable as EventListener);
+    window.addEventListener('createline', disable as EventListener);
+    window.addEventListener('createboard', disable as EventListener);
+    return () => {
+      window.removeEventListener('createsticky', disable as EventListener);
+      window.removeEventListener('createcodeblock', disable as EventListener);
+      window.removeEventListener('createline', disable as EventListener);
+      window.removeEventListener('createboard', disable as EventListener);
     };
   }, []);
 
@@ -195,10 +228,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setData,
       stickyColor,
       setStickyColor,
+      frameColor,
+      setFrameColor,
+      frameLineStyle,
+      setFrameLineStyle,
       stickyAlign,
       setStickyAlign,
       stickySelected,
       setStickySelected,
+      frameSelected,
+      setFrameSelected,
       codeSelected,
       setCodeSelected,
       codeLanguage,
@@ -216,6 +255,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setDebug,
       drawingMode,
       setDrawingMode,
+      frameMode,
+      setFrameMode,
       brushWidth,
       setBrushWidth,
       brushColor,

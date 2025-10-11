@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
 import { noteColors, defaultLineColor } from '../theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { AppContext } from '../Store';
+import type { FrameLineStyle } from '../Store';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
 
@@ -69,6 +70,21 @@ const audioPadding = 10;
 
 const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/;
 
+const frameStrokeColor = '#4a90e2';
+const frameFillOpacity = 0.12;
+const frameStrokeStyles: Record<FrameLineStyle, { dash: string | null; linecap: 'butt' | 'round' }> = {
+  solid: { dash: null, linecap: 'butt' },
+  dashed: { dash: '8 4', linecap: 'butt' },
+  dotted: { dash: '2 4', linecap: 'round' },
+};
+const applyFrameStrokeStyle = (rect: d3.Selection<SVGRectElement, any, any, any>, style: FrameLineStyle) => {
+  const config = frameStrokeStyles[style] ?? frameStrokeStyles.solid;
+  rect
+    .attr('stroke-dasharray', config.dash ?? null)
+    .attr('stroke-linecap', config.linecap);
+};
+const interactiveElementSelector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
+
 function extractVideoId(url: string): string | null {
   const match = url.match(youtubeRegex);
   return match ? match[1] : null;
@@ -112,23 +128,31 @@ const getElementType = (node: Element | null): string | undefined => {
   if (sel.classed('guitar-board')) return 'board';
   if (sel.classed('drawing')) return 'drawing';
   if (sel.classed('line-element')) return 'line';
+  if (sel.classed('frame-element')) return 'frame';
   return undefined;
 };
 
 const GuitarBoard: React.FC = () => {
   const app = useContext(AppContext);
   const stickyColor = app?.stickyColor ?? '#fef68a';
+  const frameColor = app?.frameColor ?? '#ffffff';
+  const frameLineStyle = app?.frameLineStyle ?? 'solid';
   const stickyAlign = app?.stickyAlign ?? 'center';
   const debug = app?.debug ?? false;
   const addBoard = app?.addBoard ?? (() => {});
   const setBoards = app?.setBoards ?? (() => {});
   const setBoardSelected = app?.setBoardSelected ?? (() => {});
   const setStickySelected = app?.setStickySelected ?? (() => {});
+  const setFrameSelected = app?.setFrameSelected ?? (() => {});
+  const setFrameColor = app?.setFrameColor ?? (() => {});
+  const setFrameLineStyle = app?.setFrameLineStyle ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const codeTheme = app?.codeTheme ?? 'github-dark';
   const codeFontSize = app?.codeFontSize ?? 14;
   const drawingMode = app?.drawingMode ?? false;
+  const frameMode = app?.frameMode ?? false;
+  const setFrameMode = app?.setFrameMode ?? (() => {});
   const brushWidth = app?.brushWidth ?? 'auto';
   const brushColor = app?.brushColor ?? defaultLineColor;
   const pushHistory = app?.pushHistory ?? (() => {});
@@ -156,6 +180,10 @@ const GuitarBoard: React.FC = () => {
   const lastPoint = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastMid = useRef<{ x: number; y: number } | null>(null);
   const lastStroke = useRef<number>(typeof brushWidth === 'number' ? brushWidth : 4);
+
+  const frameSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
+  const frameStart = useRef<{ x: number; y: number } | null>(null);
+  const redirectedPointerTargetsRef = useRef<Map<number, Element>>(new Map());
 
   const pendingRef = useRef<{ state: ElementCopy[]; type?: string; action?: string } | null>(null);
 
@@ -461,6 +489,173 @@ const GuitarBoard: React.FC = () => {
 
     return group;
   };
+
+  const dispatchRedirectedPointerEvent = useCallback((source: PointerEvent, target: Element) => {
+    const pointerInit: PointerEventInit = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: source.pointerId,
+      pointerType: source.pointerType,
+      button: source.button,
+      buttons: source.buttons,
+      clientX: source.clientX,
+      clientY: source.clientY,
+      pageX: source.pageX,
+      pageY: source.pageY,
+      screenX: source.screenX,
+      screenY: source.screenY,
+      ctrlKey: source.ctrlKey,
+      shiftKey: source.shiftKey,
+      altKey: source.altKey,
+      metaKey: source.metaKey,
+      pressure: source.pressure,
+      tangentialPressure: source.tangentialPressure,
+      width: source.width,
+      height: source.height,
+      tiltX: source.tiltX,
+      tiltY: source.tiltY,
+      twist: source.twist,
+      isPrimary: source.isPrimary,
+    };
+
+    target.dispatchEvent(new PointerEvent(source.type, pointerInit));
+  }, []);
+
+  const handleFramePointerDown = useCallback((event: PointerEvent) => {
+    const target = event.currentTarget as SVGRectElement | null;
+    if (!target) return;
+    const frameGroup = target.closest<SVGGElement>('.frame-element');
+    if (!frameGroup) return;
+    const previousPointerEvents = target.style.pointerEvents;
+    target.style.pointerEvents = 'none';
+    const underlying = document.elementFromPoint(event.clientX, event.clientY);
+    target.style.pointerEvents = previousPointerEvents;
+    if (!underlying) return;
+    const redirectTarget = underlying.closest(interactiveElementSelector) as Element | null;
+    if (!redirectTarget || redirectTarget === frameGroup) return;
+
+    redirectedPointerTargetsRef.current.set(event.pointerId, redirectTarget);
+    if (typeof target.setPointerCapture === 'function') {
+      try {
+        target.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore capture failures
+      }
+    }
+    dispatchRedirectedPointerEvent(event, redirectTarget);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, [dispatchRedirectedPointerEvent]);
+
+  const handleFramePointerMove = useCallback((event: PointerEvent) => {
+    const redirectTarget = redirectedPointerTargetsRef.current.get(event.pointerId);
+    if (!redirectTarget) return;
+    dispatchRedirectedPointerEvent(event, redirectTarget);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, [dispatchRedirectedPointerEvent]);
+
+  const finishRedirectedPointer = useCallback((event: PointerEvent) => {
+    const target = event.currentTarget as SVGRectElement | null;
+    const captureTarget = target as (Element & {
+      releasePointerCapture?: (pointerId: number) => void;
+      hasPointerCapture?: (pointerId: number) => boolean;
+    }) | null;
+    if (
+      captureTarget &&
+      typeof captureTarget.releasePointerCapture === 'function' &&
+      captureTarget.hasPointerCapture?.(event.pointerId)
+    ) {
+      try {
+        captureTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // ignore release failures
+      }
+    }
+    const redirectTarget = redirectedPointerTargetsRef.current.get(event.pointerId);
+    if (!redirectTarget) {
+      redirectedPointerTargetsRef.current.delete(event.pointerId);
+      return false;
+    }
+    redirectedPointerTargetsRef.current.delete(event.pointerId);
+    dispatchRedirectedPointerEvent(event, redirectTarget);
+    return true;
+  }, [dispatchRedirectedPointerEvent]);
+
+  const handleFramePointerUp = useCallback((event: PointerEvent) => {
+    if (!finishRedirectedPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, [finishRedirectedPointer]);
+
+  const handleFramePointerCancel = useCallback((event: PointerEvent) => {
+    if (!finishRedirectedPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, [finishRedirectedPointer]);
+
+  const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; color?: string; lineStyle?: FrameLineStyle; autoSelect?: boolean }) => {
+    const svg = d3.select(svgRef.current);
+    const layer = svg.select<SVGGElement>('.frames');
+    const transform = { ...opts.transform };
+    const lineStyle = opts.lineStyle ?? frameLineStyle;
+    const group = layer.append('g')
+      .attr('class', 'frame-element')
+      .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string; lineStyle: FrameLineStyle }>({
+        id: opts.id ?? generateId(),
+        type: 'frame',
+        width: opts.width,
+        height: opts.height,
+        transform,
+        color: opts.color ?? frameColor,
+        lineStyle,
+      });
+
+    const rect = group.append('rect')
+      .attr('class', 'frame-rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', opts.width)
+      .attr('height', opts.height)
+      .attr('fill', opts.color ?? frameColor)
+      .attr('fill-opacity', frameFillOpacity)
+      .attr('stroke', frameStrokeColor)
+      .attr('stroke-width', 2)
+      .style('cursor', 'move')
+      .on('pointerdown.frame-block', handleFramePointerDown)
+      .on('pointermove.frame-block', handleFramePointerMove)
+      .on('pointerup.frame-block', handleFramePointerUp)
+      .on('pointercancel.frame-block', handleFramePointerCancel);
+
+    applyFrameStrokeStyle(rect, lineStyle);
+
+    applyTransform(group, transform);
+    group.call(makeDraggable);
+    group.call(makeResizable, { lockAspectRatio: false });
+
+    if (debug) {
+      addDebugCross(group);
+    }
+
+    if (opts.autoSelect !== false) {
+      group.dispatch('click');
+    }
+
+    return group;
+  }, [
+    debug,
+    frameColor,
+    frameLineStyle,
+    handleFramePointerCancel,
+    handleFramePointerDown,
+    handleFramePointerMove,
+    handleFramePointerUp,
+  ]);
 
 
   const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
@@ -987,6 +1182,27 @@ const GuitarBoard: React.FC = () => {
         }
       };
       apply();
+    } else if (info.type === 'frame') {
+      const width = info.data.width ?? 0;
+      const height = info.data.height ?? 0;
+      const baseTransform: TransformValues = info.data.transform ?? { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 };
+      const color = info.data.color ?? '#ffffff';
+      const lineStyle: FrameLineStyle = info.data.lineStyle ?? 'solid';
+      const frame = createFrameGroup({
+        id: info.data.id,
+        width,
+        height,
+        transform: { ...baseTransform, translateX: pos.x, translateY: pos.y },
+        color,
+        lineStyle,
+      });
+      const d = frame.datum() as any;
+      d.id = info.data.id;
+      d.color = color;
+      d.lineStyle = lineStyle;
+      const rect = frame.select<SVGRectElement>('rect.frame-rect');
+      rect.attr('fill', color).attr('fill-opacity', frameFillOpacity);
+      applyFrameStrokeStyle(rect, lineStyle);
     } else if (info.type === 'line') {
       const g = addLine(
         { x: info.data.x1, y: info.data.y1 },
@@ -1042,12 +1258,12 @@ const GuitarBoard: React.FC = () => {
     const svg = d3.select(svgRef.current);
     const workspace = svg.select<SVGGElement>('.workspace');
     const items: ElementCopy[] = [];
-    const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board';
+    const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
     workspace.selectAll<SVGGElement, any>(selector).each(function () {
       const el = d3.select(this);
       const data = { ...(el.datum() as any) };
       if (!data || !data.type) return;
-      if (!['image','video','audio','sticky','board','drawing','code','line'].includes(data.type)) return;
+      if (!['image','video','audio','sticky','board','drawing','code','line','frame'].includes(data.type)) return;
       const info: ElementCopy = { type: data.type, data: { ...data } };
       if (info.type === 'board') {
         info.data.notes = el.selectAll('.note').data().map((n: any) => ({ string: n.string, fret: n.fret }));
@@ -1095,7 +1311,7 @@ const GuitarBoard: React.FC = () => {
       });
       workspace
         .selectAll(
-          '.pasted-image, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board'
+          '.pasted-image, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element'
         )
         .remove();
     } else {
@@ -1446,19 +1662,20 @@ const GuitarBoard: React.FC = () => {
         if (event.type === 'dblclick') return false;
         const e = event as any;
         if (e.ctrlKey) return false;
-        if (drawingMode) return false;
+        if (drawingMode || frameMode) return false;
         const target = e.target as Element;
         return target === svgRef.current || target === workspaceRef.current;
       });
     }
     if (workspaceRef.current) {
-      d3.select(workspaceRef.current).style('pointer-events', drawingMode ? 'none' : 'all');
+      d3.select(workspaceRef.current).style('pointer-events', drawingMode || frameMode ? 'none' : 'all');
     }
-  }, [drawingMode]);
+  }, [drawingMode, frameMode]);
 
   useEffect(() => {
     setStickySelected(false);
     setCodeSelected(false);
+    setFrameSelected(false);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
@@ -1466,10 +1683,20 @@ const GuitarBoard: React.FC = () => {
         setCodeSelected(false);
         setCroppableSelected(false);
         setSelectedBounds(null);
+        setFrameSelected(false);
       } else {
         const sel = d3.select(node);
-        setStickySelected(sel.classed('sticky-note'));
-        setCodeSelected(sel.classed('code-block'));
+        const isSticky = sel.classed('sticky-note');
+        const isCode = sel.classed('code-block');
+        const isFrame = sel.classed('frame-element');
+        setStickySelected(isSticky);
+        setCodeSelected(isCode);
+        setFrameSelected(isFrame);
+        if (isFrame) {
+          const data = sel.datum() as any;
+          setFrameColor((data && data.color) ? data.color : '#ffffff');
+          setFrameLineStyle((data && data.lineStyle) ? data.lineStyle : 'solid');
+        }
         setCroppableSelected(sel.classed('croppable'));
         const bbox = (node as SVGGraphicsElement).getBBox();
         const data: any = sel.datum() || {};
@@ -1481,7 +1708,7 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler);
     return () => window.removeEventListener('stickyselectionchange', handler);
-  }, [setStickySelected, setCodeSelected]);
+  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -1625,6 +1852,44 @@ const GuitarBoard: React.FC = () => {
   };
 
   const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (frameMode) {
+      event.stopPropagation();
+      pushHistory(serializeWorkspace(), 'frame', 'create');
+      const { x, y } = toWorkspace(event.clientX, event.clientY);
+      const svg = d3.select(svgRef.current);
+      const layer = svg.select<SVGGElement>('.frames');
+      const group = layer.append('g')
+        .attr('class', 'frame-element')
+        .datum<{ id: string; type: 'frame'; width: number; height: number; transform: TransformValues; color: string; lineStyle: FrameLineStyle }>({
+          id: generateId(),
+          type: 'frame',
+          width: 0,
+          height: 0,
+          transform: { translateX: x, translateY: y, scaleX: 1, scaleY: 1, rotate: 0 },
+          color: frameColor,
+          lineStyle: frameLineStyle,
+        });
+      const rect = group.append('rect')
+        .attr('class', 'frame-rect')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', 0)
+        .attr('height', 0)
+        .attr('fill', frameColor)
+        .attr('fill-opacity', frameFillOpacity)
+        .attr('stroke', frameStrokeColor)
+        .attr('stroke-width', 2)
+        .style('cursor', 'move')
+        .on('pointerdown.frame-block', handleFramePointerDown)
+        .on('pointermove.frame-block', handleFramePointerMove)
+        .on('pointerup.frame-block', handleFramePointerUp)
+        .on('pointercancel.frame-block', handleFramePointerCancel);
+      applyFrameStrokeStyle(rect, frameLineStyle);
+      frameSel.current = group;
+      frameStart.current = { x, y };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
     if (!drawingMode) return;
     event.stopPropagation();
     pushHistory(serializeWorkspace(), 'drawing', 'create');
@@ -1651,6 +1916,25 @@ const GuitarBoard: React.FC = () => {
   };
 
   const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (frameSel.current && frameStart.current) {
+      const { x, y } = toWorkspace(event.clientX, event.clientY);
+      const start = frameStart.current;
+      const left = Math.min(start.x, x);
+      const top = Math.min(start.y, y);
+      const width = Math.max(0, Math.abs(x - start.x));
+      const height = Math.max(0, Math.abs(y - start.y));
+      const group = frameSel.current;
+      const data: any = group.datum();
+      data.width = width;
+      data.height = height;
+      const transform: TransformValues = { translateX: left, translateY: top, scaleX: 1, scaleY: 1, rotate: 0 };
+      data.transform = transform;
+      group.select<SVGRectElement>('rect.frame-rect')
+        .attr('width', width)
+        .attr('height', height);
+      applyTransform(group as any, transform);
+      return;
+    }
     if (!drawing.current || !drawingSel.current) return;
     const prev = lastPoint.current;
     const midPrev = lastMid.current;
@@ -1721,6 +2005,23 @@ const GuitarBoard: React.FC = () => {
   };
 
   const handlePointerUp = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (frameSel.current) {
+      const group = frameSel.current;
+      const data: any = group.datum();
+      if (!data || data.width < 5 || data.height < 5) {
+        group.remove();
+      } else {
+        group.call(makeDraggable);
+        group.call(makeResizable, { lockAspectRatio: false });
+        if (debug) addDebugCross(group);
+        group.dispatch('click');
+      }
+      frameSel.current = null;
+      frameStart.current = null;
+      setFrameMode(false);
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (!drawing.current) return;
     finishDrawing();
     event.currentTarget.releasePointerCapture(event.pointerId);
@@ -1731,6 +2032,7 @@ const GuitarBoard: React.FC = () => {
     let workspace = svg.select<SVGGElement>('.workspace');
     if (workspace.empty()) {
       workspace = svg.append('g').attr('class', 'workspace');
+      workspace.append('g').attr('class', 'frames');
       workspace.append('g').attr('class', 'pasted-images');
       workspace.append('g').attr('class', 'embedded-videos');
       workspace.append('g').attr('class', 'embedded-audios');
@@ -1750,6 +2052,10 @@ const GuitarBoard: React.FC = () => {
           .style('pointer-events', 'none')
           .text('+');
       }
+    }
+    const framesLayer = workspace.select<SVGGElement>('.frames');
+    if (!framesLayer.empty()) {
+      framesLayer.lower();
     }
     workspaceRef.current = workspace.node();
     setSvgRoot(svgRef.current, workspaceRef.current);

@@ -382,6 +382,103 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     }
 }
 
+interface FrameAttachment {
+    selection: Selection<any, any, any, any>;
+    kind: 'transform' | 'line';
+    transform?: TransformValues;
+    line?: { x1: number; y1: number; x2: number; y2: number };
+    elementId?: string;
+    followConnections?: boolean;
+    lineBaseTransform?: TransformValues;
+}
+
+interface HiddenElementState {
+    node: SVGGraphicsElement;
+    displayAttr: string | null;
+    styleDisplay: string;
+}
+
+const DECORATION_SELECTOR = '.resize-handle, .rotate-handle, .connect-handle, .selection-outline, .component-debug-cross, .crop-controls';
+const frameStrokePatterns: Record<'solid' | 'dashed' | 'dotted', { dash: string | null; linecap: 'butt' | 'round' }> = {
+    solid: { dash: null, linecap: 'butt' },
+    dashed: { dash: '8 4', linecap: 'butt' },
+    dotted: { dash: '2 4', linecap: 'round' },
+};
+
+function applyFrameStrokeAttributes(rect: Selection<SVGRectElement, any, any, any>, style: 'solid' | 'dashed' | 'dotted') {
+    const config = frameStrokePatterns[style] ?? frameStrokePatterns.solid;
+    rect.attr('stroke-dasharray', config.dash ?? null).attr('stroke-linecap', config.linecap);
+}
+
+interface BoundingBox {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+function getTightBoundingBox(node: SVGGraphicsElement): BoundingBox | null {
+    const element = d3.select(node);
+    const hidden: HiddenElementState[] = [];
+    element.selectAll<SVGGraphicsElement, unknown>(DECORATION_SELECTOR).each(function () {
+        const child = this as SVGGraphicsElement;
+        hidden.push({
+            node: child,
+            displayAttr: child.getAttribute('display'),
+            styleDisplay: child.style.display,
+        });
+        child.style.display = 'none';
+    });
+    try {
+        const bbox = node.getBBox();
+        const matrix = node.getScreenCTM() || node.getCTM();
+        if (!matrix) {
+            return {
+                x: bbox.x,
+                y: bbox.y,
+                width: bbox.width,
+                height: bbox.height,
+            };
+        }
+
+        const transformPoint = (x: number, y: number) => ({
+            x: matrix.a * x + matrix.c * y + matrix.e,
+            y: matrix.b * x + matrix.d * y + matrix.f,
+        });
+
+        const topLeft = transformPoint(bbox.x, bbox.y);
+        const topRight = transformPoint(bbox.x + bbox.width, bbox.y);
+        const bottomLeft = transformPoint(bbox.x, bbox.y + bbox.height);
+        const bottomRight = transformPoint(bbox.x + bbox.width, bbox.y + bbox.height);
+
+        const xs = [topLeft.x, topRight.x, bottomLeft.x, bottomRight.x];
+        const ys = [topLeft.y, topRight.y, bottomLeft.y, bottomRight.y];
+
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+
+        return {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+        };
+    } catch {
+        return null;
+    } finally {
+        hidden.forEach(({ node: child, displayAttr, styleDisplay }) => {
+            if (displayAttr !== null) {
+                child.setAttribute('display', displayAttr);
+            } else {
+                child.removeAttribute('display');
+            }
+            child.style.display = styleDisplay;
+        });
+    }
+}
+
 export function makeDraggable(selection: Selection<any, any, any, any>) {
     interface DragDatum {
         dragOffsetX: number;
@@ -390,6 +487,7 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
         startX: number;
         startY: number;
         moved?: boolean;
+        attachments?: FrameAttachment[] | null;
     };
 
     selection.call(
@@ -410,7 +508,77 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 const dragOffsetY = startY - transform.translateY;
 
                 debugLog('drag start', transform.translateX, transform.translateY);
-                Object.assign(data, { dragOffsetX, dragOffsetY, transform, startX: transform.translateX, startY: transform.translateY, moved: false });
+                let attachments: FrameAttachment[] | null = null;
+                if (element.classed('frame-element') && workspaceRoot) {
+                    const frameNode = element.node() as SVGGraphicsElement;
+                    const frameBox = getTightBoundingBox(frameNode);
+                    if (frameBox) {
+                        const workspace = d3.select(workspaceRoot);
+                        const selector = '.pasted-image, .embedded-video, .embedded-audio, .sticky-note, .code-block, .line-element, .drawing, .guitar-board, .frame-element';
+                        const collected: FrameAttachment[] = [];
+                        const attachedIds: Set<string> = new Set();
+                        const epsilon = 0.5;
+                        workspace.selectAll<SVGGElement, any>(selector).each(function (ld: any) {
+                            if (this === frameNode) return;
+                            const el = d3.select(this);
+                            const box = getTightBoundingBox(this as SVGGraphicsElement);
+                            if (!box) return;
+                            if (
+                                box.x >= frameBox.x - epsilon &&
+                                box.y >= frameBox.y - epsilon &&
+                                box.x + box.width <= frameBox.x + frameBox.width + epsilon &&
+                                box.y + box.height <= frameBox.y + frameBox.height + epsilon
+                            ) {
+                                if (ld?.type === 'line') {
+                                    const base: TransformValues = ld?.transform ? { ...ld.transform } : { ...defaultTransform() };
+                                    collected.push({
+                                        selection: el,
+                                        kind: 'line',
+                                        line: {
+                                            x1: (ld?.x1 ?? 0) + base.translateX,
+                                            y1: (ld?.y1 ?? 0) + base.translateY,
+                                            x2: (ld?.x2 ?? 0) + base.translateX,
+                                            y2: (ld?.y2 ?? 0) + base.translateY,
+                                        },
+                                        elementId: ld?.id,
+                                        lineBaseTransform: base,
+                                    });
+                                } else {
+                                    const base: TransformValues = ld?.transform ? { ...ld.transform } : { ...defaultTransform() };
+                                    const attachment: FrameAttachment = {
+                                        selection: el,
+                                        kind: 'transform',
+                                        transform: base,
+                                        elementId: ld?.id,
+                                    };
+                                    collected.push(attachment);
+                                    if (attachment.elementId) attachedIds.add(attachment.elementId);
+                                }
+                            }
+                        });
+                        collected.forEach(att => {
+                            if (att.kind === 'line') {
+                                const data = att.selection.datum() as any;
+                                const startFollow = data?.startConn && attachedIds.has(data.startConn.elementId);
+                                const endFollow = data?.endConn && attachedIds.has(data.endConn.elementId);
+                                if (startFollow && endFollow) {
+                                    att.followConnections = true;
+                                }
+                            }
+                        });
+                        attachments = collected.length ? collected : null;
+                    }
+                }
+
+                Object.assign(data, {
+                    dragOffsetX,
+                    dragOffsetY,
+                    transform,
+                    startX: transform.translateX,
+                    startY: transform.translateY,
+                    moved: false,
+                    attachments,
+                });
                 element.datum(data);
                 setGridVisible(event.ctrlKey);
             })
@@ -446,6 +614,43 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
                 }
 
                 applyTransform(element, newTransform);
+                const dx = newX - startX;
+                const dy = newY - startY;
+                if (data.attachments) {
+                    data.attachments.forEach(att => {
+                        if (att.kind === 'transform' && att.transform) {
+                            const base = att.transform;
+                            const nextTransform: TransformValues = {
+                                ...base,
+                                translateX: base.translateX + dx,
+                                translateY: base.translateY + dy,
+                            };
+                            applyTransform(att.selection, nextTransform);
+                        } else if (att.kind === 'line' && att.line && !att.followConnections) {
+                            const lineData = att.selection.datum() as any;
+                            const base = att.lineBaseTransform ?? defaultTransform();
+                            const newX1Abs = att.line.x1 + dx;
+                            const newY1Abs = att.line.y1 + dy;
+                            const newX2Abs = att.line.x2 + dx;
+                            const newY2Abs = att.line.y2 + dy;
+                            lineData.x1 = newX1Abs - base.translateX;
+                            lineData.y1 = newY1Abs - base.translateY;
+                            lineData.x2 = newX2Abs - base.translateX;
+                            lineData.y2 = newY2Abs - base.translateY;
+                            lineData.transform = { ...base };
+                            att.selection.select('path').attr('d', linePath(lineData));
+                            att.selection.select('circle.start').attr('cx', lineData.x1).attr('cy', lineData.y1);
+                            att.selection.select('circle.end').attr('cx', lineData.x2).attr('cy', lineData.y2);
+                            const path = att.selection.select<SVGPathElement>('path').node();
+                            if (path) {
+                                const mid = path.getPointAtLength(path.getTotalLength() / 2);
+                                att.selection.select<SVGTextElement>('text.line-label')
+                                    .attr('x', mid.x)
+                                    .attr('y', mid.y);
+                            }
+                        }
+                    });
+                }
                 setGridVisible(!!ctrl);
                 debugLog('drag', newTransform.translateX, newTransform.translateY);
             })
@@ -470,6 +675,23 @@ export function updateSelectedColor(color: string) {
         selectedElement.select('rect').attr('fill', color);
         const data = selectedElement.datum() as any;
         data.color = color;
+    }
+}
+
+export function updateSelectedFrameColor(color: string) {
+    if (selectedElement && selectedElement.classed('frame-element')) {
+        selectedElement.select<SVGRectElement>('rect.frame-rect').attr('fill', color);
+        const data = selectedElement.datum() as any;
+        data.color = color;
+    }
+}
+
+export function updateSelectedFrameLineStyle(style: 'solid' | 'dashed' | 'dotted') {
+    if (selectedElement && selectedElement.classed('frame-element')) {
+        const rect = selectedElement.select<SVGRectElement>('rect.frame-rect');
+        applyFrameStrokeAttributes(rect, style);
+        const data = selectedElement.datum() as any;
+        data.lineStyle = style;
     }
 }
 
@@ -655,7 +877,7 @@ export function applyLineAppearance(element: Selection<SVGGElement, any, any, an
 
 
 export interface ElementCopy {
-    type: 'image' | 'video' | 'audio' | 'sticky' | 'board' | 'drawing' | 'code' | 'line' | 'meta';
+    type: 'image' | 'video' | 'audio' | 'sticky' | 'board' | 'drawing' | 'code' | 'line' | 'frame' | 'meta';
     data: any;
 }
 
@@ -670,6 +892,7 @@ export function getSelectedElementData(): ElementCopy | null {
     else if (selectedElement.classed('guitar-board')) type = 'board';
     else if (selectedElement.classed('drawing')) type = 'drawing';
     else if (selectedElement.classed('line-element')) type = 'line';
+    else if (selectedElement.classed('frame-element')) type = 'frame';
     if (!type) return null;
     const data = { ...(selectedElement.datum() as any) };
     if (type === 'board') {
@@ -1006,6 +1229,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
         d3.select(window).on('click.makeResizable', (event: MouseEvent) => {
             const controls = document.getElementById('board-controls');
             const colorSelect = document.getElementById('sticky-color-select');
+            const frameColorSelect = document.getElementById('frame-color-select');
             const alignControls = document.getElementById('sticky-align-controls');
             const target = event.target as Node;
             const isSvg = target instanceof SVGElement;
@@ -1015,6 +1239,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
                 !selectedElement.node()?.contains(target) &&
                 !(controls && controls.contains(target)) &&
                 !(colorSelect && colorSelect.contains(target)) &&
+                !(frameColorSelect && frameColorSelect.contains(target)) &&
                 !(alignControls && alignControls.contains(target))
             ) {
                 clearSelection();
