@@ -381,6 +381,9 @@ function supportsIntrinsicResize(element: Selection<any, any, any, any>): boolea
 
 function applyElementSize(element: Selection<any, any, any, any>, width: number, height: number) {
     const data = element.datum() as any || {};
+    const prevWidth = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const prevHeight = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+
     data.width = width;
     data.height = height;
     element.datum(data);
@@ -393,6 +396,51 @@ function applyElementSize(element: Selection<any, any, any, any>, width: number,
         element.select('foreignObject').attr('width', width).attr('height', height);
     } else if (element.classed('pasted-image')) {
         element.select('image').attr('width', width).attr('height', height);
+
+        const clipRect = element.select<SVGRectElement>('.clip-rect');
+        if (!clipRect.empty()) {
+            const scaleX = prevWidth ? width / Math.max(prevWidth, 1e-6) : 1;
+            const scaleY = prevHeight ? height / Math.max(prevHeight, 1e-6) : 1;
+            if (data.crop) {
+                data.crop = {
+                    x: (data.crop.x ?? 0) * scaleX,
+                    y: (data.crop.y ?? 0) * scaleY,
+                    width: (data.crop.width ?? 0) * scaleX,
+                    height: (data.crop.height ?? 0) * scaleY,
+                } as CropValues;
+                clipRect
+                    .attr('x', data.crop.x)
+                    .attr('y', data.crop.y)
+                    .attr('width', data.crop.width)
+                    .attr('height', data.crop.height);
+            } else {
+                clipRect
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .attr('width', width)
+                    .attr('height', height);
+            }
+
+            const overlay = element.select('.crop-controls');
+            if (!overlay.empty()) {
+                const overlayRect = overlay.select<SVGRectElement>('.crop-rect');
+                if (!overlayRect.empty()) {
+                    if (data.crop) {
+                        overlayRect
+                            .attr('x', data.crop.x)
+                            .attr('y', data.crop.y)
+                            .attr('width', data.crop.width)
+                            .attr('height', data.crop.height);
+                    } else {
+                        overlayRect
+                            .attr('x', 0)
+                            .attr('y', 0)
+                            .attr('width', width)
+                            .attr('height', height);
+                    }
+                }
+            }
+        }
     } else if (element.classed('embedded-video') || element.classed('embedded-audio')) {
         element.select('rect').attr('width', width).attr('height', height);
         const fo = element.select<SVGForeignObjectElement>('foreignObject');
