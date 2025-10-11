@@ -169,6 +169,7 @@ const GuitarBoard: React.FC = () => {
 
   const frameSel = useRef<d3.Selection<SVGGElement, any, any, any> | null>(null);
   const frameStart = useRef<{ x: number; y: number } | null>(null);
+  const redirectedPointerTargetsRef = useRef<Map<number, Element>>(new Map());
 
   const pendingRef = useRef<{ state: ElementCopy[]; type?: string; action?: string } | null>(null);
 
@@ -475,6 +476,38 @@ const GuitarBoard: React.FC = () => {
     return group;
   };
 
+  const dispatchRedirectedPointerEvent = useCallback((source: PointerEvent, target: Element) => {
+    const pointerInit: PointerEventInit = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: source.pointerId,
+      pointerType: source.pointerType,
+      button: source.button,
+      buttons: source.buttons,
+      clientX: source.clientX,
+      clientY: source.clientY,
+      pageX: source.pageX,
+      pageY: source.pageY,
+      screenX: source.screenX,
+      screenY: source.screenY,
+      ctrlKey: source.ctrlKey,
+      shiftKey: source.shiftKey,
+      altKey: source.altKey,
+      metaKey: source.metaKey,
+      pressure: source.pressure,
+      tangentialPressure: source.tangentialPressure,
+      width: source.width,
+      height: source.height,
+      tiltX: source.tiltX,
+      tiltY: source.tiltY,
+      twist: source.twist,
+      isPrimary: source.isPrimary,
+    };
+
+    target.dispatchEvent(new PointerEvent(source.type, pointerInit));
+  }, []);
+
   const handleFramePointerDown = useCallback((event: PointerEvent) => {
     const target = event.currentTarget as SVGRectElement | null;
     if (!target) return;
@@ -488,34 +521,69 @@ const GuitarBoard: React.FC = () => {
     const redirectTarget = underlying.closest(interactiveElementSelector) as Element | null;
     if (!redirectTarget || redirectTarget === frameGroup) return;
 
-    const pointerInit: PointerEventInit = {
-      bubbles: true,
-      cancelable: true,
-      pointerId: event.pointerId,
-      pointerType: event.pointerType,
-      button: event.button,
-      buttons: event.buttons,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
-      altKey: event.altKey,
-      metaKey: event.metaKey,
-      pressure: event.pressure,
-      tangentialPressure: event.tangentialPressure,
-      width: event.width,
-      height: event.height,
-      tiltX: event.tiltX,
-      tiltY: event.tiltY,
-      twist: event.twist,
-      isPrimary: event.isPrimary,
-    };
-
-    redirectTarget.dispatchEvent(new PointerEvent(event.type, pointerInit));
+    redirectedPointerTargetsRef.current.set(event.pointerId, redirectTarget);
+    if (typeof target.setPointerCapture === 'function') {
+      try {
+        target.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore capture failures
+      }
+    }
+    dispatchRedirectedPointerEvent(event, redirectTarget);
     event.preventDefault();
     event.stopImmediatePropagation();
     event.stopPropagation();
-  }, []);
+  }, [dispatchRedirectedPointerEvent]);
+
+  const handleFramePointerMove = useCallback((event: PointerEvent) => {
+    const redirectTarget = redirectedPointerTargetsRef.current.get(event.pointerId);
+    if (!redirectTarget) return;
+    dispatchRedirectedPointerEvent(event, redirectTarget);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, [dispatchRedirectedPointerEvent]);
+
+  const finishRedirectedPointer = useCallback((event: PointerEvent) => {
+    const target = event.currentTarget as SVGRectElement | null;
+    const captureTarget = target as (Element & {
+      releasePointerCapture?: (pointerId: number) => void;
+      hasPointerCapture?: (pointerId: number) => boolean;
+    }) | null;
+    if (
+      captureTarget &&
+      typeof captureTarget.releasePointerCapture === 'function' &&
+      captureTarget.hasPointerCapture?.(event.pointerId)
+    ) {
+      try {
+        captureTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // ignore release failures
+      }
+    }
+    const redirectTarget = redirectedPointerTargetsRef.current.get(event.pointerId);
+    if (!redirectTarget) {
+      redirectedPointerTargetsRef.current.delete(event.pointerId);
+      return false;
+    }
+    redirectedPointerTargetsRef.current.delete(event.pointerId);
+    dispatchRedirectedPointerEvent(event, redirectTarget);
+    return true;
+  }, [dispatchRedirectedPointerEvent]);
+
+  const handleFramePointerUp = useCallback((event: PointerEvent) => {
+    if (!finishRedirectedPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, [finishRedirectedPointer]);
+
+  const handleFramePointerCancel = useCallback((event: PointerEvent) => {
+    if (!finishRedirectedPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+  }, [finishRedirectedPointer]);
 
   const createFrameGroup = useCallback((opts: { id?: string; width: number; height: number; transform: TransformValues; color?: string; autoSelect?: boolean }) => {
     const svg = d3.select(svgRef.current);
@@ -544,7 +612,10 @@ const GuitarBoard: React.FC = () => {
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', '8 4')
       .style('cursor', 'move')
-      .on('pointerdown.frame-block', handleFramePointerDown);
+      .on('pointerdown.frame-block', handleFramePointerDown)
+      .on('pointermove.frame-block', handleFramePointerMove)
+      .on('pointerup.frame-block', handleFramePointerUp)
+      .on('pointercancel.frame-block', handleFramePointerCancel);
 
     applyTransform(group, transform);
     group.call(makeDraggable);
@@ -559,7 +630,14 @@ const GuitarBoard: React.FC = () => {
     }
 
     return group;
-  }, [debug, frameColor, handleFramePointerDown]);
+  }, [
+    debug,
+    frameColor,
+    handleFramePointerCancel,
+    handleFramePointerDown,
+    handleFramePointerMove,
+    handleFramePointerUp,
+  ]);
 
 
   const addSticky = useCallback((text: string, pos: { x: number, y: number }, opts: { fontSize?: number | null; color?: string; align?: 'left' | 'center' | 'right' } = {}) => {
@@ -1778,7 +1856,10 @@ const GuitarBoard: React.FC = () => {
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', '8 4')
         .style('cursor', 'move')
-        .on('pointerdown.frame-block', handleFramePointerDown);
+        .on('pointerdown.frame-block', handleFramePointerDown)
+        .on('pointermove.frame-block', handleFramePointerMove)
+        .on('pointerup.frame-block', handleFramePointerUp)
+        .on('pointercancel.frame-block', handleFramePointerCancel);
       frameSel.current = group;
       frameStart.current = { x, y };
       event.currentTarget.setPointerCapture(event.pointerId);
