@@ -22,6 +22,15 @@ export function setDebugMode(enabled: boolean) {
 
 export function setZoomTransform(transform: d3.ZoomTransform) {
     zoomTransform = transform;
+    if (selectedElement) {
+        const data = (selectedElement.datum() as any) || {};
+        const currentTransform: TransformValues = data.transform ?? defaultTransform();
+        applyTransform(selectedElement, currentTransform);
+        const overlay = selectedElement.select('.crop-controls');
+        if (!overlay.empty() && overlay.style('display') !== 'none') {
+            updateCropOverlay(selectedElement);
+        }
+    }
 }
 
 export function setSvgRoot(svg: SVGSVGElement | null, workspace?: SVGGElement | null) {
@@ -365,26 +374,30 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
     element.attr('transform', buildTransform(transform, { width, height }));
 
     const { scaleX, scaleY } = transform;
+    const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
     const dominantScale = Math.max(Math.abs(scaleX), Math.abs(scaleY), 1e-6);
+    const combinedScale = Math.max(dominantScale * zoomScale, 1e-6);
     const safeScaleX = scaleX === 0 ? (scaleX >= 0 ? 1e-6 : -1e-6) : scaleX;
     const safeScaleY = scaleY === 0 ? (scaleY >= 0 ? 1e-6 : -1e-6) : scaleY;
+    const offsetScaleX = safeScaleX * zoomScale;
+    const offsetScaleY = safeScaleY * zoomScale;
     const handleSize = 16;
     const connectRadius = 4;
 
     element.selectAll<SVGRectElement, any>('.selection-outline')
-        .attr('stroke-width', 1 / dominantScale)
+        .attr('stroke-width', 1 / combinedScale)
         .attr('vector-effect', 'non-scaling-stroke');
 
     element.selectAll<SVGTextElement, any>('.resize-handle')
-        .attr('x', width + handleSize / safeScaleX)
-        .attr('y', height + handleSize / safeScaleY)
-        .attr('font-size', handleSize / dominantScale)
+        .attr('x', width + handleSize / offsetScaleX)
+        .attr('y', height + handleSize / offsetScaleY)
+        .attr('font-size', handleSize / combinedScale)
         .attr('vector-effect', 'non-scaling-stroke');
 
     element.selectAll<SVGTextElement, any>('.rotate-handle')
-        .attr('x', width + handleSize / safeScaleX)
-        .attr('y', -handleSize / safeScaleY)
-        .attr('font-size', handleSize / dominantScale)
+        .attr('x', width + handleSize / offsetScaleX)
+        .attr('y', -handleSize / offsetScaleY)
+        .attr('font-size', handleSize / combinedScale)
         .attr('vector-effect', 'non-scaling-stroke');
 
     const handles = element.selectAll<SVGCircleElement, any>('.connect-handle');
@@ -397,7 +410,7 @@ export function applyTransform(element: Selection<any, any, any, any>, transform
         if (pos === 's') { x = width / 2; y = height; }
         if (pos === 'w') { x = 0; y = height / 2; }
         h.attr('cx', x).attr('cy', y);
-        h.attr('r', connectRadius / dominantScale);
+        h.attr('r', connectRadius / combinedScale);
         const p = transformPoint(x, y, transform, { width, height });
         h.attr('data-abs-x', p.x).attr('data-abs-y', p.y);
     });
@@ -952,13 +965,20 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
     const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
+    const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+    const dominantScale = Math.max(Math.abs(transform.scaleX), Math.abs(transform.scaleY), 1e-6);
+    const combinedScale = Math.max(dominantScale * zoomScale, 1e-6);
+    const safeScaleX = transform.scaleX === 0 ? (transform.scaleX >= 0 ? 1e-6 : -1e-6) : transform.scaleX;
+    const safeScaleY = transform.scaleY === 0 ? (transform.scaleY >= 0 ? 1e-6 : -1e-6) : transform.scaleY;
+    const offsetScaleX = safeScaleX * zoomScale;
+    const offsetScaleY = safeScaleY * zoomScale;
 
     const handle = element.append('text')
         .attr('class', 'resize-handle')
-        .attr('x', width + handleSize / transform.scaleX)
-        .attr('y', height + handleSize / transform.scaleY)
+        .attr('x', width + handleSize / offsetScaleX)
+        .attr('y', height + handleSize / offsetScaleY)
         .text('\u2921')
-        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
+        .attr('font-size', handleSize / combinedScale)
         .style('cursor', 'nwse-resize')
         .style('user-select', 'none')
         .attr('vector-effect', 'non-scaling-stroke');
@@ -1022,6 +1042,8 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     newScaleY = snapHeight / data.height;
                 }
 
+                const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+
                 if (element.classed('sticky-note') || element.classed('code-block')) {
                     const stickyData = element.datum() as any;
                     const width = data.origWidth * newScaleX;
@@ -1032,14 +1054,15 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     element.select('foreignObject').attr('width', width).attr('height', height);
                     element.select('.selection-outline').attr('width', width).attr('height', height);
                     element.select('.rotate-handle')
-                        .attr('x', width + handleSize)
-                        .attr('font-size', handleSize);
+                        .attr('x', width + handleSize / zoomScale)
+                        .attr('y', -handleSize / zoomScale)
+                        .attr('font-size', handleSize / zoomScale);
                     const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
                     applyTransform(element, newTransform);
                     d3.select(this)
-                        .attr('x', width + handleSize)
-                        .attr('y', height + handleSize)
-                        .attr('font-size', handleSize);
+                        .attr('x', width + handleSize / zoomScale)
+                        .attr('y', height + handleSize / zoomScale)
+                        .attr('font-size', handleSize / zoomScale);
                     updateDebugCross(element);
                     debugLog('resize drag', width, height);
                 } else {
@@ -1049,17 +1072,23 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     const scaledWidth = data.width * newScaleX;
                     const scaledHeight = data.height * newScaleY;
 
+                    const safeScaleX = newScaleX === 0 ? (newScaleX >= 0 ? 1e-6 : -1e-6) : newScaleX;
+                    const safeScaleY = newScaleY === 0 ? (newScaleY >= 0 ? 1e-6 : -1e-6) : newScaleY;
+                    const combinedScale = Math.max(Math.max(Math.abs(newScaleX), Math.abs(newScaleY)) * zoomScale, 1e-6);
+                    const offsetScaleX = safeScaleX * zoomScale;
+                    const offsetScaleY = safeScaleY * zoomScale;
+
                     d3.select(this)
-                        .attr('x', data.width + handleSize / newScaleX)
-                        .attr('y', data.height + handleSize / newScaleY)
-                        .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
+                        .attr('x', data.width + handleSize / offsetScaleX)
+                        .attr('y', data.height + handleSize / offsetScaleY)
+                        .attr('font-size', handleSize / combinedScale);
 
                     const rotateHandle = element.select('.rotate-handle');
                     if (!rotateHandle.empty()) {
                         rotateHandle
-                            .attr('x', data.width + handleSize / newScaleX)
-                            .attr('y', -handleSize / newScaleY)
-                            .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
+                            .attr('x', data.width + handleSize / offsetScaleX)
+                            .attr('y', -handleSize / offsetScaleY)
+                            .attr('font-size', handleSize / combinedScale);
                     }
 
                     updateDebugCross(element);
@@ -1090,12 +1119,19 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
+    const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+    const dominantScale = Math.max(Math.abs(transform.scaleX), Math.abs(transform.scaleY), 1e-6);
+    const combinedScale = Math.max(dominantScale * zoomScale, 1e-6);
+    const safeScaleX = transform.scaleX === 0 ? (transform.scaleX >= 0 ? 1e-6 : -1e-6) : transform.scaleX;
+    const safeScaleY = transform.scaleY === 0 ? (transform.scaleY >= 0 ? 1e-6 : -1e-6) : transform.scaleY;
+    const offsetScaleX = safeScaleX * zoomScale;
+    const offsetScaleY = safeScaleY * zoomScale;
     element.append('text')
         .attr('class', 'rotate-handle')
-        .attr('x', width + handleSize / transform.scaleX)
-        .attr('y', -handleSize / transform.scaleY)
+        .attr('x', width + handleSize / offsetScaleX)
+        .attr('y', -handleSize / offsetScaleY)
         .text('\u21bb')
-        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
+        .attr('font-size', handleSize / combinedScale)
         .style('cursor', 'grab')
         .style('user-select', 'none')
         .attr('vector-effect', 'non-scaling-stroke')
@@ -1159,7 +1195,10 @@ export function ensureConnectHandles(element: Selection<any, any, any, any>) {
     const height = data.height ?? bbox.height;
     const transform = data.transform ?? defaultTransform();
     const { scaleX, scaleY } = transform;
-    const r = 4 / Math.max(scaleX, scaleY);
+    const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+    const dominantScale = Math.max(Math.abs(scaleX), Math.abs(scaleY), 1e-6);
+    const combinedScale = Math.max(dominantScale * zoomScale, 1e-6);
+    const r = 4 / combinedScale;
     const points = [
         { p: 'n', x: width / 2, y: 0 },
         { p: 'e', x: width, y: height / 2 },
@@ -1207,7 +1246,11 @@ function addOutline(element: Selection<any, any, any, any>) {
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
     const height = data.height ?? bbox.height;
-    const { scaleX, scaleY } = (data.transform ?? defaultTransform());
+    const transform = data.transform ?? defaultTransform();
+    const { scaleX, scaleY } = transform;
+    const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+    const dominantScale = Math.max(Math.abs(scaleX), Math.abs(scaleY), 1e-6);
+    const combinedScale = Math.max(dominantScale * zoomScale, 1e-6);
 
     element.append('rect')
         .attr('class', 'selection-outline')
@@ -1217,7 +1260,7 @@ function addOutline(element: Selection<any, any, any, any>) {
         .attr('height', height)
         .attr('fill', 'none')
         .attr('stroke', '#7fbbf7')
-        .attr('stroke-width', 1 / Math.max(scaleX, scaleY))
+        .attr('stroke-width', 1 / combinedScale)
         .style('pointer-events', 'none')
         .attr('vector-effect', 'non-scaling-stroke');
 }
@@ -1318,6 +1361,12 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
     const image = element.select('image');
     const overlay = element.select('.crop-controls');
     const rect = overlay.select<SVGRectElement>('.crop-rect');
+    const data = (element.datum() as any) || {};
+    const transform: TransformValues = data.transform ?? defaultTransform();
+    const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+    const elementScale = Math.max(Math.abs(transform.scaleX), Math.abs(transform.scaleY), 1e-6);
+    const combinedScale = Math.max(elementScale * zoomScale, 1e-6);
+    const handleSize = 16;
 
     const imgWidth = parseFloat(image.attr('width') ?? '0');
     const imgHeight = parseFloat(image.attr('height') ?? '0');
@@ -1366,6 +1415,13 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
         .attr('y', y)
         .attr('width', imgWidth - x - width)
         .attr('height', height);
+
+    rect
+        .attr('stroke-width', 1 / combinedScale)
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    overlay.selectAll<SVGTextElement, any>('.crop-handle')
+        .attr('font-size', handleSize / combinedScale);
 }
 
 function startCrop(element: Selection<any, any, any, any>) {
@@ -1466,11 +1522,19 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                 .attr('class', 'crop-controls')
                 .style('display', 'none');
 
+            const elementData = (element.datum() as any) || {};
+            const transform: TransformValues = elementData.transform ?? defaultTransform();
+            const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+            const elementScale = Math.max(Math.abs(transform.scaleX), Math.abs(transform.scaleY), 1e-6);
+            const combinedScale = Math.max(elementScale * zoomScale, 1e-6);
+            const handleSize = 16;
+
             overlay.append('rect')
                 .attr('class', 'crop-rect')
                 .attr('fill', 'none')
                 .attr('stroke', '#7fbbf7')
-                .attr('stroke-width', 1);
+                .attr('stroke-width', 1 / combinedScale)
+                .attr('vector-effect', 'non-scaling-stroke');
 
             const handleClasses = ['n', 'e', 's', 'w'];
             for (const dir of handleClasses) {
@@ -1478,7 +1542,7 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                 overlay.append('text')
                     .attr('class', `crop-handle crop-handle-${dir}`)
                     .text(char)
-                    .attr('font-size', 16)
+                    .attr('font-size', handleSize / combinedScale)
                     .attr('text-anchor', 'middle')
                     .attr('dominant-baseline', 'middle')
                     .style('user-select', 'none')
