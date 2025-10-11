@@ -400,7 +400,14 @@ interface HiddenElementState {
 
 const DECORATION_SELECTOR = '.resize-handle, .rotate-handle, .connect-handle, .selection-outline, .component-debug-cross, .crop-controls';
 
-function getTightBoundingBox(node: SVGGraphicsElement): DOMRect | null {
+interface BoundingBox {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+function getTightBoundingBox(node: SVGGraphicsElement): BoundingBox | null {
     const element = d3.select(node);
     const hidden: HiddenElementState[] = [];
     element.selectAll<SVGGraphicsElement, unknown>(DECORATION_SELECTOR).each(function () {
@@ -413,7 +420,41 @@ function getTightBoundingBox(node: SVGGraphicsElement): DOMRect | null {
         child.style.display = 'none';
     });
     try {
-        return node.getBBox();
+        const bbox = node.getBBox();
+        const matrix = node.getScreenCTM() || node.getCTM();
+        if (!matrix) {
+            return {
+                x: bbox.x,
+                y: bbox.y,
+                width: bbox.width,
+                height: bbox.height,
+            };
+        }
+
+        const transformPoint = (x: number, y: number) => ({
+            x: matrix.a * x + matrix.c * y + matrix.e,
+            y: matrix.b * x + matrix.d * y + matrix.f,
+        });
+
+        const topLeft = transformPoint(bbox.x, bbox.y);
+        const topRight = transformPoint(bbox.x + bbox.width, bbox.y);
+        const bottomLeft = transformPoint(bbox.x, bbox.y + bbox.height);
+        const bottomRight = transformPoint(bbox.x + bbox.width, bbox.y + bbox.height);
+
+        const xs = [topLeft.x, topRight.x, bottomLeft.x, bottomRight.x];
+        const ys = [topLeft.y, topRight.y, bottomLeft.y, bottomRight.y];
+
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+
+        return {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+        };
     } catch {
         return null;
     } finally {
