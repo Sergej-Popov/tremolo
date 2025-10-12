@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Box, CssBaseline, ThemeProvider } from "@mui/material";
 
@@ -18,6 +19,16 @@ function App() {
   const getBasename = () => {
     return window.location.pathname;
   };
+
+  useEffect(() => {
+    const disableContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('contextmenu', disableContextMenu);
+    return () => {
+      window.removeEventListener('contextmenu', disableContextMenu);
+    };
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>

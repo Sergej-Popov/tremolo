@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues, defaultBackgroundFeather, defaultBackgroundFeather } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues, defaultBackgroundFeather } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -2252,15 +2252,25 @@ const GuitarBoard: React.FC = () => {
   useEffect(() => {
     const svg = d3.select(svgRef.current);
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .filter(event => {
+      .filter((event: any) => {
         if (event.type === 'dblclick') return false;
-        const e = event as any;
         if (event.type === 'wheel' || event.type === 'mousewheel') {
           return true;
         }
-        if (e.ctrlKey) return false;
+        if (event.ctrlKey) return false;
         if (drawingMode) return false;
-        const target = e.target as Element;
+
+        const mouseEvent = event as MouseEvent & { target: EventTarget | null };
+        if (mouseEvent) {
+          if (mouseEvent.button === 1 || mouseEvent.button === 2) {
+            return true;
+          }
+          if (typeof mouseEvent.buttons === 'number' && ((mouseEvent.buttons & 2) === 2 || (mouseEvent.buttons & 4) === 4)) {
+            return true;
+          }
+        }
+
+        const target = (mouseEvent?.target as Element) ?? null;
         return target === svgRef.current || target === workspaceRef.current;
       })
       .scaleExtent([0.1, 10])
