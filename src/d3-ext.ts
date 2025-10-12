@@ -22,6 +22,15 @@ export function setDebugMode(enabled: boolean) {
 
 export function setZoomTransform(transform: d3.ZoomTransform) {
     zoomTransform = transform;
+    if (selectedElement) {
+        const data = (selectedElement.datum() as any) || {};
+        const currentTransform: TransformValues = data.transform ?? defaultTransform();
+        applyTransform(selectedElement, currentTransform);
+        const overlay = selectedElement.select('.crop-controls');
+        if (!overlay.empty() && overlay.style('display') !== 'none') {
+            updateCropOverlay(selectedElement);
+        }
+    }
 }
 
 export function setSvgRoot(svg: SVGSVGElement | null, workspace?: SVGGElement | null) {
@@ -165,6 +174,10 @@ export const defaultTransform = (): TransformValues => ({
     rotate: 0,
 });
 
+const HANDLE_ICON_SIZE = 16;
+const CONNECT_HANDLE_RADIUS = 4;
+const SELECTION_STROKE_WIDTH = 1;
+
 function transformPoint(x: number, y: number, t: TransformValues, size: { width: number; height: number }) {
     const cx = (size.width * t.scaleX) / 2;
     const cy = (size.height * t.scaleY) / 2;
@@ -174,6 +187,79 @@ function transformPoint(x: number, y: number, t: TransformValues, size: { width:
     const rx = Math.cos(rad) * (px - cx) - Math.sin(rad) * (py - cy) + cx;
     const ry = Math.sin(rad) * (px - cx) + Math.cos(rad) * (py - cy) + cy;
     return { x: rx + t.translateX, y: ry + t.translateY };
+}
+
+interface DecorationLayoutOptions {
+    width?: number;
+    height?: number;
+    transform?: TransformValues;
+}
+
+function computeDecorationMetrics(transform: TransformValues) {
+    const zoomScale = Math.max(Math.abs(zoomTransform.k), 1e-6);
+    const scaleX = transform.scaleX ?? 1;
+    const scaleY = transform.scaleY ?? 1;
+    const safeScaleX = scaleX === 0 ? (scaleX >= 0 ? 1e-6 : -1e-6) : scaleX;
+    const safeScaleY = scaleY === 0 ? (scaleY >= 0 ? 1e-6 : -1e-6) : scaleY;
+    const dominantScale = Math.max(Math.abs(safeScaleX), Math.abs(safeScaleY), 1e-6);
+    const combinedScale = Math.max(dominantScale * zoomScale, 1e-6);
+    return {
+        zoomScale,
+        combinedScale,
+        offsetScaleX: safeScaleX * zoomScale,
+        offsetScaleY: safeScaleY * zoomScale,
+    };
+}
+
+function updateSelectionDecorations(
+    element: Selection<any, any, any, any>,
+    options: DecorationLayoutOptions = {},
+) {
+    const data: any = element.datum() || {};
+    const node = element.node() as SVGGraphicsElement;
+    const bbox = node.getBBox();
+    const width = options.width ?? data.width ?? bbox.width;
+    const height = options.height ?? data.height ?? bbox.height;
+    const transform: TransformValues = options.transform ?? data.transform ?? defaultTransform();
+    const metrics = computeDecorationMetrics(transform);
+
+    element.selectAll<SVGRectElement, any>('.selection-outline')
+        .attr('width', width)
+        .attr('height', height)
+        .attr('stroke-width', SELECTION_STROKE_WIDTH)
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    const handleFontSize = HANDLE_ICON_SIZE / metrics.combinedScale;
+    const resizeHandles = element.selectAll<SVGTextElement, any>('.resize-handle');
+    resizeHandles
+        .attr('x', width + HANDLE_ICON_SIZE / metrics.offsetScaleX)
+        .attr('y', height + HANDLE_ICON_SIZE / metrics.offsetScaleY)
+        .attr('font-size', handleFontSize)
+        .style('font-size', `${handleFontSize}px`)
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    const rotateHandles = element.selectAll<SVGTextElement, any>('.rotate-handle');
+    rotateHandles
+        .attr('x', width + HANDLE_ICON_SIZE / metrics.offsetScaleX)
+        .attr('y', -HANDLE_ICON_SIZE / metrics.offsetScaleY)
+        .attr('font-size', handleFontSize)
+        .style('font-size', `${handleFontSize}px`)
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    const connectRadius = CONNECT_HANDLE_RADIUS / metrics.combinedScale;
+    element.selectAll<SVGCircleElement, any>('.connect-handle').each(function () {
+        const h = d3.select(this);
+        const pos = h.attr('data-pos');
+        let x = 0;
+        let y = 0;
+        if (pos === 'n') { x = width / 2; y = 0; }
+        if (pos === 'e') { x = width; y = height / 2; }
+        if (pos === 's') { x = width / 2; y = height; }
+        if (pos === 'w') { x = 0; y = height / 2; }
+        h.attr('cx', x).attr('cy', y).attr('r', connectRadius);
+        const abs = transformPoint(x, y, transform, { width, height });
+        h.attr('data-abs-x', abs.x).attr('data-abs-y', abs.y);
+    });
 }
 
 export function linePath(d: {
@@ -357,25 +443,111 @@ function buildTransform(transform: TransformValues, size: { width: number; heigh
     return `translate(${translateX}, ${translateY}) rotate(${rotate}, ${cx}, ${cy}) scale(${scaleX}, ${scaleY})`;
 }
 
+const intrinsicResizeClasses = new Set([
+    'sticky-note',
+    'code-block',
+    'pasted-image',
+    'embedded-video',
+    'embedded-audio',
+    'frame-element',
+]);
+
+function supportsIntrinsicResize(element: Selection<any, any, any, any>): boolean {
+    return Array.from(intrinsicResizeClasses).some(cls => element.classed(cls));
+}
+
+function applyElementSize(element: Selection<any, any, any, any>, width: number, height: number) {
+    const data = element.datum() as any || {};
+    const prevWidth = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
+    const prevHeight = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
+
+    data.width = width;
+    data.height = height;
+    element.datum(data);
+
+    if (element.classed('sticky-note')) {
+        element.select('rect').attr('width', width).attr('height', height);
+        element.select('foreignObject').attr('width', width).attr('height', height);
+    } else if (element.classed('code-block')) {
+        element.select('rect').attr('width', width).attr('height', height);
+        element.select('foreignObject').attr('width', width).attr('height', height);
+    } else if (element.classed('pasted-image')) {
+        element.select('image').attr('width', width).attr('height', height);
+
+        const clipRect = element.select<SVGRectElement>('.clip-rect');
+        if (!clipRect.empty()) {
+            const scaleX = prevWidth ? width / Math.max(prevWidth, 1e-6) : 1;
+            const scaleY = prevHeight ? height / Math.max(prevHeight, 1e-6) : 1;
+            if (data.crop) {
+                data.crop = {
+                    x: (data.crop.x ?? 0) * scaleX,
+                    y: (data.crop.y ?? 0) * scaleY,
+                    width: (data.crop.width ?? 0) * scaleX,
+                    height: (data.crop.height ?? 0) * scaleY,
+                } as CropValues;
+                clipRect
+                    .attr('x', data.crop.x)
+                    .attr('y', data.crop.y)
+                    .attr('width', data.crop.width)
+                    .attr('height', data.crop.height);
+            } else {
+                clipRect
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .attr('width', width)
+                    .attr('height', height);
+            }
+
+            const overlay = element.select('.crop-controls');
+            if (!overlay.empty()) {
+                const overlayRect = overlay.select<SVGRectElement>('.crop-rect');
+                if (!overlayRect.empty()) {
+                    if (data.crop) {
+                        overlayRect
+                            .attr('x', data.crop.x)
+                            .attr('y', data.crop.y)
+                            .attr('width', data.crop.width)
+                            .attr('height', data.crop.height);
+                    } else {
+                        overlayRect
+                            .attr('x', 0)
+                            .attr('y', 0)
+                            .attr('width', width)
+                            .attr('height', height);
+                    }
+                }
+            }
+        }
+    } else if (element.classed('embedded-video') || element.classed('embedded-audio')) {
+        element.select('rect').attr('width', width).attr('height', height);
+        const fo = element.select<SVGForeignObjectElement>('foreignObject');
+        if (!fo.empty()) {
+            const padX = parseFloat(fo.attr('x') ?? '0');
+            const padY = parseFloat(fo.attr('y') ?? '0');
+            const innerWidth = Math.max(0, width - padX * 2);
+            const innerHeight = Math.max(0, height - padY * 2);
+            fo.attr('width', innerWidth).attr('height', innerHeight);
+        }
+    } else if (element.classed('frame-element')) {
+        element.select<SVGRectElement>('rect.frame-rect')
+            .attr('width', width)
+            .attr('height', height);
+    }
+
+    const overlay = element.select('.crop-controls');
+    if (!overlay.empty() && overlay.style('display') !== 'none') {
+        updateCropOverlay(element);
+    }
+}
+
 export function applyTransform(element: Selection<any, any, any, any>, transform: TransformValues) {
     const data: any = element.datum() || {};
     data.transform = transform;
     const width = data.width ?? (element.node() as SVGGraphicsElement).getBBox().width;
     const height = data.height ?? (element.node() as SVGGraphicsElement).getBBox().height;
     element.attr('transform', buildTransform(transform, { width, height }));
-    const handles = element.selectAll<SVGCircleElement, any>('.connect-handle');
-    handles.each(function () {
-        const h = d3.select(this);
-        const pos = h.attr('data-pos');
-        let x = 0, y = 0;
-        if (pos === 'n') { x = width / 2; y = 0; }
-        if (pos === 'e') { x = width; y = height / 2; }
-        if (pos === 's') { x = width / 2; y = height; }
-        if (pos === 'w') { x = 0; y = height / 2; }
-        h.attr('cx', x).attr('cy', y);
-        const p = transformPoint(x, y, transform, { width, height });
-        h.attr('data-abs-x', p.x).attr('data-abs-y', p.y);
-    });
+
+    updateSelectionDecorations(element, { width, height, transform });
     updateConnectedLines(element);
     if (selectedElement && element.node() === selectedElement.node()) {
         dispatchSelectionChange();
@@ -917,7 +1089,6 @@ interface ResizeOptions {
 
 function addResizeHandle(element: Selection<any, any, any, any>, options: ResizeOptions = {}) {
     const { lockAspectRatio = true } = options;
-    const handleSize = 16;
 
     if (!element.select('.resize-handle').empty()) return;
 
@@ -930,13 +1101,12 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 
     const handle = element.append('text')
         .attr('class', 'resize-handle')
-        .attr('x', width + handleSize / transform.scaleX)
-        .attr('y', height + handleSize / transform.scaleY)
         .text('\u2921')
-        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'nwse-resize')
         .style('user-select', 'none')
-        .style('vector-effect', 'non-scaling-stroke');
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    updateSelectionDecorations(element, { width, height, transform });
 
     if (!element.select('.component-debug-cross').empty()) {
         updateDebugCross(element);
@@ -971,15 +1141,15 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     .datum({ startX, startY, transform, width, height, origWidth: width, origHeight: height });
             })
             .on('drag', function (event: MouseEvent) {
-                const data = d3.select<any, any>(this).datum();
-                const { transform } = data;
+                const dragData = d3.select<any, any>(this).datum();
+                const { transform, width, height } = dragData;
 
                 const [mx, my] = toWorkspaceCoords(event);
-                const dx = mx - data.startX;
-                const dy = my - data.startY;
+                const dx = mx - dragData.startX;
+                const dy = my - dragData.startY;
 
-                let newScaleX = Math.max(0.1, (data.width * transform.scaleX + dx) / data.width);
-                let newScaleY = Math.max(0.1, (data.height * transform.scaleY + dy) / data.height);
+                let newScaleX = Math.max(0.1, (width * transform.scaleX + dx) / Math.max(width, 1e-6));
+                let newScaleY = Math.max(0.1, (height * transform.scaleY + dy) / Math.max(height, 1e-6));
 
                 const source = (event as any).sourceEvent as MouseEvent | undefined;
                 const shift = source?.shiftKey;
@@ -991,34 +1161,25 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                 }
 
                 if (ctrl) {
-                    const snapWidth = Math.round((data.width * newScaleX) / 10) * 10;
-                    const snapHeight = Math.round((data.height * newScaleY) / 10) * 10;
-                    newScaleX = snapWidth / data.width;
-                    newScaleY = snapHeight / data.height;
+                    const snapWidth = Math.round((width * newScaleX) / 10) * 10;
+                    const snapHeight = Math.round((height * newScaleY) / 10) * 10;
+                    newScaleX = snapWidth / Math.max(width, 1e-6);
+                    newScaleY = snapHeight / Math.max(height, 1e-6);
                 }
 
-                if (element.classed('sticky-note') || element.classed('code-block')) {
-                    const stickyData = element.datum() as any;
-                    const width = data.origWidth * newScaleX;
-                    const height = data.origHeight * newScaleY;
-                    stickyData.width = width;
-                    stickyData.height = height;
-                    element.select('rect').attr('width', width).attr('height', height);
-                    element.select('foreignObject').attr('width', width).attr('height', height);
-                    element.select('.selection-outline').attr('width', width).attr('height', height);
-                    element.select('.rotate-handle')
-                        .attr('x', width + handleSize)
-                        .attr('font-size', handleSize);
+                const elementData = element.datum() as any;
+
+                if (supportsIntrinsicResize(element)) {
+                    const actualWidth = width * newScaleX;
+                    const actualHeight = height * newScaleY;
+                    applyElementSize(element, actualWidth, actualHeight);
                     const newTransform: TransformValues = { ...transform, scaleX: 1, scaleY: 1 };
+                    elementData.transform = newTransform;
                     applyTransform(element, newTransform);
-                    d3.select(this)
-                        .attr('x', width + handleSize)
-                        .attr('y', height + handleSize)
-                        .attr('font-size', handleSize);
-                    updateDebugCross(element);
-                    debugLog('resize drag', width, height);
+                    debugLog('resize drag', actualWidth, actualHeight);
                 } else {
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
+                    elementData.transform = newTransform;
                     applyTransform(element, newTransform);
 
                     d3.select(this)
@@ -1034,14 +1195,12 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                             .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
                     }
 
-                    updateDebugCross(element);
-                    debugLog('resize drag', newScaleX, newScaleY);
-                }
+                updateDebugCross(element);
                 setGridVisible(!!ctrl);
             })
             .on('end', function () {
                 window.dispatchEvent(new CustomEvent('element-resize-end', { detail: element.node() }));
-                if ((element.classed('sticky-note') || element.classed('code-block')) && typeof options.onResizeEnd === 'function') {
+                if (supportsIntrinsicResize(element) && typeof options.onResizeEnd === 'function') {
                     options.onResizeEnd(element);
                 }
                 updateDebugCross(element);
@@ -1052,8 +1211,6 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
 }
 
 function addRotateHandle(element: Selection<any, any, any, any>) {
-    const handleSize = 16;
-
     if (!element.select('.rotate-handle').empty()) return;
 
     const data: any = element.datum();
@@ -1063,13 +1220,10 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     data.transform = transform;
     element.append('text')
         .attr('class', 'rotate-handle')
-        .attr('x', width + handleSize / transform.scaleX)
-        .attr('y', -handleSize / transform.scaleY)
         .text('\u21bb')
-        .attr('font-size', handleSize / Math.max(transform.scaleX, transform.scaleY))
         .style('cursor', 'grab')
         .style('user-select', 'none')
-        .style('vector-effect', 'non-scaling-stroke')
+        .attr('vector-effect', 'non-scaling-stroke')
         .call(
             d3.drag<SVGTextElement, unknown>()
                 .on('start', function (event: MouseEvent) {
@@ -1120,6 +1274,8 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     debugLog('rotate', newTransform.rotate);
                 })
         );
+
+    updateSelectionDecorations(element, { width, height, transform });
 }
 
 export function ensureConnectHandles(element: Selection<any, any, any, any>) {
@@ -1129,8 +1285,6 @@ export function ensureConnectHandles(element: Selection<any, any, any, any>) {
     const width = data.width ?? bbox.width;
     const height = data.height ?? bbox.height;
     const transform = data.transform ?? defaultTransform();
-    const { scaleX, scaleY } = transform;
-    const r = 4 / Math.max(scaleX, scaleY);
     const points = [
         { p: 'n', x: width / 2, y: 0 },
         { p: 'e', x: width, y: height / 2 },
@@ -1140,15 +1294,10 @@ export function ensureConnectHandles(element: Selection<any, any, any, any>) {
     points.forEach(pt => {
         const h = element.append('circle')
             .attr('class', `connect-handle connect-handle-${pt.p}`)
-            .attr('cx', pt.x)
-            .attr('cy', pt.y)
-            .attr('r', r)
             .attr('data-pos', pt.p)
             .attr('data-parent', data.id)
             .style('pointer-events', 'all')
             .style('fill', '#7fbbf7');
-        const abs = transformPoint(pt.x, pt.y, transform, { width, height });
-        h.attr('data-abs-x', abs.x).attr('data-abs-y', abs.y);
         h.call(
             d3.drag<SVGCircleElement, unknown>()
                 .on('start', function (event) {
@@ -1165,6 +1314,8 @@ export function ensureConnectHandles(element: Selection<any, any, any, any>) {
                 })
         );
     });
+
+    updateSelectionDecorations(element, { width, height, transform });
 }
 
 export function removeConnectHandles(element: Selection<any, any, any, any>) {
@@ -1178,7 +1329,7 @@ function addOutline(element: Selection<any, any, any, any>) {
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
     const height = data.height ?? bbox.height;
-    const { scaleX, scaleY } = (data.transform ?? defaultTransform());
+    const transform = data.transform ?? defaultTransform();
 
     element.append('rect')
         .attr('class', 'selection-outline')
@@ -1187,10 +1338,11 @@ function addOutline(element: Selection<any, any, any, any>) {
         .attr('width', width)
         .attr('height', height)
         .attr('fill', 'none')
-    .attr('stroke', '#7fbbf7')
-        .attr('stroke-width', 1 / Math.max(scaleX, scaleY))
+        .attr('stroke', '#7fbbf7')
         .style('pointer-events', 'none')
-        .style('vector-effect', 'non-scaling-stroke');
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    updateSelectionDecorations(element, { width, height, transform });
 }
 
 function clearSelection() {
@@ -1289,6 +1441,9 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
     const image = element.select('image');
     const overlay = element.select('.crop-controls');
     const rect = overlay.select<SVGRectElement>('.crop-rect');
+    const data = (element.datum() as any) || {};
+    const transform: TransformValues = data.transform ?? defaultTransform();
+    const metrics = computeDecorationMetrics(transform);
 
     const imgWidth = parseFloat(image.attr('width') ?? '0');
     const imgHeight = parseFloat(image.attr('height') ?? '0');
@@ -1337,6 +1492,14 @@ function updateCropOverlay(element: Selection<any, any, any, any>) {
         .attr('y', y)
         .attr('width', imgWidth - x - width)
         .attr('height', height);
+
+    rect
+        .attr('stroke-width', SELECTION_STROKE_WIDTH)
+        .attr('vector-effect', 'non-scaling-stroke');
+
+    overlay.selectAll<SVGTextElement, any>('.crop-handle')
+        .attr('font-size', HANDLE_ICON_SIZE / metrics.combinedScale)
+        .style('font-size', `${HANDLE_ICON_SIZE / metrics.combinedScale}px`);
 }
 
 function startCrop(element: Selection<any, any, any, any>) {
@@ -1437,11 +1600,16 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                 .attr('class', 'crop-controls')
                 .style('display', 'none');
 
+            const elementData = (element.datum() as any) || {};
+            const transform: TransformValues = elementData.transform ?? defaultTransform();
+            const metrics = computeDecorationMetrics(transform);
+
             overlay.append('rect')
                 .attr('class', 'crop-rect')
                 .attr('fill', 'none')
                 .attr('stroke', '#7fbbf7')
-                .attr('stroke-width', 1);
+                .attr('stroke-width', SELECTION_STROKE_WIDTH)
+                .attr('vector-effect', 'non-scaling-stroke');
 
             const handleClasses = ['n', 'e', 's', 'w'];
             for (const dir of handleClasses) {
@@ -1449,11 +1617,12 @@ export function makeCroppable(selection: Selection<any, any, any, any>) {
                 overlay.append('text')
                     .attr('class', `crop-handle crop-handle-${dir}`)
                     .text(char)
-                    .attr('font-size', 16)
+                    .attr('font-size', HANDLE_ICON_SIZE / metrics.combinedScale)
+                    .style('font-size', `${HANDLE_ICON_SIZE / metrics.combinedScale}px`)
                     .attr('text-anchor', 'middle')
                     .attr('dominant-baseline', 'middle')
                     .style('user-select', 'none')
-                    .style('vector-effect', 'non-scaling-stroke');
+                    .attr('vector-effect', 'non-scaling-stroke');
             }
 
             overlay.append('rect').attr('class', 'crop-shade-top');
