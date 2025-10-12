@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, updateDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, updateSelectedCodeLang, updateSelectedCodeTheme, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
-import { noteColors, defaultLineColor } from '../theme';
+import {  defaultLineColor } from '../theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { AppContext } from '../Store';
 import type { FrameLineStyle } from '../Store';

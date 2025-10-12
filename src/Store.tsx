@@ -106,7 +106,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
     setFuture([]);
   };
 
-  const undo = () => {
+  const undo = React.useCallback(() => {
     setPast((p) => {
       if (!p.length) return p;
       const prev = p[p.length - 1];
@@ -119,9 +119,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       window.dispatchEvent(new CustomEvent('loadboard', { detail: { items: JSON.parse(prev.state), fromHistory: true } }));
       return newPast;
     });
-  };
+  }, []);
 
-  const redo = () => {
+  const redo = React.useCallback(() => {
     setFuture((f) => {
       if (!f.length) return f;
       const next = f[f.length - 1];
@@ -134,7 +134,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       window.dispatchEvent(new CustomEvent('loadboard', { detail: { items: JSON.parse(next.state), fromHistory: true } }));
       return newFuture;
     });
-  };
+  }, []);
 
   const addBoard = () => {
     setBoards((ids) => [...ids, ids.length ? Math.max(...ids) + 1 : 0]);

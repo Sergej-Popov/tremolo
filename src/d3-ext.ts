@@ -1181,8 +1181,19 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
                     elementData.transform = newTransform;
                     applyTransform(element, newTransform);
-                    debugLog('resize drag', newScaleX, newScaleY);
-                }
+
+                    d3.select(this)
+                        .attr('x', data.width + handleSize / newScaleX)
+                        .attr('y', data.height + handleSize / newScaleY)
+                        .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
+
+                    const rotateHandle = element.select('.rotate-handle');
+                    if (!rotateHandle.empty()) {
+                        rotateHandle
+                            .attr('x', data.width + handleSize / newScaleX)
+                            .attr('y', -handleSize / newScaleY)
+                            .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
+                    }
 
                 updateDebugCross(element);
                 setGridVisible(!!ctrl);
@@ -1205,7 +1216,6 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const data: any = element.datum();
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
-    const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
     element.append('text')
