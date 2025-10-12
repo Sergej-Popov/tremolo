@@ -728,7 +728,8 @@ const Menu: React.FC = () => {
                 <IconButton
                   color="inherit"
                   disabled={imageProcessing !== null || imageBackgroundRemoved}
-                  onClick={async () => {
+                  onClick={async (event) => {
+                    event.stopPropagation();
                     clearPendingReapply();
                     setImageProcessing('remove');
                     try {
@@ -763,7 +764,8 @@ const Menu: React.FC = () => {
                   <IconButton
                     color="inherit"
                     disabled={imageProcessing !== null}
-                    onClick={async () => {
+                    onClick={async (event) => {
+                      event.stopPropagation();
                       clearPendingReapply();
                       setImageProcessing('restore');
                       try {
