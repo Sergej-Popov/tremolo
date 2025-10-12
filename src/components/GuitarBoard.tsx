@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
 import * as d3 from 'd3';
-import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues } from '../d3-ext';
+import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues, defaultBackgroundFeather, defaultBackgroundFeather } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
@@ -45,7 +45,18 @@ const theme = {
 
 interface NoteDatum { id: string; type: 'note'; string: noteString; fret: number }
 
-interface PastedImageDatum { id: string; type: 'image'; src: string; width: number; height: number }
+interface PastedImageDatum {
+  id: string;
+  type: 'image';
+  src: string;
+  width: number;
+  height: number;
+  originalSrc?: string | null;
+  backgroundRemoved?: boolean;
+  removalTolerance?: number | null;
+  removalFeather?: number;
+  removalColor?: string | null;
+}
 
 interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: string }
 interface PastedAudioDatum { id: string; type: 'audio'; url: string }
@@ -147,6 +158,11 @@ const GuitarBoard: React.FC = () => {
   const setFrameColor = app?.setFrameColor ?? (() => {});
   const setFrameLineStyle = app?.setFrameLineStyle ?? (() => {});
   const setCodeSelected = app?.setCodeSelected ?? (() => {});
+  const setImageSelected = app?.setImageSelected ?? (() => {});
+  const setImageBackgroundRemoved = app?.setImageBackgroundRemoved ?? (() => {});
+  const setImageBackgroundTolerance = app?.setImageBackgroundTolerance ?? (() => {});
+  const setImageBackgroundFeather = app?.setImageBackgroundFeather ?? (() => {});
+  const setImageBackgroundColor = app?.setImageBackgroundColor ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const codeTheme = app?.codeTheme ?? 'github-dark';
   const codeFontSize = app?.codeFontSize ?? 14;
@@ -319,13 +335,37 @@ const GuitarBoard: React.FC = () => {
     fitFretBoard();
   }
 
-  const addImage = (src: string, pos: { x: number, y: number }, width: number, height: number) => {
+  const addImage = (
+    src: string,
+    pos: { x: number, y: number },
+    width: number,
+    height: number,
+    options: {
+      originalSrc?: string | null;
+      backgroundRemoved?: boolean;
+      removalTolerance?: number | null;
+      removalFeather?: number;
+      removalColor?: string | null;
+    } = {}
+  ) => {
     const svg = d3.select(svgRef.current);
     const imagesLayer = svg.select<SVGGElement>('.pasted-images');
 
     const group = imagesLayer.append('g')
       .attr('class', 'pasted-image')
-      .datum<PastedImageDatum & { transform: any }>({ id: generateId(), type: 'image', src, width, height, transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 } });
+      .datum<PastedImageDatum & { transform: any }>({
+        id: generateId(),
+        type: 'image',
+        src,
+        width,
+        height,
+        originalSrc: options.originalSrc ?? null,
+        backgroundRemoved: options.backgroundRemoved ?? false,
+        removalTolerance: options.removalTolerance ?? null,
+        removalFeather: options.removalFeather ?? defaultBackgroundFeather,
+        removalColor: options.removalColor ?? null,
+        transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
+      });
 
     group.append('image')
       .attr('href', src)
@@ -333,6 +373,10 @@ const GuitarBoard: React.FC = () => {
       .attr('y', 0)
       .attr('width', width)
       .attr('height', height);
+
+    if (options.backgroundRemoved) {
+      group.classed('background-removed', true);
+    }
 
     applyTransform(group, { translateX: pos.x, translateY: pos.y, scaleX: 1, scaleY: 1, rotate: 0 });
 
@@ -1093,9 +1137,21 @@ const GuitarBoard: React.FC = () => {
   const duplicateElement = (info: ElementCopy) => {
     const pos = cursorRef.current;
     if (info.type === 'image') {
-      const g = addImage(info.data.src, pos, info.data.width, info.data.height);
+      const g = addImage(info.data.src, pos, info.data.width, info.data.height, {
+        originalSrc: info.data.originalSrc ?? null,
+        backgroundRemoved: info.data.backgroundRemoved ?? false,
+        removalTolerance: info.data.removalTolerance ?? null,
+        removalFeather: info.data.removalFeather ?? defaultBackgroundFeather,
+        removalColor: info.data.removalColor ?? null,
+      });
       const d = g.datum() as any;
       d.id = info.data.id;
+      d.originalSrc = info.data.originalSrc ?? d.originalSrc ?? null;
+      d.backgroundRemoved = info.data.backgroundRemoved ?? d.backgroundRemoved;
+      d.removalTolerance = info.data.removalTolerance ?? d.removalTolerance ?? null;
+      d.removalFeather = info.data.removalFeather ?? d.removalFeather ?? defaultBackgroundFeather;
+      d.removalColor = info.data.removalColor ?? d.removalColor ?? null;
+      g.classed('background-removed', !!d.backgroundRemoved);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       if (info.data.crop) {
         d.crop = { ...info.data.crop };
@@ -1676,6 +1732,11 @@ const GuitarBoard: React.FC = () => {
     setStickySelected(false);
     setCodeSelected(false);
     setFrameSelected(false);
+    setImageSelected(false);
+    setImageBackgroundRemoved(false);
+    setImageBackgroundTolerance(null);
+    setImageBackgroundFeather(defaultBackgroundFeather);
+    setImageBackgroundColor(null);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
@@ -1684,14 +1745,33 @@ const GuitarBoard: React.FC = () => {
         setCroppableSelected(false);
         setSelectedBounds(null);
         setFrameSelected(false);
+        setImageSelected(false);
+        setImageBackgroundRemoved(false);
+        setImageBackgroundTolerance(null);
+        setImageBackgroundFeather(defaultBackgroundFeather);
+        setImageBackgroundColor(null);
       } else {
         const sel = d3.select(node);
         const isSticky = sel.classed('sticky-note');
         const isCode = sel.classed('code-block');
         const isFrame = sel.classed('frame-element');
+        const isImage = sel.classed('pasted-image');
         setStickySelected(isSticky);
         setCodeSelected(isCode);
         setFrameSelected(isFrame);
+        setImageSelected(isImage);
+        if (isImage) {
+          const data = sel.datum() as PastedImageDatum & { backgroundRemoved?: boolean };
+          setImageBackgroundRemoved(!!data.backgroundRemoved);
+          setImageBackgroundTolerance(data.removalTolerance ?? null);
+          setImageBackgroundFeather(data.removalFeather ?? defaultBackgroundFeather);
+          setImageBackgroundColor(data.removalColor ?? null);
+        } else {
+          setImageBackgroundRemoved(false);
+          setImageBackgroundTolerance(null);
+          setImageBackgroundFeather(defaultBackgroundFeather);
+          setImageBackgroundColor(null);
+        }
         if (isFrame) {
           const data = sel.datum() as any;
           setFrameColor((data && data.color) ? data.color : '#ffffff');
@@ -1708,7 +1788,7 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler);
     return () => window.removeEventListener('stickyselectionchange', handler);
-  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle]);
+  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle, setImageSelected, setImageBackgroundRemoved, setImageBackgroundTolerance, setImageBackgroundFeather]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {

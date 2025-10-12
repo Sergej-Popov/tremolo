@@ -1,5 +1,5 @@
 import React, { createContext, useState, ReactNode } from "react";
-import { setDebugMode } from './d3-ext';
+import { setDebugMode, defaultBackgroundFeather } from './d3-ext';
 
 import { noteColors } from "./theme";
 
@@ -28,6 +28,16 @@ interface AppState {
   setFrameSelected: React.Dispatch<React.SetStateAction<boolean>>;
   codeSelected: boolean;
   setCodeSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  imageSelected: boolean;
+  setImageSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  imageBackgroundRemoved: boolean;
+  setImageBackgroundRemoved: React.Dispatch<React.SetStateAction<boolean>>;
+  imageBackgroundTolerance: number | null;
+  setImageBackgroundTolerance: React.Dispatch<React.SetStateAction<number | null>>;
+  imageBackgroundFeather: number;
+  setImageBackgroundFeather: React.Dispatch<React.SetStateAction<number>>;
+  imageBackgroundColor: string | null;
+  setImageBackgroundColor: React.Dispatch<React.SetStateAction<string | null>>;
   codeLanguage: string;
   setCodeLanguage: React.Dispatch<React.SetStateAction<string>>;
   codeTheme: string;
@@ -73,6 +83,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [stickySelected, setStickySelected] = useState<boolean>(false);
   const [frameSelected, setFrameSelected] = useState<boolean>(false);
   const [codeSelected, setCodeSelected] = useState<boolean>(false);
+  const [imageSelected, setImageSelected] = useState<boolean>(false);
+  const [imageBackgroundRemoved, setImageBackgroundRemoved] = useState<boolean>(false);
+  const [imageBackgroundTolerance, setImageBackgroundTolerance] = useState<number | null>(null);
+  const [imageBackgroundFeather, setImageBackgroundFeather] = useState<number>(defaultBackgroundFeather);
+  const [imageBackgroundColor, setImageBackgroundColor] = useState<string | null>(null);
   const [codeLanguage, setCodeLanguage] = useState<string>('typescript');
   const [codeTheme, setCodeTheme] = useState<string>('github-dark');
   const [codeFontSize, setCodeFontSize] = useState<number>(14);
@@ -240,6 +255,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setFrameSelected,
       codeSelected,
       setCodeSelected,
+      imageSelected,
+      setImageSelected,
+      imageBackgroundRemoved,
+      setImageBackgroundRemoved,
+      imageBackgroundTolerance,
+      setImageBackgroundTolerance,
+      imageBackgroundFeather,
+      setImageBackgroundFeather,
+      imageBackgroundColor,
+      setImageBackgroundColor,
       codeLanguage,
       setCodeLanguage,
       codeTheme,

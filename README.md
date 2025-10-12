@@ -42,6 +42,7 @@ https://sergej-popov.github.io/tremolo/
 - Board state, including lines, fret ranges, zoom level and sticky note settings, is saved automatically in the browser and restored on reload.
 - Use the side menu to save the board to a file or open a previously saved file.
 - Pasted images are stored as data URLs so saved boards load correctly from file.
+- Remove the background from pasted images directly in the app with adjustable strength, edge feathering, and a colour picker/eyedropper to sample the background before restoring the original if needed.
 - Use **Clear Board** in the side menu to reset the workspace.
 - Undo and redo board changes with **Ctrl+Z** (**Cmd+Z** on macOS) and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) or the toolbar buttons.
 - Style tweaks like colour, alignment and font size are also undoable.
