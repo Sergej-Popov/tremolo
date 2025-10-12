@@ -1401,6 +1401,7 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
     const height = data.height ?? bbox.height;
+    const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
 
@@ -1522,6 +1523,7 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const data: any = element.datum();
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
+    const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
     element.append('text')
