@@ -1021,9 +1021,6 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                     const newTransform: TransformValues = { ...transform, scaleX: newScaleX, scaleY: newScaleY };
                     applyTransform(element, newTransform);
 
-                    const scaledWidth = data.width * newScaleX;
-                    const scaledHeight = data.height * newScaleY;
-
                     d3.select(this)
                         .attr('x', data.width + handleSize / newScaleX)
                         .attr('y', data.height + handleSize / newScaleY)
@@ -1062,7 +1059,6 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     const data: any = element.datum();
     const bbox = (element.node() as SVGGraphicsElement).getBBox();
     const width = data.width ?? bbox.width;
-    const height = data.height ?? bbox.height;
     const transform: TransformValues = data.transform ?? defaultTransform();
     data.transform = transform;
     element.append('text')

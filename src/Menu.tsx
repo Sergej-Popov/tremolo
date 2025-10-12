@@ -30,6 +30,11 @@ const frameColors = ['#ffffff', ...noteColors.filter((c) => c.toLowerCase() !== 
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
+
+  // Stable no-op dispatchers to avoid changing dependencies
+  const noopStrDispatch = React.useCallback<React.Dispatch<React.SetStateAction<string>>>((_v) => {}, []);
+  const noopNumDispatch = React.useCallback<React.Dispatch<React.SetStateAction<number>>>((_v) => {}, []);
+
   const stickyColor = app?.stickyColor ?? noteColors[0];
   const setStickyColor = app?.setStickyColor ?? (() => {});
   const frameColor = app?.frameColor ?? '#ffffff';
@@ -43,12 +48,11 @@ const Menu: React.FC = () => {
   const codeSelected = app?.codeSelected ?? false;
   const boardSelected = app?.boardSelected ?? false;
   const codeLanguage = app?.codeLanguage ?? 'typescript';
-  const setCodeLanguage = app?.setCodeLanguage ?? (() => {});
+  const setCodeLanguage = app?.setCodeLanguage ?? noopStrDispatch;
   const codeTheme = app?.codeTheme ?? 'github-dark';
-  const setCodeTheme = app?.setCodeTheme ?? (() => {});
+  const setCodeTheme = app?.setCodeTheme ?? noopStrDispatch;
   const codeFontSize = app?.codeFontSize ?? 14;
-  const setCodeFontSize = app?.setCodeFontSize ?? (() => {});
-  const addBoard = app?.addBoard ?? (() => {});
+  const setCodeFontSize = app?.setCodeFontSize ?? noopNumDispatch;
   const drawingMode = app?.drawingMode ?? false;
   const setDrawingMode = app?.setDrawingMode ?? (() => {});
   const frameMode = app?.frameMode ?? false;
@@ -95,7 +99,7 @@ const Menu: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler as EventListener);
     return () => window.removeEventListener('stickyselectionchange', handler as EventListener);
-  }, []);
+  }, [ codeFontSize, setCodeFontSize, setCodeLanguage, setCodeTheme ]);
 
   React.useEffect(() => {
     const handler = (e: any) => {
