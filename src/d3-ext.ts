@@ -812,9 +812,22 @@ export function updateSelectedEndConnectionStyle(style: 'circle' | 'arrow' | 'tr
 }
 
 export interface BackgroundRemovalOptions {
-    tolerance?: number;
+    tolerance?: number | null;
     feather?: number;
 }
+
+export interface BackgroundRemovalResult {
+    dataUrl: string;
+    tolerance: number;
+    feather: number;
+}
+
+export const minBackgroundTolerance = 12;
+export const maxBackgroundTolerance = 140;
+export const defaultBackgroundTolerance = 48;
+export const minBackgroundFeather = 0;
+export const maxBackgroundFeather = 0.8;
+export const defaultBackgroundFeather = 0.35;
 
 function sampleEdgeStatistics(data: Uint8ClampedArray, width: number, height: number, overrideTolerance?: number) {
     const sampleColors: number[] = [];
@@ -844,7 +857,7 @@ function sampleEdgeStatistics(data: Uint8ClampedArray, width: number, height: nu
         if (width > 1) record(width - 1, y);
     }
     if (samples === 0) {
-        const tol = overrideTolerance ?? 45;
+        const tol = overrideTolerance ?? defaultBackgroundTolerance;
         return { avgR: 255, avgG: 255, avgB: 255, toleranceSq: tol * tol };
     }
     const avgR = sumR / samples;
@@ -858,8 +871,10 @@ function sampleEdgeStatistics(data: Uint8ClampedArray, width: number, height: nu
         variance += (dr * dr + dg * dg + db * db) / 3;
     }
     variance /= samples;
-    const baseTol = overrideTolerance ?? Math.max(25, Math.min(85, Math.sqrt(variance) * 3 + 18));
-    return { avgR, avgG, avgB, toleranceSq: baseTol * baseTol };
+    const autoTol = Math.max(minBackgroundTolerance, Math.min(maxBackgroundTolerance, Math.sqrt(variance) * 3 + 18));
+    const baseTol = overrideTolerance ?? autoTol;
+    const clamped = Math.max(minBackgroundTolerance, Math.min(maxBackgroundTolerance, baseTol));
+    return { avgR, avgG, avgB, toleranceSq: clamped * clamped };
 }
 
 async function loadImageElement(src: string): Promise<HTMLImageElement> {
@@ -872,7 +887,7 @@ async function loadImageElement(src: string): Promise<HTMLImageElement> {
     });
 }
 
-async function generateTransparentImage(src: string, options: BackgroundRemovalOptions = {}) {
+async function generateTransparentImage(src: string, options: BackgroundRemovalOptions = {}): Promise<BackgroundRemovalResult | null> {
     const image = await loadImageElement(src);
     const width = image.naturalWidth || image.width;
     const height = image.naturalHeight || image.height;
@@ -885,8 +900,12 @@ async function generateTransparentImage(src: string, options: BackgroundRemovalO
     ctx.drawImage(image, 0, 0);
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
-    const { avgR, avgG, avgB, toleranceSq } = sampleEdgeStatistics(data, width, height, options.tolerance);
-    const limit = (options.tolerance != null ? options.tolerance * options.tolerance : toleranceSq);
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+    const requestedTolerance = options.tolerance == null ? null : clamp(options.tolerance, minBackgroundTolerance, maxBackgroundTolerance);
+    const requestedFeather = clamp(options.feather ?? defaultBackgroundFeather, minBackgroundFeather, maxBackgroundFeather);
+    const { avgR, avgG, avgB, toleranceSq } = sampleEdgeStatistics(data, width, height, requestedTolerance ?? undefined);
+    const resolvedTolerance = requestedTolerance ?? Math.sqrt(toleranceSq);
+    const limit = resolvedTolerance * resolvedTolerance;
     const visited = new Uint8Array(width * height);
     const queue = new Uint32Array(width * height);
     let head = 0;
@@ -931,7 +950,7 @@ async function generateTransparentImage(src: string, options: BackgroundRemovalO
             data[i * 4 + 3] = 0;
         }
     }
-    const feather = options.feather ?? 0.35;
+    const feather = requestedFeather;
     if (feather > 0) {
         const clampFeather = Math.min(Math.max(feather, 0), 1);
         const neighborOffsets = [
@@ -966,31 +985,33 @@ async function generateTransparentImage(src: string, options: BackgroundRemovalO
         }
     }
     ctx.putImageData(imageData, 0, 0);
-    return canvas.toDataURL('image/png');
+    return { dataUrl: canvas.toDataURL('image/png'), tolerance: resolvedTolerance, feather };
 }
 
-export async function removeBackgroundFromSelectedImage(options: BackgroundRemovalOptions = {}) {
-    if (!selectedElement || !selectedElement.classed('pasted-image')) return false;
+export async function removeBackgroundFromSelectedImage(options: BackgroundRemovalOptions = {}): Promise<BackgroundRemovalResult | null> {
+    if (!selectedElement || !selectedElement.classed('pasted-image')) return null;
     const image = selectedElement.select<SVGImageElement>('image');
-    if (image.empty()) return false;
+    if (image.empty()) return null;
     const data = selectedElement.datum() as any;
     const href = image.attr('href');
-    if (!href) return false;
+    if (!href) return null;
     const baseSrc = data.originalSrc ?? href;
     try {
         const processed = await generateTransparentImage(baseSrc, options);
-        if (!processed) return false;
+        if (!processed) return null;
         if (!data.originalSrc) {
             data.originalSrc = href;
         }
-        data.src = processed;
+        data.src = processed.dataUrl;
         data.backgroundRemoved = true;
-        image.attr('href', processed);
+        data.removalTolerance = processed.tolerance;
+        data.removalFeather = processed.feather;
+        image.attr('href', processed.dataUrl);
         selectedElement.classed('background-removed', true);
-        return true;
+        return processed;
     } catch (err) {
         console.error('Failed to remove background', err);
-        return false;
+        return null;
     }
 }
 
