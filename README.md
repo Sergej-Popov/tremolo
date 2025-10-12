@@ -1,6 +1,15 @@
 # Tremolo
 
-A practice tool for generating guitar chord shapes and scales. The fretboard and pasted elements can be dragged or resized to help build custom practice layouts.
+A practice tool for generating guitar chord shapes and scales.  
+The fretboard and pasted elements can be dragged or resized to help build custom practice layouts.  
+Tool evolved to include many general digital whiteboard features.  
+
+## AI Programming Experiment
+All code in this project is written by AI.  
+Human input is limited to providing requirements and manual testing feedback. With exception to minor tweaks.  
+Tools used: Codex (primary), GitHub Copilot and Chat GPT.  
+Workflow is predominantly impirical - manual testing and feedback given to AI.  
+⚠️ Code receives minimum review, use at own risk.
 
 ## Demo
 Deployed with GitHub Pages  

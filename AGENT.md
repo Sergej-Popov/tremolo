@@ -1,7 +1,6 @@
 ## Instruction for Copilot, GPT, Codex and other LLM Agents
 
 * Remove items from the TODO lists when completing tasks.
-* Don't run `npm run lint`.
 * Don't run `npm run build`.
 
 * Use concise commit messages describing the change.
