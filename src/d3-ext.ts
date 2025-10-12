@@ -814,12 +814,14 @@ export function updateSelectedEndConnectionStyle(style: 'circle' | 'arrow' | 'tr
 export interface BackgroundRemovalOptions {
     tolerance?: number | null;
     feather?: number;
+    color?: string | null;
 }
 
 export interface BackgroundRemovalResult {
     dataUrl: string;
     tolerance: number;
     feather: number;
+    color: string | null;
 }
 
 export const minBackgroundTolerance = 12;
@@ -828,6 +830,32 @@ export const defaultBackgroundTolerance = 48;
 export const minBackgroundFeather = 0;
 export const maxBackgroundFeather = 0.8;
 export const defaultBackgroundFeather = 0.35;
+
+function parseHexColor(hex: string): { r: number; g: number; b: number } | null {
+    const normalized = hex.trim();
+    if (!normalized.startsWith('#')) return null;
+    const value = normalized.slice(1);
+    if (value.length === 3) {
+        const r = parseInt(value[0] + value[0], 16);
+        const g = parseInt(value[1] + value[1], 16);
+        const b = parseInt(value[2] + value[2], 16);
+        if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+        return { r, g, b };
+    }
+    if (value.length === 6) {
+        const r = parseInt(value.slice(0, 2), 16);
+        const g = parseInt(value.slice(2, 4), 16);
+        const b = parseInt(value.slice(4, 6), 16);
+        if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+        return { r, g, b };
+    }
+    return null;
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+    const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+    return `#${clamp(r).toString(16).padStart(2, '0')}${clamp(g).toString(16).padStart(2, '0')}${clamp(b).toString(16).padStart(2, '0')}`;
+}
 
 function sampleEdgeStatistics(data: Uint8ClampedArray, width: number, height: number, overrideTolerance?: number) {
     const sampleColors: number[] = [];
@@ -903,7 +931,9 @@ async function generateTransparentImage(src: string, options: BackgroundRemovalO
     const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
     const requestedTolerance = options.tolerance == null ? null : clamp(options.tolerance, minBackgroundTolerance, maxBackgroundTolerance);
     const requestedFeather = clamp(options.feather ?? defaultBackgroundFeather, minBackgroundFeather, maxBackgroundFeather);
+    const requestedColor = options.color ? parseHexColor(options.color) : null;
     const { avgR, avgG, avgB, toleranceSq } = sampleEdgeStatistics(data, width, height, requestedTolerance ?? undefined);
+    const baseColor = requestedColor ?? { r: avgR, g: avgG, b: avgB };
     const resolvedTolerance = requestedTolerance ?? Math.sqrt(toleranceSq);
     const limit = resolvedTolerance * resolvedTolerance;
     const visited = new Uint8Array(width * height);
@@ -915,9 +945,9 @@ async function generateTransparentImage(src: string, options: BackgroundRemovalO
         const idx = y * width + x;
         if (visited[idx]) return;
         const p = idx * 4;
-        const dr = data[p] - avgR;
-        const dg = data[p + 1] - avgG;
-        const db = data[p + 2] - avgB;
+        const dr = data[p] - baseColor.r;
+        const dg = data[p + 1] - baseColor.g;
+        const db = data[p + 2] - baseColor.b;
         if ((dr * dr + dg * dg + db * db) <= limit) {
             visited[idx] = 1;
             queue[tail++] = idx;
@@ -985,7 +1015,8 @@ async function generateTransparentImage(src: string, options: BackgroundRemovalO
         }
     }
     ctx.putImageData(imageData, 0, 0);
-    return { dataUrl: canvas.toDataURL('image/png'), tolerance: resolvedTolerance, feather };
+    const colorHex = requestedColor ? rgbToHex(baseColor.r, baseColor.g, baseColor.b) : null;
+    return { dataUrl: canvas.toDataURL('image/png'), tolerance: resolvedTolerance, feather, color: colorHex };
 }
 
 export async function removeBackgroundFromSelectedImage(options: BackgroundRemovalOptions = {}): Promise<BackgroundRemovalResult | null> {
@@ -1006,6 +1037,7 @@ export async function removeBackgroundFromSelectedImage(options: BackgroundRemov
         data.backgroundRemoved = true;
         data.removalTolerance = processed.tolerance;
         data.removalFeather = processed.feather;
+        data.removalColor = processed.color;
         image.attr('href', processed.dataUrl);
         selectedElement.classed('background-removed', true);
         return processed;
