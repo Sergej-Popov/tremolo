@@ -1470,7 +1470,7 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
     data.transform = transform;
     element.append('text')
         .attr('class', 'rotate-handle')
-        .text('\u21bb')
+        .text('\u27f3')
         .style('cursor', 'grab')
         .style('user-select', 'none')
         .attr('vector-effect', 'non-scaling-stroke')
@@ -1649,33 +1649,54 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
         globalInit = true;
     }
 
+    let pointerHandled = false;
+
+    const applySelection = (
+        event: MouseEvent | PointerEvent | null,
+        node: Element,
+    ) => {
+        event?.stopPropagation();
+        const element = d3.select(node);
+        const alreadySelected = !!selectedElement && selectedElement.node() === node;
+
+        if (!alreadySelected && selectedElement) {
+            clearSelection();
+        }
+
+        selectedElement = element;
+        addOutline(element);
+        if (!element.classed('line-element')) {
+            addResizeHandle(element, options);
+            ensureConnectHandles(element);
+            if (options.rotatable) {
+                addRotateHandle(element);
+            }
+        }
+        if (debugEnabled) {
+            if (element.select('.component-debug-cross').empty()) {
+                addDebugCross(element);
+            } else {
+                updateDebugCross(element);
+            }
+        }
+
+        updateSelectionDecorations(element);
+        dispatchSelectionChange();
+    };
+
     selection
         .style('cursor', 'pointer')
+        .on('pointerdown.makeResizable', function (event: PointerEvent) {
+            pointerHandled = true;
+            applySelection(event, this);
+        })
         .on('click.makeResizable', function (event: MouseEvent) {
-            event.stopPropagation();
-            const element = d3.select(this);
-
-            if (selectedElement && selectedElement.node() !== this) {
-                clearSelection();
+            if (!pointerHandled) {
+                applySelection(event, this);
+            } else {
+                event.stopPropagation();
             }
-
-            selectedElement = element;
-            addOutline(element);
-            if (!element.classed('line-element')) {
-                addResizeHandle(element, options);
-                ensureConnectHandles(element);
-                if (options.rotatable) {
-                    addRotateHandle(element);
-                }
-            }
-            if (debugEnabled) {
-                if (element.select('.component-debug-cross').empty()) {
-                    addDebugCross(element);
-                } else {
-                    updateDebugCross(element);
-                }
-            }
-            dispatchSelectionChange();
+            pointerHandled = false;
         });
 }
 

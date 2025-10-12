@@ -366,7 +366,7 @@ const Menu: React.FC = () => {
         backdropFilter: 'blur(12px)',
       }}
     >
-      <Toolbar id="board-toolbar" sx={{ display: 'flex', gap: 1 }}>
+      <Toolbar id="board-toolbar" sx={{ display: 'flex', gap: 1, minHeight: 100, alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 1 }}>
           <Tooltip title="Main menu">
             <IconButton
@@ -762,75 +762,70 @@ const Menu: React.FC = () => {
                   aria-label="Edge feather amount"
                 />
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
-                  Background color: {imageBackgroundColor ? imageBackgroundColor.toUpperCase() : 'Auto'}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    sx={{
-                      width: 28,
-                      height: 18,
-                      borderRadius: '999px',
-                      border: '1px solid rgba(255,255,255,0.4)',
-                      backgroundColor: imageBackgroundColor ?? 'transparent',
-                      backgroundImage: imageBackgroundColor
-                        ? 'none'
-                        : 'linear-gradient(135deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent)',
-                      backgroundSize: '8px 8px',
-                    }}
-                  />
-                  <Tooltip title="Choose background color">
-                    <span>
-                      <IconButton
-                        color="inherit"
-                        onClick={(event) => {
-                          event.stopPropagation();
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Box
+                  sx={{
+                    width: 28,
+                    height: 18,
+                    borderRadius: '999px',
+                    border: '1px solid rgba(255,255,255,0.4)',
+                    backgroundColor: imageBackgroundColor ?? 'transparent',
+                    backgroundImage: imageBackgroundColor
+                      ? 'none'
+                      : 'linear-gradient(135deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent)',
+                    backgroundSize: '8px 8px',
+                  }}
+                />
+                <Tooltip title="Choose background color">
+                  <span>
+                    <IconButton
+                      color="inherit"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        colorInputRef.current?.click();
+                      }}
+                      disabled={imageProcessing !== null}
+                      sx={baseToolButtonSx}
+                      aria-label="Choose background color"
+                    >
+                      <PaletteIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip
+                  title={
+                    canUseEyeDropper
+                      ? 'Sample background color from the screen'
+                      : 'EyeDropper unavailable – opens the colour picker instead'
+                  }
+                >
+                  <span>
+                    <IconButton
+                      color="inherit"
+                      onClick={async (event) => {
+                        event.stopPropagation();
+                        if (!canUseEyeDropper || !window.EyeDropper) {
                           colorInputRef.current?.click();
-                        }}
-                        disabled={imageProcessing !== null}
-                        sx={baseToolButtonSx}
-                        aria-label="Choose background color"
-                      >
-                        <PaletteIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip
-                    title={
-                      canUseEyeDropper
-                        ? 'Sample background color from the screen'
-                        : 'EyeDropper unavailable – opens the colour picker instead'
-                    }
-                  >
-                    <span>
-                      <IconButton
-                        color="inherit"
-                        onClick={async (event) => {
-                          event.stopPropagation();
-                          if (!canUseEyeDropper || !window.EyeDropper) {
-                            colorInputRef.current?.click();
-                            return;
+                          return;
+                        }
+                        try {
+                          const dropper = new window.EyeDropper();
+                          const result = await dropper.open();
+                          applyBackgroundColor(result?.sRGBHex ?? null);
+                        } catch (err) {
+                          if ((err as DOMException)?.name !== 'AbortError') {
+                            console.error('Failed to sample color', err);
                           }
-                          try {
-                            const dropper = new window.EyeDropper();
-                            const result = await dropper.open();
-                            applyBackgroundColor(result?.sRGBHex ?? null);
-                          } catch (err) {
-                            if ((err as DOMException)?.name !== 'AbortError') {
-                              console.error('Failed to sample color', err);
-                            }
-                          }
-                        }}
-                        disabled={imageProcessing !== null}
-                        sx={baseToolButtonSx}
-                        aria-label="Sample background color"
-                      >
-                        <ColorizeIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Box>
+                        }
+                      }}
+                      disabled={imageProcessing !== null}
+                      sx={baseToolButtonSx}
+                      aria-label="Sample background color"
+                    >
+                      <ColorizeIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Box>
               <Tooltip title="Reset to automatic strength and default feather">
                 <span>
