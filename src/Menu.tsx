@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import * as d3 from 'd3';
-import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton, Drawer, Button, Tooltip, CircularProgress } from '@mui/material';
+import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton, Drawer, Button, Tooltip, CircularProgress, Slider } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -8,7 +8,7 @@ import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import { AppContext } from './Store';
 import type { FrameLineStyle } from './Store';
 import { noteColors, defaultLineColor } from './theme';
-import { updateSelectedColor, updateSelectedFrameColor, updateSelectedFrameLineStyle, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes, removeBackgroundFromSelectedImage, restoreSelectedImageBackground } from './d3-ext';
+import { updateSelectedColor, updateSelectedFrameColor, updateSelectedFrameLineStyle, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes, removeBackgroundFromSelectedImage, restoreSelectedImageBackground, minBackgroundTolerance, maxBackgroundTolerance, defaultBackgroundTolerance, maxBackgroundFeather, defaultBackgroundFeather } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -26,6 +26,7 @@ import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
+import AutoModeIcon from '@mui/icons-material/AutoMode';
 import type { SxProps, Theme } from '@mui/material/styles';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
@@ -100,6 +101,27 @@ const rightPanelSx: SxProps<Theme> = {
   backgroundColor: 'rgba(255,255,255,0.05)',
 };
 
+const sliderContainerSx: SxProps<Theme> = {
+  minWidth: 140,
+  color: '#fff',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 0.5,
+};
+
+const sliderSx: SxProps<Theme> = {
+  color: '#fff',
+  '& .MuiSlider-track': {
+    border: 'none',
+  },
+  '& .MuiSlider-thumb': {
+    backgroundColor: '#fff',
+  },
+  '& .MuiSlider-rail': {
+    opacity: 0.3,
+  },
+};
+
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
 
@@ -121,6 +143,10 @@ const Menu: React.FC = () => {
   const imageSelected = app?.imageSelected ?? false;
   const imageBackgroundRemoved = app?.imageBackgroundRemoved ?? false;
   const setImageBackgroundRemoved = app?.setImageBackgroundRemoved ?? (() => {});
+  const imageBackgroundTolerance = app?.imageBackgroundTolerance ?? null;
+  const setImageBackgroundTolerance = app?.setImageBackgroundTolerance ?? (() => {});
+  const imageBackgroundFeather = app?.imageBackgroundFeather ?? defaultBackgroundFeather;
+  const setImageBackgroundFeather = app?.setImageBackgroundFeather ?? (() => {});
   const boardSelected = app?.boardSelected ?? false;
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const setCodeLanguage = app?.setCodeLanguage ?? noopStrDispatch;
@@ -152,6 +178,20 @@ const Menu: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [imageProcessing, setImageProcessing] = React.useState<'remove' | 'restore' | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
+
+  const toleranceValue = Math.round(
+    Math.max(
+      minBackgroundTolerance,
+      Math.min(maxBackgroundTolerance, imageBackgroundTolerance ?? defaultBackgroundTolerance),
+    ),
+  );
+  const featherSliderMax = Math.round(maxBackgroundFeather * 100);
+  const featherValue = Math.round(
+    Math.max(0, Math.min(maxBackgroundFeather, imageBackgroundFeather)) * 100,
+  );
+  const isAutoStrength = imageBackgroundTolerance == null;
+  const featherIsDefault = Math.abs(imageBackgroundFeather - defaultBackgroundFeather) < 0.001;
+  const autoResetDisabled = isAutoStrength && featherIsDefault;
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -563,7 +603,67 @@ const Menu: React.FC = () => {
           </>
         )}
         {imageSelected && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2, gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 2, gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box sx={sliderContainerSx}>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                  Strength: {isAutoStrength ? 'Auto' : toleranceValue}
+                </Typography>
+                <Slider
+                  size="small"
+                  min={minBackgroundTolerance}
+                  max={maxBackgroundTolerance}
+                  step={1}
+                  value={toleranceValue}
+                  onChange={(_, newValue) => {
+                    if (Array.isArray(newValue)) return;
+                    const next = Math.round(
+                      Math.max(minBackgroundTolerance, Math.min(maxBackgroundTolerance, newValue)),
+                    );
+                    setImageBackgroundTolerance(next);
+                  }}
+                  sx={sliderSx}
+                  disabled={imageProcessing !== null}
+                  aria-label="Background removal strength"
+                />
+              </Box>
+              <Box sx={sliderContainerSx}>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                  Feather: {featherValue}%
+                </Typography>
+                <Slider
+                  size="small"
+                  min={0}
+                  max={featherSliderMax}
+                  step={5}
+                  value={featherValue}
+                  onChange={(_, newValue) => {
+                    if (Array.isArray(newValue)) return;
+                    const next = Math.max(0, Math.min(featherSliderMax, newValue));
+                    setImageBackgroundFeather(next / 100);
+                  }}
+                  sx={sliderSx}
+                  disabled={imageProcessing !== null}
+                  aria-label="Edge feather amount"
+                />
+              </Box>
+              <Tooltip title="Reset to automatic strength and default feather">
+                <span>
+                  <IconButton
+                    color="inherit"
+                    onClick={() => {
+                      setImageBackgroundTolerance(null);
+                      setImageBackgroundFeather(defaultBackgroundFeather);
+                    }}
+                    disabled={autoResetDisabled || imageProcessing !== null}
+                    sx={baseToolButtonSx}
+                    aria-label="Reset background removal settings"
+                  >
+                    <AutoModeIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Box>
             <Tooltip title={imageBackgroundRemoved ? 'Background already removed' : 'Remove background'}>
               <span>
                 <IconButton
@@ -572,9 +672,14 @@ const Menu: React.FC = () => {
                   onClick={async () => {
                     setImageProcessing('remove');
                     try {
-                      const changed = await removeBackgroundFromSelectedImage();
+                      const changed = await removeBackgroundFromSelectedImage({
+                        tolerance: imageBackgroundTolerance,
+                        feather: imageBackgroundFeather,
+                      });
                       if (changed) {
                         setImageBackgroundRemoved(true);
+                        setImageBackgroundTolerance(changed.tolerance);
+                        setImageBackgroundFeather(changed.feather);
                         pushHistory(getSnapshot(), 'image', 'background-remove');
                       }
                     } finally {
