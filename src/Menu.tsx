@@ -435,7 +435,7 @@ const Menu: React.FC = () => {
             <Button
               variant="outlined"
               size="small"
-              disabled={imageProcessing !== null}
+              disabled={imageProcessing !== null || imageBackgroundRemoved}
               onClick={async () => {
                 setImageProcessing('remove');
                 try {
@@ -451,25 +451,27 @@ const Menu: React.FC = () => {
             >
               {imageProcessing === 'remove' ? 'Removing…' : 'Remove Background'}
             </Button>
-            <Button
-              variant="text"
-              size="small"
-              disabled={!imageBackgroundRemoved || imageProcessing !== null}
-              onClick={async () => {
-                setImageProcessing('restore');
-                try {
-                  const restored = restoreSelectedImageBackground();
-                  if (restored) {
-                    setImageBackgroundRemoved(false);
-                    pushHistory(getSnapshot(), 'image', 'background-restore');
+            {(imageBackgroundRemoved || imageProcessing === 'restore') && (
+              <Button
+                variant="text"
+                size="small"
+                disabled={imageProcessing !== null}
+                onClick={async () => {
+                  setImageProcessing('restore');
+                  try {
+                    const restored = restoreSelectedImageBackground();
+                    if (restored) {
+                      setImageBackgroundRemoved(false);
+                      pushHistory(getSnapshot(), 'image', 'background-restore');
+                    }
+                  } finally {
+                    setImageProcessing(null);
                   }
-                } finally {
-                  setImageProcessing(null);
-                }
-              }}
-            >
-              {imageProcessing === 'restore' ? 'Restoring…' : 'Restore Background'}
-            </Button>
+                }}
+              >
+                {imageProcessing === 'restore' ? 'Restoring…' : 'Restore Background'}
+              </Button>
+            )}
           </Box>
         )}
         {drawingMode && (
