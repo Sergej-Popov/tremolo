@@ -1,13 +1,19 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import * as d3 from 'd3';
 import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton, Drawer, Button, Tooltip, CircularProgress, Slider } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
-import { AppContext } from './Store';
-import type { FrameLineStyle } from './Store';
-import { noteColors, defaultLineColor } from './theme';
+import { noteColors, defaultLineColor } from './constants/theme';
+import { useUI } from './state/ui';
+import { useFrame, FrameLineStyle } from './state/frame';
+import { useSelection } from './state/selection';
+import { useImage } from './state/image';
+import { useCode } from './state/code';
+import { useTool } from './state/tool';
+import { useDrawing } from './state/drawing';
+import { useHistory } from './state/history';
 import { updateSelectedColor, updateSelectedFrameColor, updateSelectedFrameLineStyle, updateSelectedAlignment, updateSelectedFontSize, updateSelectedCodeLang, updateSelectedCodeTheme, updateSelectedCodeFontSize, updateSelectedLineStyle, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, highlightLangs, highlightThemes, removeBackgroundFromSelectedImage, restoreSelectedImageBackground, minBackgroundTolerance, maxBackgroundTolerance, defaultBackgroundTolerance, maxBackgroundFeather, defaultBackgroundFeather } from './d3-ext';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
@@ -131,53 +137,36 @@ const sliderSx: SxProps<Theme> = {
 };
 
 const Menu: React.FC = () => {
-  const app = useContext(AppContext);
+  const { stickyColor, setStickyColor, stickyAlign, setStickyAlign } = useUI();
+  const { frameColor, setFrameColor, frameLineStyle, setFrameLineStyle } = useFrame();
+  const { selection } = useSelection();
+  const { background, setBackgroundRemoved, setBackgroundTolerance, setBackgroundFeather, setBackgroundColor } = useImage();
+  const { codeLanguage, setCodeLanguage, codeTheme, setCodeTheme, codeFontSize, setCodeFontSize } = useCode();
+  const { tool, setTool } = useTool();
+  const { brushWidth, setBrushWidth, brushColor, setBrushColor } = useDrawing();
+  const { pushHistory, getSnapshot, undo, redo, canUndo, canRedo } = useHistory();
 
-  // Stable no-op dispatchers to avoid changing dependencies
-  const noopStrDispatch = React.useCallback<React.Dispatch<React.SetStateAction<string>>>((_v) => {}, []);
-  const noopNumDispatch = React.useCallback<React.Dispatch<React.SetStateAction<number>>>((_v) => {}, []);
+  const stickySelected = selection.sticky;
+  const frameSelected = selection.frame;
+  const codeSelected = selection.code;
+  const imageSelected = selection.image;
+  const boardSelected = selection.board;
 
-  const stickyColor = app?.stickyColor ?? noteColors[0];
-  const setStickyColor = app?.setStickyColor ?? (() => {});
-  const frameColor = app?.frameColor ?? '#ffffff';
-  const setFrameColor = app?.setFrameColor ?? (() => {});
-  const frameLineStyle = app?.frameLineStyle ?? 'solid';
-  const setFrameLineStyle = app?.setFrameLineStyle ?? (() => {});
-  const stickyAlign = app?.stickyAlign ?? 'center';
-  const setStickyAlign = app?.setStickyAlign ?? (() => {});
-  const stickySelected = app?.stickySelected ?? false;
-  const frameSelected = app?.frameSelected ?? false;
-  const codeSelected = app?.codeSelected ?? false;
-  const imageSelected = app?.imageSelected ?? false;
-  const imageBackgroundRemoved = app?.imageBackgroundRemoved ?? false;
-  const setImageBackgroundRemoved = app?.setImageBackgroundRemoved ?? (() => {});
-  const imageBackgroundTolerance = app?.imageBackgroundTolerance ?? null;
-  const setImageBackgroundTolerance = app?.setImageBackgroundTolerance ?? (() => {});
-  const imageBackgroundFeather = app?.imageBackgroundFeather ?? defaultBackgroundFeather;
-  const setImageBackgroundFeather = app?.setImageBackgroundFeather ?? (() => {});
-  const imageBackgroundColor = app?.imageBackgroundColor ?? null;
-  const setImageBackgroundColor = app?.setImageBackgroundColor ?? (() => {});
-  const boardSelected = app?.boardSelected ?? false;
-  const codeLanguage = app?.codeLanguage ?? 'typescript';
-  const setCodeLanguage = app?.setCodeLanguage ?? noopStrDispatch;
-  const codeTheme = app?.codeTheme ?? 'github-dark';
-  const setCodeTheme = app?.setCodeTheme ?? noopStrDispatch;
-  const codeFontSize = app?.codeFontSize ?? 14;
-  const setCodeFontSize = app?.setCodeFontSize ?? noopNumDispatch;
-  const drawingMode = app?.drawingMode ?? false;
-  const setDrawingMode = app?.setDrawingMode ?? (() => {});
-  const frameMode = app?.frameMode ?? false;
-  const setFrameMode = app?.setFrameMode ?? (() => {});
-  const brushWidth = app?.brushWidth ?? 'auto';
-  const setBrushWidth = app?.setBrushWidth ?? (() => {});
-  const brushColor = app?.brushColor ?? defaultLineColor;
-  const setBrushColor = app?.setBrushColor ?? (() => {});
-  const pushHistory = app?.pushHistory ?? (() => {});
-  const getSnapshot = app?.getSnapshot ?? (() => []);
-  const undo = app?.undo ?? (() => {});
-  const redo = app?.redo ?? (() => {});
-  const canUndo = app?.canUndo ?? false;
-  const canRedo = app?.canRedo ?? false;
+  const imageBackgroundRemoved = background.removed;
+  const imageBackgroundTolerance = background.tolerance;
+  const imageBackgroundFeather = background.feather;
+  const imageBackgroundColor = background.color;
+
+  const drawingMode = tool === 'draw';
+  const frameMode = tool === 'frame';
+
+  const setDrawingMode = React.useCallback((enabled: boolean) => {
+    setTool(enabled ? 'draw' : 'select');
+  }, [setTool]);
+
+  const setFrameMode = React.useCallback((enabled: boolean) => {
+    setTool(enabled ? 'frame' : 'select');
+  }, [setTool]);
   const [fontSize, setFontSize] = React.useState<string>('auto');
   const [codeSize, setCodeSize] = React.useState<number>(codeFontSize);
   const [lineStyle, setLineStyle] = React.useState<'direct' | 'arc' | 'corner'>('arc');
@@ -221,10 +210,10 @@ const Menu: React.FC = () => {
             color: targetColor,
           });
           if (changed) {
-            setImageBackgroundRemoved(true);
-            setImageBackgroundTolerance(changed.tolerance);
-            setImageBackgroundFeather(changed.feather);
-            setImageBackgroundColor(changed.color ?? targetColor ?? null);
+            setBackgroundRemoved(true);
+            setBackgroundTolerance(changed.tolerance);
+            setBackgroundFeather(changed.feather);
+            setBackgroundColor(changed.color ?? targetColor ?? null);
           }
         } finally {
           setImageProcessing(null);
@@ -239,10 +228,10 @@ const Menu: React.FC = () => {
       imageBackgroundFeather,
       imageBackgroundColor,
       clearPendingReapply,
-      setImageBackgroundRemoved,
-      setImageBackgroundTolerance,
-      setImageBackgroundFeather,
-      setImageBackgroundColor,
+      setBackgroundRemoved,
+      setBackgroundTolerance,
+      setBackgroundFeather,
+      setBackgroundColor,
     ],
   );
 
@@ -266,10 +255,10 @@ const Menu: React.FC = () => {
     (value: string | null) => {
       const normalized = normalizeHex(value);
       if (normalized === imageBackgroundColor) return;
-      setImageBackgroundColor(normalized);
+      setBackgroundColor(normalized);
       scheduleBackgroundReapply({ color: normalized });
     },
-    [normalizeHex, imageBackgroundColor, setImageBackgroundColor, scheduleBackgroundReapply],
+    [normalizeHex, imageBackgroundColor, setBackgroundColor, scheduleBackgroundReapply],
   );
 
   const toleranceValue = Math.round(
@@ -389,9 +378,6 @@ const Menu: React.FC = () => {
               onClick={() => {
                 const next = !frameMode;
                 setFrameMode(next);
-                if (next) {
-                  setDrawingMode(false);
-                }
               }}
               sx={[baseToolButtonSx, frameMode ? activeToolButtonSx : null]}
             >
@@ -414,9 +400,6 @@ const Menu: React.FC = () => {
               onClick={() => {
                 const next = !drawingMode;
                 setDrawingMode(next);
-                if (next) {
-                  setFrameMode(false);
-                }
               }}
               sx={[baseToolButtonSx, drawingMode ? activeToolButtonSx : null]}
             >
@@ -733,7 +716,7 @@ const Menu: React.FC = () => {
                     const next = Math.round(
                       Math.max(minBackgroundTolerance, Math.min(maxBackgroundTolerance, newValue)),
                     );
-                    setImageBackgroundTolerance(next);
+                    setBackgroundTolerance(next);
                     scheduleBackgroundReapply({ tolerance: next });
                   }}
                   sx={sliderSx}
@@ -754,7 +737,7 @@ const Menu: React.FC = () => {
                   onChange={(_, newValue) => {
                     if (Array.isArray(newValue)) return;
                     const next = Math.max(0, Math.min(featherSliderMax, newValue));
-                    setImageBackgroundFeather(next / 100);
+                    setBackgroundFeather(next / 100);
                     scheduleBackgroundReapply({ feather: next / 100 });
                   }}
                   sx={sliderSx}
@@ -832,9 +815,9 @@ const Menu: React.FC = () => {
                   <IconButton
                     color="inherit"
                     onClick={() => {
-                      setImageBackgroundTolerance(null);
-                      setImageBackgroundFeather(defaultBackgroundFeather);
-                      setImageBackgroundColor(null);
+                      setBackgroundTolerance(null);
+                      setBackgroundFeather(defaultBackgroundFeather);
+                      setBackgroundColor(null);
                       scheduleBackgroundReapply({
                         tolerance: null,
                         feather: defaultBackgroundFeather,
@@ -866,10 +849,10 @@ const Menu: React.FC = () => {
                         color: imageBackgroundColor,
                       });
                       if (changed) {
-                        setImageBackgroundRemoved(true);
-                        setImageBackgroundTolerance(changed.tolerance);
-                        setImageBackgroundFeather(changed.feather);
-                        setImageBackgroundColor(changed.color ?? imageBackgroundColor ?? null);
+                        setBackgroundRemoved(true);
+                        setBackgroundTolerance(changed.tolerance);
+                        setBackgroundFeather(changed.feather);
+                        setBackgroundColor(changed.color ?? imageBackgroundColor ?? null);
                         pushHistory(getSnapshot(), 'image', 'background-remove');
                       }
                     } finally {
@@ -900,7 +883,7 @@ const Menu: React.FC = () => {
                       try {
                         const restored = restoreSelectedImageBackground();
                         if (restored) {
-                          setImageBackgroundRemoved(false);
+                          setBackgroundRemoved(false);
                           pushHistory(getSnapshot(), 'image', 'background-restore');
                         }
                       } finally {

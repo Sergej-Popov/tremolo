@@ -1,4 +1,5 @@
 import { createTheme } from '@mui/material/styles';
+import { noteColors, defaultLineColor } from './constants/theme';
 
 const theme = createTheme({
     palette: {
@@ -8,17 +9,6 @@ const theme = createTheme({
     },
 });
 
-export const noteColors = [
-    "#8CB369",
-    "#F4E285",
-    "#F4A259",
-    "#5B8E7D",
-    "#BC4B51",
-    "#168AAD",
-    "#FF9B85",
-    "#000000",
-];
-
-export const defaultLineColor = "#000000";
+export { noteColors, defaultLineColor };
 
 export default theme;

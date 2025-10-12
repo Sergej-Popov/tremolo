@@ -1,13 +1,20 @@
-import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { debugTooltip, makeDraggable, makeResizable, makeCroppable, applyTransform, hideTooltip, adjustStickyFont, addDebugCross, setZoomTransform, setSvgRoot, getSelectedElementData, ElementCopy, generateId, highlightCode, linePath, ensureConnectHandles, removeConnectHandles, updateSelectedLineColor, updateSelectedStartConnectionStyle, updateSelectedEndConnectionStyle, applyLineAppearance, TransformValues, defaultBackgroundFeather } from '../d3-ext';
 
 import { noteString, stringNames, calculateNote, ScaleOrChordShape } from '../music-theory';
 import { chords, scales } from '../repertoire';
-import {  defaultLineColor } from '../theme';
+import {  defaultLineColor } from '../constants/theme';
 import { Button, Slider, Drawer, Box, Typography, IconButton, Checkbox, FormControlLabel, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
-import { AppContext } from '../Store';
-import type { FrameLineStyle } from '../Store';
+import { useUI } from '../state/ui';
+import { useFrame, FrameLineStyle } from '../state/frame';
+import { useSelection } from '../state/selection';
+import { useImage } from '../state/image';
+import { useCode } from '../state/code';
+import { useTool } from '../state/tool';
+import { useDrawing } from '../state/drawing';
+import { useBoards } from '../state/boards';
+import { useHistory } from '../state/history';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { exportBoardPng } from '../exportPng';
 
@@ -144,37 +151,38 @@ const getElementType = (node: Element | null): string | undefined => {
 };
 
 const GuitarBoard: React.FC = () => {
-  const app = useContext(AppContext);
-  const stickyColor = app?.stickyColor ?? '#fef68a';
-  const frameColor = app?.frameColor ?? '#ffffff';
-  const frameLineStyle = app?.frameLineStyle ?? 'solid';
-  const stickyAlign = app?.stickyAlign ?? 'center';
-  const debug = app?.debug ?? false;
-  const addBoard = app?.addBoard ?? (() => {});
-  const setBoards = app?.setBoards ?? (() => {});
-  const setBoardSelected = app?.setBoardSelected ?? (() => {});
-  const setStickySelected = app?.setStickySelected ?? (() => {});
-  const setFrameSelected = app?.setFrameSelected ?? (() => {});
-  const setFrameColor = app?.setFrameColor ?? (() => {});
-  const setFrameLineStyle = app?.setFrameLineStyle ?? (() => {});
-  const setCodeSelected = app?.setCodeSelected ?? (() => {});
-  const setImageSelected = app?.setImageSelected ?? (() => {});
-  const setImageBackgroundRemoved = app?.setImageBackgroundRemoved ?? (() => {});
-  const setImageBackgroundTolerance = app?.setImageBackgroundTolerance ?? (() => {});
-  const setImageBackgroundFeather = app?.setImageBackgroundFeather ?? (() => {});
-  const setImageBackgroundColor = app?.setImageBackgroundColor ?? (() => {});
-  const codeLanguage = app?.codeLanguage ?? 'typescript';
-  const codeTheme = app?.codeTheme ?? 'github-dark';
-  const codeFontSize = app?.codeFontSize ?? 14;
-  const drawingMode = app?.drawingMode ?? false;
-  const frameMode = app?.frameMode ?? false;
-  const setFrameMode = app?.setFrameMode ?? (() => {});
-  const brushWidth = app?.brushWidth ?? 'auto';
-  const brushColor = app?.brushColor ?? defaultLineColor;
-  const pushHistory = app?.pushHistory ?? (() => {});
-  const registerSerializer = app?.registerSerializer ?? (() => {});
-  const past = app?.past ?? [];
-  const future = app?.future ?? [];
+  const { stickyColor, stickyAlign, debug } = useUI();
+  const { frameColor, setFrameColor, frameLineStyle, setFrameLineStyle } = useFrame();
+  const { updateSelection } = useSelection();
+  const { setBackgroundRemoved, setBackgroundTolerance, setBackgroundFeather, setBackgroundColor } = useImage();
+  const { codeLanguage, codeTheme, codeFontSize } = useCode();
+  const { tool, setTool } = useTool();
+  const { brushWidth, setBrushWidth, brushColor, setBrushColor } = useDrawing();
+  const { boards, addBoard, setBoards } = useBoards();
+  const { pushHistory, registerSnapshotProvider, past, future } = useHistory();
+
+  const drawingMode = tool === 'draw';
+  const frameMode = tool === 'frame';
+
+  const setStickySelected = React.useCallback((value: boolean) => {
+    updateSelection({ sticky: value });
+  }, [updateSelection]);
+
+  const setFrameSelected = React.useCallback((value: boolean) => {
+    updateSelection({ frame: value });
+  }, [updateSelection]);
+
+  const setCodeSelected = React.useCallback((value: boolean) => {
+    updateSelection({ code: value });
+  }, [updateSelection]);
+
+  const setImageSelected = React.useCallback((value: boolean) => {
+    updateSelection({ image: value });
+  }, [updateSelection]);
+
+  const setBoardSelected = React.useCallback((value: boolean) => {
+    updateSelection({ board: value });
+  }, [updateSelection]);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const workspaceRef = useRef<SVGGElement | null>(null);
   const boardRef = useRef<SVGGElement | null>(null);
@@ -246,7 +254,6 @@ const GuitarBoard: React.FC = () => {
     updateNoteNameVisibility();
   }, [showNoteNames, updateNoteNameVisibility]);
 
-  const boards = app?.boards ?? [];
   const boardsRef = useRef<number[]>(boards);
   const [selectedBoard, setSelectedBoard] = useState<number | null>(boards.length ? boards[0] : null);
   const fretRangesRef = useRef<Record<number, number[]>>({});
@@ -1341,8 +1348,8 @@ const GuitarBoard: React.FC = () => {
   };
 
   React.useEffect(() => {
-    registerSerializer(() => serializeWorkspace());
-  }, [registerSerializer]);
+    registerSnapshotProvider(() => serializeWorkspace());
+  }, [registerSnapshotProvider]);
 
   const clearWorkspace = () => {
     const svg = d3.select(svgRef.current);
@@ -1751,10 +1758,10 @@ const GuitarBoard: React.FC = () => {
     setCodeSelected(false);
     setFrameSelected(false);
     setImageSelected(false);
-    setImageBackgroundRemoved(false);
-    setImageBackgroundTolerance(null);
-    setImageBackgroundFeather(defaultBackgroundFeather);
-    setImageBackgroundColor(null);
+    setBackgroundRemoved(false);
+    setBackgroundTolerance(null);
+    setBackgroundFeather(defaultBackgroundFeather);
+    setBackgroundColor(null);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
@@ -1764,10 +1771,10 @@ const GuitarBoard: React.FC = () => {
         setSelectedBounds(null);
         setFrameSelected(false);
         setImageSelected(false);
-        setImageBackgroundRemoved(false);
-        setImageBackgroundTolerance(null);
-        setImageBackgroundFeather(defaultBackgroundFeather);
-        setImageBackgroundColor(null);
+        setBackgroundRemoved(false);
+        setBackgroundTolerance(null);
+        setBackgroundFeather(defaultBackgroundFeather);
+        setBackgroundColor(null);
       } else {
         const sel = d3.select(node);
         const isSticky = sel.classed('sticky-note');
@@ -1780,15 +1787,15 @@ const GuitarBoard: React.FC = () => {
         setImageSelected(isImage);
         if (isImage) {
           const data = sel.datum() as PastedImageDatum & { backgroundRemoved?: boolean };
-          setImageBackgroundRemoved(!!data.backgroundRemoved);
-          setImageBackgroundTolerance(data.removalTolerance ?? null);
-          setImageBackgroundFeather(data.removalFeather ?? defaultBackgroundFeather);
-          setImageBackgroundColor(data.removalColor ?? null);
+          setBackgroundRemoved(!!data.backgroundRemoved);
+          setBackgroundTolerance(data.removalTolerance ?? null);
+          setBackgroundFeather(data.removalFeather ?? defaultBackgroundFeather);
+          setBackgroundColor(data.removalColor ?? null);
         } else {
-          setImageBackgroundRemoved(false);
-          setImageBackgroundTolerance(null);
-          setImageBackgroundFeather(defaultBackgroundFeather);
-          setImageBackgroundColor(null);
+          setBackgroundRemoved(false);
+          setBackgroundTolerance(null);
+          setBackgroundFeather(defaultBackgroundFeather);
+          setBackgroundColor(null);
         }
         if (isFrame) {
           const data = sel.datum() as any;
@@ -1806,7 +1813,7 @@ const GuitarBoard: React.FC = () => {
     };
     window.addEventListener('stickyselectionchange', handler);
     return () => window.removeEventListener('stickyselectionchange', handler);
-  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle, setImageSelected, setImageBackgroundRemoved, setImageBackgroundTolerance, setImageBackgroundFeather]);
+  }, [setStickySelected, setCodeSelected, setFrameSelected, setFrameColor, setFrameLineStyle, setImageSelected, setBackgroundRemoved, setBackgroundTolerance, setBackgroundFeather, setBackgroundColor]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -2116,7 +2123,7 @@ const GuitarBoard: React.FC = () => {
       }
       frameSel.current = null;
       frameStart.current = null;
-      setFrameMode(false);
+      setTool('select');
       event.currentTarget.releasePointerCapture(event.pointerId);
       return;
     }
