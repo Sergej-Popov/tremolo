@@ -1195,8 +1195,9 @@ function addResizeHandle(element: Selection<any, any, any, any>, options: Resize
                             .attr('font-size', handleSize / Math.max(newScaleX, newScaleY));
                     }
 
-                updateDebugCross(element);
-                setGridVisible(!!ctrl);
+                    updateDebugCross(element);
+                    setGridVisible(!!ctrl);
+                }
             })
             .on('end', function () {
                 window.dispatchEvent(new CustomEvent('element-resize-end', { detail: element.node() }));
@@ -1239,15 +1240,15 @@ function addRotateHandle(element: Selection<any, any, any, any>) {
                     const data = element.datum() as any;
                     const transform: TransformValues = data.transform ?? defaultTransform();
                     data.transform = transform;
-                const bbox = (element.node() as SVGGraphicsElement).getBBox();
-                const width = data.width ?? bbox.width;
-                const height = data.height ?? bbox.height;
-                const centerX = transform.translateX + (width * transform.scaleX) / 2;
-                const centerY = transform.translateY + (height * transform.scaleY) / 2;
-                const [sx, sy] = toWorkspaceCoords(event);
-                const startAngle = Math.atan2(sy - centerY, sx - centerX);
-                const cumulative = transform.rotate * Math.PI / 180;
-                debugLog('rotate start', startAngle);
+                    const bbox = (element.node() as SVGGraphicsElement).getBBox();
+                    const width = data.width ?? bbox.width;
+                    const height = data.height ?? bbox.height;
+                    const centerX = transform.translateX + (width * transform.scaleX) / 2;
+                    const centerY = transform.translateY + (height * transform.scaleY) / 2;
+                    const [sx, sy] = toWorkspaceCoords(event);
+                    const startAngle = Math.atan2(sy - centerY, sx - centerX);
+                    const cumulative = transform.rotate * Math.PI / 180;
+                    debugLog('rotate start', startAngle);
 
                     d3.select(this).datum({ centerX, centerY, lastAngle: startAngle, cumulative, transform });
                 })
