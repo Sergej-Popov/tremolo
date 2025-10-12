@@ -1630,6 +1630,17 @@ const GuitarBoard: React.FC = () => {
     return () => window.removeEventListener('loadlyrics', handler as EventListener);
   }, [addCodeBlock, codeTheme, codeFontSize, getSpawnPosition, pushHistory]);
 
+  const resetZoom = useCallback(() => {
+    if (zoomBehaviorRef.current && svgRef.current) {
+      d3.select(svgRef.current)
+        .transition()
+        .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+    }
+    zoomRef.current = d3.zoomIdentity;
+    setZoomValue(1);
+    setZoomTransform(d3.zoomIdentity);
+  }, []);
+
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -2190,17 +2201,6 @@ const GuitarBoard: React.FC = () => {
       setZoomValue(initialZoom.current.k);
       initialZoom.current = null;
     }
-  }, []);
-
-  const resetZoom = useCallback(() => {
-    if (zoomBehaviorRef.current && svgRef.current) {
-      d3.select(svgRef.current)
-        .transition()
-        .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-    }
-    zoomRef.current = d3.zoomIdentity;
-    setZoomValue(1);
-    setZoomTransform(d3.zoomIdentity);
   }, []);
 
   const updateLyricConnections = useCallback(() => {
