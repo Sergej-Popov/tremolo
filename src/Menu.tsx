@@ -173,7 +173,53 @@ const Menu: React.FC = () => {
   const [lineSelected, setLineSelected] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [imageProcessing, setImageProcessing] = React.useState<'remove' | 'restore' | null>(null);
+  const reapplyTimeoutRef = React.useRef<number | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
+
+  const clearPendingReapply = React.useCallback(() => {
+    if (reapplyTimeoutRef.current !== null) {
+      window.clearTimeout(reapplyTimeoutRef.current);
+      reapplyTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleBackgroundReapply = React.useCallback(
+    (overrides: { tolerance?: number | null; feather?: number } = {}) => {
+      if (!imageSelected || !imageBackgroundRemoved || imageProcessing !== null) return;
+      clearPendingReapply();
+      const targetTolerance =
+        overrides.tolerance !== undefined ? overrides.tolerance : imageBackgroundTolerance;
+      const targetFeather = overrides.feather ?? imageBackgroundFeather;
+      reapplyTimeoutRef.current = window.setTimeout(async () => {
+        reapplyTimeoutRef.current = null;
+        setImageProcessing('remove');
+        try {
+          const changed = await removeBackgroundFromSelectedImage({
+            tolerance: targetTolerance,
+            feather: targetFeather,
+          });
+          if (changed) {
+            setImageBackgroundRemoved(true);
+            setImageBackgroundTolerance(changed.tolerance);
+            setImageBackgroundFeather(changed.feather);
+          }
+        } finally {
+          setImageProcessing(null);
+        }
+      }, 120);
+    },
+    [
+      imageSelected,
+      imageBackgroundRemoved,
+      imageProcessing,
+      imageBackgroundTolerance,
+      imageBackgroundFeather,
+      clearPendingReapply,
+      setImageBackgroundRemoved,
+      setImageBackgroundTolerance,
+      setImageBackgroundFeather,
+    ],
+  );
 
   const toleranceValue = Math.round(
     Math.max(
@@ -232,10 +278,21 @@ const Menu: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!imageSelected && imageProcessing !== null) {
-      setImageProcessing(null);
+    if (!imageSelected) {
+      clearPendingReapply();
+      if (imageProcessing !== null) {
+        setImageProcessing(null);
+      }
     }
-  }, [imageProcessing, imageSelected]);
+  }, [imageProcessing, imageSelected, clearPendingReapply]);
+
+  React.useEffect(() => {
+    if (!imageBackgroundRemoved) {
+      clearPendingReapply();
+    }
+  }, [imageBackgroundRemoved, clearPendingReapply]);
+
+  React.useEffect(() => () => clearPendingReapply(), [clearPendingReapply]);
 
   return (
     <>
@@ -249,7 +306,7 @@ const Menu: React.FC = () => {
         backdropFilter: 'blur(12px)',
       }}
     >
-      <Toolbar sx={{ display: 'flex', gap: 1 }}>
+      <Toolbar id="board-toolbar" sx={{ display: 'flex', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 1 }}>
           <Tooltip title="Main menu">
             <IconButton
@@ -617,6 +674,7 @@ const Menu: React.FC = () => {
                       Math.max(minBackgroundTolerance, Math.min(maxBackgroundTolerance, newValue)),
                     );
                     setImageBackgroundTolerance(next);
+                    scheduleBackgroundReapply({ tolerance: next });
                   }}
                   sx={sliderSx}
                   disabled={imageProcessing !== null}
@@ -637,6 +695,7 @@ const Menu: React.FC = () => {
                     if (Array.isArray(newValue)) return;
                     const next = Math.max(0, Math.min(featherSliderMax, newValue));
                     setImageBackgroundFeather(next / 100);
+                    scheduleBackgroundReapply({ feather: next / 100 });
                   }}
                   sx={sliderSx}
                   disabled={imageProcessing !== null}
@@ -650,6 +709,10 @@ const Menu: React.FC = () => {
                     onClick={() => {
                       setImageBackgroundTolerance(null);
                       setImageBackgroundFeather(defaultBackgroundFeather);
+                      scheduleBackgroundReapply({
+                        tolerance: null,
+                        feather: defaultBackgroundFeather,
+                      });
                     }}
                     disabled={autoResetDisabled || imageProcessing !== null}
                     sx={baseToolButtonSx}
@@ -666,6 +729,7 @@ const Menu: React.FC = () => {
                   color="inherit"
                   disabled={imageProcessing !== null || imageBackgroundRemoved}
                   onClick={async () => {
+                    clearPendingReapply();
                     setImageProcessing('remove');
                     try {
                       const changed = await removeBackgroundFromSelectedImage({
@@ -700,6 +764,7 @@ const Menu: React.FC = () => {
                     color="inherit"
                     disabled={imageProcessing !== null}
                     onClick={async () => {
+                      clearPendingReapply();
                       setImageProcessing('restore');
                       try {
                         const restored = restoreSelectedImageBackground();

@@ -1448,6 +1448,7 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             const colorSelect = document.getElementById('sticky-color-select');
             const frameColorSelect = document.getElementById('frame-color-select');
             const alignControls = document.getElementById('sticky-align-controls');
+            const toolbar = document.getElementById('board-toolbar');
             const target = event.target as Node;
             const isSvg = target instanceof SVGElement;
             if (
@@ -1457,7 +1458,8 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
                 !(controls && controls.contains(target)) &&
                 !(colorSelect && colorSelect.contains(target)) &&
                 !(frameColorSelect && frameColorSelect.contains(target)) &&
-                !(alignControls && alignControls.contains(target))
+                !(alignControls && alignControls.contains(target)) &&
+                !(toolbar && toolbar.contains(target))
             ) {
                 clearSelection();
             }
