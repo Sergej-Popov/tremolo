@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import * as d3 from 'd3';
-import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton, Drawer, Button } from '@mui/material';
+import { AppBar, Toolbar, IconButton, Typography, Select, MenuItem, Box, ToggleButtonGroup, ToggleButton, Drawer, Button, Tooltip, CircularProgress } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -24,9 +24,81 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
+import type { SxProps, Theme } from '@mui/material/styles';
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 const frameColors = ['#ffffff', ...noteColors.filter((c) => c.toLowerCase() !== '#ffffff')];
+
+const baseToolButtonSx: SxProps<Theme> = {
+  color: '#fff',
+  backgroundColor: 'rgba(255,255,255,0.12)',
+  borderRadius: 1.5,
+  mr: 1,
+  transition: 'background-color 150ms ease, transform 150ms ease',
+  '&:hover': {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    transform: 'translateY(-1px)',
+  },
+  '&.Mui-disabled': {
+    color: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    transform: 'none',
+  },
+};
+
+const activeToolButtonSx: SxProps<Theme> = {
+  backgroundColor: 'rgba(255,255,255,0.28)',
+  '&:hover': {
+    backgroundColor: 'rgba(255,255,255,0.32)',
+  },
+};
+
+const selectSx: SxProps<Theme> = {
+  minWidth: 72,
+  color: '#fff',
+  '.MuiOutlinedInput-notchedOutline': {
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  '&:hover .MuiOutlinedInput-notchedOutline': {
+    borderColor: '#fff',
+  },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    borderColor: '#fff',
+  },
+  '.MuiSelect-select': {
+    padding: '6px 12px',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+  },
+  '.MuiSvgIcon-root': {
+    color: '#fff',
+  },
+};
+
+const toggleGroupSx: SxProps<Theme> = {
+  '& .MuiToggleButtonGroup-grouped': {
+    borderColor: 'rgba(255,255,255,0.2) !important',
+    color: '#fff',
+    '&.Mui-selected': {
+      backgroundColor: 'rgba(255,255,255,0.28)',
+      color: '#fff',
+      '&:hover': {
+        backgroundColor: 'rgba(255,255,255,0.34)',
+      },
+    },
+  },
+};
+
+const rightPanelSx: SxProps<Theme> = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1.5,
+  padding: '4px 12px',
+  borderRadius: 12,
+  backgroundColor: 'rgba(255,255,255,0.05)',
+};
 
 const Menu: React.FC = () => {
   const app = useContext(AppContext);
@@ -131,80 +203,114 @@ const Menu: React.FC = () => {
 
   return (
     <>
-    <AppBar position="static" style={{ marginBottom: "15px" }}>
-      <Toolbar>
-        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            onClick={() => setDrawerOpen(true)}
-            sx={{ mr: 1 }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ mr: 2 }}>
+    <AppBar
+      position="static"
+      color="transparent"
+      sx={{
+        marginBottom: '15px',
+        backgroundColor: 'rgba(33, 15, 36, 0.92)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(12px)',
+      }}
+    >
+      <Toolbar sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 1 }}>
+          <Tooltip title="Main menu">
+            <IconButton
+              size="large"
+              edge="start"
+              color="inherit"
+              aria-label="menu"
+              onClick={() => setDrawerOpen(true)}
+              sx={baseToolButtonSx}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Tooltip>
+          <Typography variant="h6" component="div" sx={{ mr: 1 }}>
             Tremolo
           </Typography>
-          <IconButton
-            color={frameMode ? 'secondary' : 'inherit'}
-            onClick={() => {
-              const next = !frameMode;
-              setFrameMode(next);
-              if (next) {
-                setDrawingMode(false);
-              }
-            }}
-            sx={{ mr: 1 }}
-          >
-            <CropSquareIcon />
-          </IconButton>
-          <IconButton size="large" color="inherit" onClick={() => window.dispatchEvent(new Event('createboard'))} sx={{ mr: 1 }}>
-            <MusicNoteIcon />
-          </IconButton>
-          <IconButton
-            color={drawingMode ? 'secondary' : 'inherit'}
-            onClick={() => {
-              const next = !drawingMode;
-              setDrawingMode(next);
-              if (next) {
-                setFrameMode(false);
-              }
-            }}
-            sx={{ mr: 1 }}
-          >
-            <BrushIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createline'))} sx={{ mr: 1 }}>
-            <ShowChartIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={{ mr: 1 }}>
-            <StickyNote2Icon />
-          </IconButton>
-          <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={{ mr: 1 }}>
-            <CodeIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={undo} disabled={!canUndo} sx={{ mr: 1 }}>
-            <UndoIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={redo} disabled={!canRedo} sx={{ mr: 1 }}>
-            <RedoIcon />
-          </IconButton>
+          <Tooltip title={frameMode ? 'Exit frame mode' : 'Draw frame'}>
+            <IconButton
+              color="inherit"
+              onClick={() => {
+                const next = !frameMode;
+                setFrameMode(next);
+                if (next) {
+                  setDrawingMode(false);
+                }
+              }}
+              sx={[baseToolButtonSx, frameMode ? activeToolButtonSx : null]}
+            >
+              <CropSquareIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Add guitar board">
+            <IconButton
+              size="large"
+              color="inherit"
+              onClick={() => window.dispatchEvent(new Event('createboard'))}
+              sx={baseToolButtonSx}
+            >
+              <MusicNoteIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={drawingMode ? 'Exit drawing mode' : 'Enter drawing mode'}>
+            <IconButton
+              color="inherit"
+              onClick={() => {
+                const next = !drawingMode;
+                setDrawingMode(next);
+                if (next) {
+                  setFrameMode(false);
+                }
+              }}
+              sx={[baseToolButtonSx, drawingMode ? activeToolButtonSx : null]}
+            >
+              <BrushIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Connect with a line">
+            <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createline'))} sx={baseToolButtonSx}>
+              <ShowChartIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Add sticky note">
+            <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createsticky'))} sx={baseToolButtonSx}>
+              <StickyNote2Icon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Add code block">
+            <IconButton color="inherit" onClick={() => window.dispatchEvent(new Event('createcodeblock'))} sx={baseToolButtonSx}>
+              <CodeIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Undo">
+            <IconButton color="inherit" onClick={undo} disabled={!canUndo} sx={baseToolButtonSx}>
+              <UndoIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Redo">
+            <IconButton color="inherit" onClick={redo} disabled={!canRedo} sx={baseToolButtonSx}>
+              <RedoIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box sx={rightPanelSx}>
         {boardSelected && (
-          <IconButton
-            color="inherit"
-            id="board-edit-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.dispatchEvent(new Event('editnotes'));
-            }}
-            sx={{ mr: 1 }}
-          >
-            <EditNoteIcon />
-          </IconButton>
+          <Tooltip title="Edit board notes">
+            <IconButton
+              color="inherit"
+              id="board-edit-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new Event('editnotes'));
+              }}
+              sx={baseToolButtonSx}
+            >
+              <EditNoteIcon />
+            </IconButton>
+          </Tooltip>
         )}
         {frameSelected && (
           <Box id="frame-color-select" sx={{ mr: 2 }}>
@@ -217,6 +323,8 @@ const Menu: React.FC = () => {
                 updateSelectedFrameColor(color);
                 pushHistory(getSnapshot(), 'frame', 'style');
               }}
+              variant="outlined"
+              sx={selectSx}
             >
               {frameColors.map((c) => (
                 <MenuItem value={c} key={c}>
@@ -238,6 +346,8 @@ const Menu: React.FC = () => {
                 updateSelectedFrameLineStyle(style);
                 pushHistory(getSnapshot(), 'frame', 'style');
               }}
+              variant="outlined"
+              sx={selectSx}
             >
               <MenuItem value="solid">Solid</MenuItem>
               <MenuItem value="dashed">Dashed</MenuItem>
@@ -245,23 +355,25 @@ const Menu: React.FC = () => {
             </Select>
           </Box>
         )}
-        {stickySelected && (
-          <>
-            <Box id="sticky-color-select" sx={{ mr: 2 }}>
-              <Select
-                size="small"
-                value={stickyColor}
-                onChange={(e) => {
-                  const color = e.target.value as string;
-                  setStickyColor(color);
-                  updateSelectedColor(color);
-                  pushHistory(getSnapshot(), 'sticky', 'style');
-                }}
-              >
-                {noteColors.map((c) => (
-                  <MenuItem value={c} key={c}>
-                    <Box sx={{ width: 20, height: 20, backgroundColor: c }} />
-                  </MenuItem>
+          {stickySelected && (
+            <>
+              <Box id="sticky-color-select" sx={{ mr: 2 }}>
+                <Select
+                  size="small"
+                  value={stickyColor}
+                  onChange={(e) => {
+                    const color = e.target.value as string;
+                    setStickyColor(color);
+                    updateSelectedColor(color);
+                    pushHistory(getSnapshot(), 'sticky', 'style');
+                  }}
+                  variant="outlined"
+                  sx={selectSx}
+                >
+                  {noteColors.map((c) => (
+                    <MenuItem value={c} key={c}>
+                      <Box sx={{ width: 20, height: 20, backgroundColor: c }} />
+                    </MenuItem>
                 ))}
               </Select>
             </Box>
@@ -277,7 +389,7 @@ const Menu: React.FC = () => {
                   pushHistory(getSnapshot(), 'sticky', 'style');
                 }
               }}
-              sx={{ mr: 2 }}
+              sx={[{ mr: 2 }, toggleGroupSx]}
             >
               <ToggleButton value="left">
                 <FormatAlignLeftIcon fontSize="small" />
@@ -300,6 +412,8 @@ const Menu: React.FC = () => {
                   updateSelectedFontSize(val === 'auto' ? 'auto' : parseInt(val));
                   pushHistory(getSnapshot(), 'sticky', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 <MenuItem value="auto">Auto</MenuItem>
                 {Array.from({ length: 22 }, (_, i) => 6 + i * 2).map((s) => (
@@ -321,6 +435,8 @@ const Menu: React.FC = () => {
                   updateSelectedLineColor(c);
                   pushHistory(getSnapshot(), 'line', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 {noteColors.map((c) => (
                   <MenuItem value={c} key={c}>
@@ -339,6 +455,8 @@ const Menu: React.FC = () => {
                   updateSelectedStartConnectionStyle(s);
                   pushHistory(getSnapshot(), 'line', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 <MenuItem value="circle">Start Circle</MenuItem>
                 <MenuItem value="arrow">Start Arrow</MenuItem>
@@ -356,6 +474,8 @@ const Menu: React.FC = () => {
                   updateSelectedEndConnectionStyle(s);
                   pushHistory(getSnapshot(), 'line', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 <MenuItem value="circle">End Circle</MenuItem>
                 <MenuItem value="arrow">End Arrow</MenuItem>
@@ -373,6 +493,8 @@ const Menu: React.FC = () => {
                   updateSelectedLineStyle(val);
                   pushHistory(getSnapshot(), 'line', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 <MenuItem value="direct">Direct</MenuItem>
                 <MenuItem value="arc">Arc</MenuItem>
@@ -393,6 +515,8 @@ const Menu: React.FC = () => {
                   updateSelectedCodeLang(val);
                   pushHistory(getSnapshot(), 'code', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 {codeLanguages.map((l) => (
                   <MenuItem key={l} value={l}>{l}</MenuItem>
@@ -409,6 +533,8 @@ const Menu: React.FC = () => {
                   updateSelectedCodeTheme(val);
                   pushHistory(getSnapshot(), 'code', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 {codeThemes.map((t) => (
                   <MenuItem key={t} value={t}>{t}</MenuItem>
@@ -426,6 +552,8 @@ const Menu: React.FC = () => {
                   updateSelectedCodeFontSize(val);
                   pushHistory(getSnapshot(), 'code', 'style');
                 }}
+                variant="outlined"
+                sx={selectSx}
               >
                 {Array.from({ length: 22 }, (_, i) => 6 + i * 2).map((s) => (
                   <MenuItem key={s} value={s}>{`${s}px`}</MenuItem>
@@ -436,45 +564,63 @@ const Menu: React.FC = () => {
         )}
         {imageSelected && (
           <Box sx={{ display: 'flex', alignItems: 'center', mr: 2, gap: 1 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              disabled={imageProcessing !== null || imageBackgroundRemoved}
-              onClick={async () => {
-                setImageProcessing('remove');
-                try {
-                  const changed = await removeBackgroundFromSelectedImage();
-                  if (changed) {
-                    setImageBackgroundRemoved(true);
-                    pushHistory(getSnapshot(), 'image', 'background-remove');
-                  }
-                } finally {
-                  setImageProcessing(null);
-                }
-              }}
-            >
-              {imageProcessing === 'remove' ? 'Removing…' : 'Remove Background'}
-            </Button>
-            {(imageBackgroundRemoved || imageProcessing === 'restore') && (
-              <Button
-                variant="text"
-                size="small"
-                disabled={imageProcessing !== null}
-                onClick={async () => {
-                  setImageProcessing('restore');
-                  try {
-                    const restored = restoreSelectedImageBackground();
-                    if (restored) {
-                      setImageBackgroundRemoved(false);
-                      pushHistory(getSnapshot(), 'image', 'background-restore');
+            <Tooltip title={imageBackgroundRemoved ? 'Background already removed' : 'Remove background'}>
+              <span>
+                <IconButton
+                  color="inherit"
+                  disabled={imageProcessing !== null || imageBackgroundRemoved}
+                  onClick={async () => {
+                    setImageProcessing('remove');
+                    try {
+                      const changed = await removeBackgroundFromSelectedImage();
+                      if (changed) {
+                        setImageBackgroundRemoved(true);
+                        pushHistory(getSnapshot(), 'image', 'background-remove');
+                      }
+                    } finally {
+                      setImageProcessing(null);
                     }
-                  } finally {
-                    setImageProcessing(null);
-                  }
-                }}
-              >
-                {imageProcessing === 'restore' ? 'Restoring…' : 'Restore Background'}
-              </Button>
+                  }}
+                  sx={baseToolButtonSx}
+                  aria-label="Remove background"
+                >
+                  {imageProcessing === 'remove' ? (
+                    <CircularProgress size={20} sx={{ color: 'inherit' }} />
+                  ) : (
+                    <AutoFixHighIcon />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+            {(imageBackgroundRemoved || imageProcessing === 'restore') && (
+              <Tooltip title="Restore background">
+                <span>
+                  <IconButton
+                    color="inherit"
+                    disabled={imageProcessing !== null}
+                    onClick={async () => {
+                      setImageProcessing('restore');
+                      try {
+                        const restored = restoreSelectedImageBackground();
+                        if (restored) {
+                          setImageBackgroundRemoved(false);
+                          pushHistory(getSnapshot(), 'image', 'background-restore');
+                        }
+                      } finally {
+                        setImageProcessing(null);
+                      }
+                    }}
+                    sx={baseToolButtonSx}
+                    aria-label="Restore background"
+                  >
+                    {imageProcessing === 'restore' ? (
+                      <CircularProgress size={20} sx={{ color: 'inherit' }} />
+                    ) : (
+                      <FlipToFrontIcon />
+                    )}
+                  </IconButton>
+                </span>
+              </Tooltip>
             )}
           </Box>
         )}
@@ -487,6 +633,8 @@ const Menu: React.FC = () => {
                 const val = e.target.value as string;
                 setBrushWidth(val === 'auto' ? 'auto' : parseInt(val));
               }}
+              variant="outlined"
+              sx={selectSx}
             >
               <MenuItem value="auto">Auto</MenuItem>
               {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
@@ -504,6 +652,8 @@ const Menu: React.FC = () => {
                 const c = e.target.value as string;
                 setBrushColor(c);
               }}
+              variant="outlined"
+              sx={selectSx}
             >
               {noteColors.map((c) => (
                 <MenuItem value={c} key={c}>
@@ -514,14 +664,16 @@ const Menu: React.FC = () => {
           </Box>
         )}
         </Box>
-        <IconButton
-          target="_blank"
-          href="https://github.com/Sergej-Popov/tremolo"
-          size="large"
-          sx={{ ml: 1 }}
-        >
-          <GitHubIcon fontSize="large" />
-        </IconButton>
+        <Tooltip title="View on GitHub">
+          <IconButton
+            target="_blank"
+            href="https://github.com/Sergej-Popov/tremolo"
+            size="large"
+            sx={[baseToolButtonSx, { ml: 1 }]}
+          >
+            <GitHubIcon fontSize="large" />
+          </IconButton>
+        </Tooltip>
       </Toolbar>
     </AppBar>
     <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
