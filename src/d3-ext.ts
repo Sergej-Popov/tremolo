@@ -834,6 +834,62 @@ export function makeDraggable(selection: Selection<any, any, any, any>) {
 
 let selectedElement: Selection<any, any, any, any> | null = null;
 let globalInit = false;
+const resizeOptionsByElement = new WeakMap<Element, ResizeOptions>();
+
+function getResizeOptions(node: Element | null): ResizeOptions {
+    if (!node) return {};
+    return resizeOptionsByElement.get(node) ?? {};
+}
+
+function findResizableAncestor(start: Element | null): Element | null {
+    let current: Element | null = start;
+    while (current) {
+        if (resizeOptionsByElement.has(current)) {
+            return current;
+        }
+        const parentElement = current.parentElement;
+        if (parentElement) {
+            current = parentElement;
+            continue;
+        }
+        const parentNode = current.parentNode;
+        current = parentNode instanceof Element ? parentNode : null;
+    }
+    return null;
+}
+
+function applySelectionToElement(element: Selection<any, any, any, any>) {
+    const node = element.node();
+    if (!node) return;
+
+    const alreadySelected = !!selectedElement && selectedElement.node() === node;
+    if (!alreadySelected && selectedElement) {
+        clearSelection();
+    }
+
+    selectedElement = element;
+
+    addOutline(element);
+    if (!element.classed('line-element')) {
+        const options = getResizeOptions(node);
+        addResizeHandle(element, options);
+        ensureConnectHandles(element);
+        if (options.rotatable) {
+            addRotateHandle(element);
+        }
+    }
+
+    if (debugEnabled) {
+        if (element.select('.component-debug-cross').empty()) {
+            addDebugCross(element);
+        } else {
+            updateDebugCross(element);
+        }
+    }
+
+    updateSelectionDecorations(element);
+    dispatchSelectionChange();
+}
 
 function dispatchSelectionChange() {
     window.dispatchEvent(new CustomEvent('stickyselectionchange', { detail: selectedElement?.node() || null }));
@@ -1646,53 +1702,45 @@ export function makeResizable(selection: Selection<any, any, any, any>, options:
             }
         });
 
+        d3.select(window).on('pointerdown.makeResizableSelect', (event: PointerEvent) => {
+            if (event.button !== 0) return;
+            const target = event.target as Element | null;
+            if (!target) return;
+            const ancestor = findResizableAncestor(target);
+            if (!ancestor) return;
+            if (selectedElement && selectedElement.node() === ancestor) {
+                return;
+            }
+            applySelectionToElement(d3.select(ancestor));
+        });
+
         globalInit = true;
     }
 
     let pointerHandled = false;
 
-    const applySelection = (
-        event: MouseEvent | PointerEvent | null,
-        node: Element,
-    ) => {
-        event?.stopPropagation();
-        const element = d3.select(node);
-        const alreadySelected = !!selectedElement && selectedElement.node() === node;
+    selection.each(function () {
+        const existing = resizeOptionsByElement.get(this) ?? {};
+        const merged: ResizeOptions = { ...existing, ...(options ?? {}) };
+        resizeOptionsByElement.set(this, merged);
+    });
 
-        if (!alreadySelected && selectedElement) {
-            clearSelection();
+    const selectFromEvent = (event: Event | null, node: Element) => {
+        if (event && !(event instanceof PointerEvent)) {
+            event.stopPropagation();
         }
-
-        selectedElement = element;
-        addOutline(element);
-        if (!element.classed('line-element')) {
-            addResizeHandle(element, options);
-            ensureConnectHandles(element);
-            if (options.rotatable) {
-                addRotateHandle(element);
-            }
-        }
-        if (debugEnabled) {
-            if (element.select('.component-debug-cross').empty()) {
-                addDebugCross(element);
-            } else {
-                updateDebugCross(element);
-            }
-        }
-
-        updateSelectionDecorations(element);
-        dispatchSelectionChange();
+        applySelectionToElement(d3.select(node));
     };
 
     selection
         .style('cursor', 'pointer')
         .on('pointerdown.makeResizable', function (event: PointerEvent) {
             pointerHandled = true;
-            applySelection(event, this);
+            selectFromEvent(event, this);
         })
         .on('click.makeResizable', function (event: MouseEvent) {
             if (!pointerHandled) {
-                applySelection(event, this);
+                selectFromEvent(event, this);
             } else {
                 event.stopPropagation();
             }
