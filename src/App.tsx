@@ -9,7 +9,7 @@ import MainPage from "./pages/MainPage";
 import SecondPage from "./pages/SecondPage";
 
 import { SnackbarProvider } from "./SnackbarProvider";
-import { AppProvider } from "./Store";
+import { Providers } from "./app/Providers";
 
 import Menu from "./Menu";
 
@@ -34,7 +34,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <SnackbarProvider>
-        <AppProvider>
+        <Providers>
           <Router basename={getBasename()}>
             <Box sx={{ flexGrow: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Menu />
@@ -45,7 +45,7 @@ function App() {
               <HelpDialog />
             </Box>
           </Router>
-        </AppProvider>
+        </Providers>
       </SnackbarProvider>
     </ThemeProvider>
   )
