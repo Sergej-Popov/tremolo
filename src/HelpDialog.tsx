@@ -17,6 +17,7 @@ const shortcuts: ShortcutSection[] = [
       { key: 'Ctrl+Z / Cmd+Z', action: 'Undo last change' },
       { key: 'Ctrl+Shift+Z / Cmd+Shift+Z', action: 'Redo last undone change' },
       { key: 'r', action: 'Reset element rotation' },
+      { key: '0', action: 'Reset board zoom to default level' },
       { key: '/ or ?', action: 'Open this help dialog' },
       { key: 'Ctrl+S', action: 'Export board as extra-high-resolution PNG image (save icon)' },
       { key: 'Ctrl+drag', action: 'Snap movement to grid' },

@@ -1686,6 +1686,17 @@ const GuitarBoard: React.FC = () => {
     return () => window.removeEventListener('loadlyrics', handler as EventListener);
   }, [addCodeBlock, codeTheme, codeFontSize, getSpawnPosition, pushHistory]);
 
+  const resetZoom = useCallback(() => {
+    if (zoomBehaviorRef.current && svgRef.current) {
+      d3.select(svgRef.current)
+        .transition()
+        .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+    }
+    zoomRef.current = d3.zoomIdentity;
+    setZoomValue(1);
+    setZoomTransform(d3.zoomIdentity);
+  }, []);
+
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -1706,17 +1717,24 @@ const GuitarBoard: React.FC = () => {
         window.dispatchEvent(new Event('createboard'));
         e.preventDefault();
         e.stopImmediatePropagation();
+      } else if (e.key === '0' && !e.ctrlKey && !e.metaKey) {
+        resetZoom();
+        e.preventDefault();
+        e.stopImmediatePropagation();
       }
     };
     window.addEventListener('keydown', handle, true);
     return () => window.removeEventListener('keydown', handle, true);
-  }, [croppableSelected, codeLanguage, codeTheme]);
+  }, [croppableSelected, codeLanguage, codeTheme, resetZoom]);
 
   useEffect(() => {
     if (zoomBehaviorRef.current && svgRef.current) {
       zoomBehaviorRef.current.filter(event => {
         if (event.type === 'dblclick') return false;
         const e = event as any;
+        if (event.type === 'wheel' || event.type === 'mousewheel') {
+          return true;
+        }
         if (e.ctrlKey) return false;
         if (drawingMode || frameMode) return false;
         const target = e.target as Element;
@@ -2237,6 +2255,9 @@ const GuitarBoard: React.FC = () => {
       .filter(event => {
         if (event.type === 'dblclick') return false;
         const e = event as any;
+        if (event.type === 'wheel' || event.type === 'mousewheel') {
+          return true;
+        }
         if (e.ctrlKey) return false;
         if (drawingMode) return false;
         const target = e.target as Element;
@@ -2363,12 +2384,7 @@ const GuitarBoard: React.FC = () => {
         ></svg>
         <Box sx={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 1, display: 'flex', alignItems: 'center', px: 1 }}>
           <Typography variant="body2" sx={{ mr: 1 }}>{zoomValue.toFixed(2)}x</Typography>
-          <IconButton size="small" onClick={() => {
-            if (zoomBehaviorRef.current && svgRef.current) {
-              d3.select(svgRef.current).transition().call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-              setZoomValue(1);
-            }
-          }}>
+          <IconButton size="small" onClick={resetZoom}>
             <RestartAltIcon fontSize="small" />
           </IconButton>
           {debug && (
