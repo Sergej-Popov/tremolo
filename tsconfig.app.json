@@ -22,7 +22,18 @@
     "strictNullChecks": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "./",
+    "paths": {
+      "@app/*": ["src/app/*"],
+      "@core/*": ["src/core/*"],
+      "@shared/*": ["src/shared/*"],
+      "@features/*": ["src/features/*"],
+      "@features": ["src/features/index.ts"],
+      "@core": ["src/core/index.ts"],
+      "@shared": ["src/shared/index.ts"],
+      "@app": ["src/app/index.ts"]
+    }
   },
   "include": [
     "src"
