@@ -27,7 +27,15 @@ import RedoIcon from '@mui/icons-material/Redo';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
+import ColorizeIcon from '@mui/icons-material/Colorize';
+import PaletteIcon from '@mui/icons-material/Palette';
 import type { SxProps, Theme } from '@mui/material/styles';
+
+declare global {
+  interface Window {
+    EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> };
+  }
+}
 const codeLanguages = highlightLangs as readonly string[];
 const codeThemes = highlightThemes as readonly string[];
 const frameColors = ['#ffffff', ...noteColors.filter((c) => c.toLowerCase() !== '#ffffff')];
@@ -147,6 +155,8 @@ const Menu: React.FC = () => {
   const setImageBackgroundTolerance = app?.setImageBackgroundTolerance ?? (() => {});
   const imageBackgroundFeather = app?.imageBackgroundFeather ?? defaultBackgroundFeather;
   const setImageBackgroundFeather = app?.setImageBackgroundFeather ?? (() => {});
+  const imageBackgroundColor = app?.imageBackgroundColor ?? null;
+  const setImageBackgroundColor = app?.setImageBackgroundColor ?? (() => {});
   const boardSelected = app?.boardSelected ?? false;
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const setCodeLanguage = app?.setCodeLanguage ?? noopStrDispatch;
@@ -179,6 +189,8 @@ const Menu: React.FC = () => {
   const [imageProcessing, setImageProcessing] = React.useState<'remove' | 'restore' | null>(null);
   const reapplyTimeoutRef = React.useRef<number | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
+  const colorInputRef = React.useRef<HTMLInputElement>(null);
+  const [canUseEyeDropper, setCanUseEyeDropper] = React.useState(false);
 
   const clearPendingReapply = React.useCallback(() => {
     if (reapplyTimeoutRef.current !== null) {
@@ -187,13 +199,18 @@ const Menu: React.FC = () => {
     }
   }, []);
 
+  React.useEffect(() => {
+    setCanUseEyeDropper(typeof window !== 'undefined' && !!window.EyeDropper);
+  }, [setCanUseEyeDropper]);
+
   const scheduleBackgroundReapply = React.useCallback(
-    (overrides: { tolerance?: number | null; feather?: number } = {}) => {
+    (overrides: { tolerance?: number | null; feather?: number; color?: string | null } = {}) => {
       if (!imageSelected || !imageBackgroundRemoved || imageProcessing !== null) return;
       clearPendingReapply();
       const targetTolerance =
         overrides.tolerance !== undefined ? overrides.tolerance : imageBackgroundTolerance;
       const targetFeather = overrides.feather ?? imageBackgroundFeather;
+      const targetColor = overrides.color !== undefined ? overrides.color : imageBackgroundColor;
       reapplyTimeoutRef.current = window.setTimeout(async () => {
         reapplyTimeoutRef.current = null;
         setImageProcessing('remove');
@@ -201,11 +218,13 @@ const Menu: React.FC = () => {
           const changed = await removeBackgroundFromSelectedImage({
             tolerance: targetTolerance,
             feather: targetFeather,
+            color: targetColor,
           });
           if (changed) {
             setImageBackgroundRemoved(true);
             setImageBackgroundTolerance(changed.tolerance);
             setImageBackgroundFeather(changed.feather);
+            setImageBackgroundColor(changed.color ?? targetColor ?? null);
           }
         } finally {
           setImageProcessing(null);
@@ -218,11 +237,39 @@ const Menu: React.FC = () => {
       imageProcessing,
       imageBackgroundTolerance,
       imageBackgroundFeather,
+      imageBackgroundColor,
       clearPendingReapply,
       setImageBackgroundRemoved,
       setImageBackgroundTolerance,
       setImageBackgroundFeather,
+      setImageBackgroundColor,
     ],
+  );
+
+  const normalizeHex = React.useCallback((value: string | null) => {
+    if (!value) return null;
+    let hex = value.trim();
+    if (!hex.startsWith('#')) return null;
+    if (hex.length === 9 && /^#[0-9a-fA-F]{8}$/.test(hex)) {
+      hex = `#${hex.slice(1, 7)}`;
+    }
+    if (/^#[0-9a-fA-F]{3}$/.test(hex)) {
+      return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`.toLowerCase();
+    }
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      return hex.toLowerCase();
+    }
+    return null;
+  }, []);
+
+  const applyBackgroundColor = React.useCallback(
+    (value: string | null) => {
+      const normalized = normalizeHex(value);
+      if (normalized === imageBackgroundColor) return;
+      setImageBackgroundColor(normalized);
+      scheduleBackgroundReapply({ color: normalized });
+    },
+    [normalizeHex, imageBackgroundColor, setImageBackgroundColor, scheduleBackgroundReapply],
   );
 
   const toleranceValue = Math.round(
@@ -237,7 +284,8 @@ const Menu: React.FC = () => {
   );
   const isAutoStrength = imageBackgroundTolerance == null;
   const featherIsDefault = Math.abs(imageBackgroundFeather - defaultBackgroundFeather) < 0.001;
-  const autoResetDisabled = isAutoStrength && featherIsDefault;
+  const colorIsAuto = !imageBackgroundColor;
+  const autoResetDisabled = isAutoStrength && featherIsDefault && colorIsAuto;
 
   React.useEffect(() => {
     const handler = (e: any) => {
@@ -300,9 +348,17 @@ const Menu: React.FC = () => {
 
   return (
     <>
-    <AppBar
-      position="static"
-      color="transparent"
+      <input
+        ref={colorInputRef}
+        type="color"
+        value={imageBackgroundColor ?? '#ffffff'}
+        onChange={(event) => applyBackgroundColor(event.target.value)}
+        style={{ display: 'none' }}
+        aria-label="Choose background color"
+      />
+      <AppBar
+        position="static"
+        color="transparent"
       sx={{
         marginBottom: '15px',
         backgroundColor: 'rgba(33, 15, 36, 0.92)',
@@ -706,6 +762,76 @@ const Menu: React.FC = () => {
                   aria-label="Edge feather amount"
                 />
               </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                  Background color: {imageBackgroundColor ? imageBackgroundColor.toUpperCase() : 'Auto'}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 28,
+                      height: 18,
+                      borderRadius: '999px',
+                      border: '1px solid rgba(255,255,255,0.4)',
+                      backgroundColor: imageBackgroundColor ?? 'transparent',
+                      backgroundImage: imageBackgroundColor
+                        ? 'none'
+                        : 'linear-gradient(135deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent)',
+                      backgroundSize: '8px 8px',
+                    }}
+                  />
+                  <Tooltip title="Choose background color">
+                    <span>
+                      <IconButton
+                        color="inherit"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          colorInputRef.current?.click();
+                        }}
+                        disabled={imageProcessing !== null}
+                        sx={baseToolButtonSx}
+                        aria-label="Choose background color"
+                      >
+                        <PaletteIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip
+                    title={
+                      canUseEyeDropper
+                        ? 'Sample background color from the screen'
+                        : 'EyeDropper unavailable – opens the colour picker instead'
+                    }
+                  >
+                    <span>
+                      <IconButton
+                        color="inherit"
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          if (!canUseEyeDropper || !window.EyeDropper) {
+                            colorInputRef.current?.click();
+                            return;
+                          }
+                          try {
+                            const dropper = new window.EyeDropper();
+                            const result = await dropper.open();
+                            applyBackgroundColor(result?.sRGBHex ?? null);
+                          } catch (err) {
+                            if ((err as DOMException)?.name !== 'AbortError') {
+                              console.error('Failed to sample color', err);
+                            }
+                          }
+                        }}
+                        disabled={imageProcessing !== null}
+                        sx={baseToolButtonSx}
+                        aria-label="Sample background color"
+                      >
+                        <ColorizeIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
+              </Box>
               <Tooltip title="Reset to automatic strength and default feather">
                 <span>
                   <IconButton
@@ -713,9 +839,11 @@ const Menu: React.FC = () => {
                     onClick={() => {
                       setImageBackgroundTolerance(null);
                       setImageBackgroundFeather(defaultBackgroundFeather);
+                      setImageBackgroundColor(null);
                       scheduleBackgroundReapply({
                         tolerance: null,
                         feather: defaultBackgroundFeather,
+                        color: null,
                       });
                     }}
                     disabled={autoResetDisabled || imageProcessing !== null}
@@ -740,11 +868,13 @@ const Menu: React.FC = () => {
                       const changed = await removeBackgroundFromSelectedImage({
                         tolerance: imageBackgroundTolerance,
                         feather: imageBackgroundFeather,
+                        color: imageBackgroundColor,
                       });
                       if (changed) {
                         setImageBackgroundRemoved(true);
                         setImageBackgroundTolerance(changed.tolerance);
                         setImageBackgroundFeather(changed.feather);
+                        setImageBackgroundColor(changed.color ?? imageBackgroundColor ?? null);
                         pushHistory(getSnapshot(), 'image', 'background-remove');
                       }
                     } finally {

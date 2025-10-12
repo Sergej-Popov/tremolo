@@ -36,6 +36,8 @@ interface AppState {
   setImageBackgroundTolerance: React.Dispatch<React.SetStateAction<number | null>>;
   imageBackgroundFeather: number;
   setImageBackgroundFeather: React.Dispatch<React.SetStateAction<number>>;
+  imageBackgroundColor: string | null;
+  setImageBackgroundColor: React.Dispatch<React.SetStateAction<string | null>>;
   codeLanguage: string;
   setCodeLanguage: React.Dispatch<React.SetStateAction<string>>;
   codeTheme: string;
@@ -85,6 +87,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   const [imageBackgroundRemoved, setImageBackgroundRemoved] = useState<boolean>(false);
   const [imageBackgroundTolerance, setImageBackgroundTolerance] = useState<number | null>(null);
   const [imageBackgroundFeather, setImageBackgroundFeather] = useState<number>(defaultBackgroundFeather);
+  const [imageBackgroundColor, setImageBackgroundColor] = useState<string | null>(null);
   const [codeLanguage, setCodeLanguage] = useState<string>('typescript');
   const [codeTheme, setCodeTheme] = useState<string>('github-dark');
   const [codeFontSize, setCodeFontSize] = useState<number>(14);
@@ -260,6 +263,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
       setImageBackgroundTolerance,
       imageBackgroundFeather,
       setImageBackgroundFeather,
+      imageBackgroundColor,
+      setImageBackgroundColor,
       codeLanguage,
       setCodeLanguage,
       codeTheme,

@@ -55,6 +55,7 @@ interface PastedImageDatum {
   backgroundRemoved?: boolean;
   removalTolerance?: number | null;
   removalFeather?: number;
+  removalColor?: string | null;
 }
 
 interface PastedVideoDatum { id: string; type: 'video'; url: string; videoId: string }
@@ -161,6 +162,7 @@ const GuitarBoard: React.FC = () => {
   const setImageBackgroundRemoved = app?.setImageBackgroundRemoved ?? (() => {});
   const setImageBackgroundTolerance = app?.setImageBackgroundTolerance ?? (() => {});
   const setImageBackgroundFeather = app?.setImageBackgroundFeather ?? (() => {});
+  const setImageBackgroundColor = app?.setImageBackgroundColor ?? (() => {});
   const codeLanguage = app?.codeLanguage ?? 'typescript';
   const codeTheme = app?.codeTheme ?? 'github-dark';
   const codeFontSize = app?.codeFontSize ?? 14;
@@ -338,7 +340,13 @@ const GuitarBoard: React.FC = () => {
     pos: { x: number, y: number },
     width: number,
     height: number,
-    options: { originalSrc?: string | null; backgroundRemoved?: boolean; removalTolerance?: number | null; removalFeather?: number } = {}
+    options: {
+      originalSrc?: string | null;
+      backgroundRemoved?: boolean;
+      removalTolerance?: number | null;
+      removalFeather?: number;
+      removalColor?: string | null;
+    } = {}
   ) => {
     const svg = d3.select(svgRef.current);
     const imagesLayer = svg.select<SVGGElement>('.pasted-images');
@@ -355,6 +363,7 @@ const GuitarBoard: React.FC = () => {
         backgroundRemoved: options.backgroundRemoved ?? false,
         removalTolerance: options.removalTolerance ?? null,
         removalFeather: options.removalFeather ?? defaultBackgroundFeather,
+        removalColor: options.removalColor ?? null,
         transform: { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1, rotate: 0 },
       });
 
@@ -1133,6 +1142,7 @@ const GuitarBoard: React.FC = () => {
         backgroundRemoved: info.data.backgroundRemoved ?? false,
         removalTolerance: info.data.removalTolerance ?? null,
         removalFeather: info.data.removalFeather ?? defaultBackgroundFeather,
+        removalColor: info.data.removalColor ?? null,
       });
       const d = g.datum() as any;
       d.id = info.data.id;
@@ -1140,6 +1150,7 @@ const GuitarBoard: React.FC = () => {
       d.backgroundRemoved = info.data.backgroundRemoved ?? d.backgroundRemoved;
       d.removalTolerance = info.data.removalTolerance ?? d.removalTolerance ?? null;
       d.removalFeather = info.data.removalFeather ?? d.removalFeather ?? defaultBackgroundFeather;
+      d.removalColor = info.data.removalColor ?? d.removalColor ?? null;
       g.classed('background-removed', !!d.backgroundRemoved);
       applyTransform(g, { ...info.data.transform, translateX: pos.x, translateY: pos.y });
       if (info.data.crop) {
@@ -1725,6 +1736,7 @@ const GuitarBoard: React.FC = () => {
     setImageBackgroundRemoved(false);
     setImageBackgroundTolerance(null);
     setImageBackgroundFeather(defaultBackgroundFeather);
+    setImageBackgroundColor(null);
     const handler = (e: Event) => {
       const node = (e as CustomEvent).detail as Node | null;
       if (!node) {
@@ -1737,6 +1749,7 @@ const GuitarBoard: React.FC = () => {
         setImageBackgroundRemoved(false);
         setImageBackgroundTolerance(null);
         setImageBackgroundFeather(defaultBackgroundFeather);
+        setImageBackgroundColor(null);
       } else {
         const sel = d3.select(node);
         const isSticky = sel.classed('sticky-note');
@@ -1752,10 +1765,12 @@ const GuitarBoard: React.FC = () => {
           setImageBackgroundRemoved(!!data.backgroundRemoved);
           setImageBackgroundTolerance(data.removalTolerance ?? null);
           setImageBackgroundFeather(data.removalFeather ?? defaultBackgroundFeather);
+          setImageBackgroundColor(data.removalColor ?? null);
         } else {
           setImageBackgroundRemoved(false);
           setImageBackgroundTolerance(null);
           setImageBackgroundFeather(defaultBackgroundFeather);
+          setImageBackgroundColor(null);
         }
         if (isFrame) {
           const data = sel.datum() as any;
